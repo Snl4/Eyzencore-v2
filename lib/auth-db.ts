@@ -1,0 +1,4160 @@
+import { createHash, randomBytes, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';
+import { mkdirSync } from 'node:fs';
+import path from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
+import { normalizeServerAddress, type ServerPlatform } from '@/lib/discord';
+import type { Server } from '@/lib/types';
+
+export const AUTH_COOKIE_NAME = 'eyzencore_session';
+const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 30;
+const DEFAULT_VOTE_COOLDOWN_HOURS = 24;
+
+export type UserRole = 'USER' | 'OWNER' | 'ADMIN';
+
+type DbUserRow = {
+  id: string;
+  email: string;
+  password_hash: string;
+  full_name: string;
+  profile_slug: string | null;
+  bio: string | null;
+  location: string | null;
+  website: string | null;
+  telegram: string | null;
+  discord: string | null;
+  discord_user_id?: string | null;
+  avatar_url: string | null;
+  banner_url: string | null;
+  role: string;
+  created_at: string;
+  updated_at: string;
+};
+
+type DbSessionRow = {
+  id: string;
+  user_id: string;
+  token_hash: string;
+  user_agent: string | null;
+  created_at: string;
+  revoked_at: string | null;
+};
+
+type DbServerRow = {
+  id: number;
+  owner_id: string;
+  owner_name: string;
+  owner_avatar?: string | null;
+  owner_slug?: string | null;
+  name: string;
+  addr: string;
+  platform?: string | null;
+  mode: string;
+  ver: string;
+  core: string;
+  country: string | null;
+  motd: string | null;
+  short_desc: string | null;
+  full_desc: string | null;
+  desc: string | null;
+  website: string | null;
+  discord: string | null;
+  telegram: string | null;
+  donate: string | null;
+  tiktok: string | null;
+  launcher_url: string | null;
+  avatar_url: string | null;
+  banner_url: string | null;
+  gallery_json: string | null;
+  videos_json: string | null;
+  tags: string | null;
+  online: number;
+  players: number;
+  max: number;
+  uptime: string;
+  verified: number;
+  cluster: number | null;
+  project_id: number | null;
+  discord_guild_id?: string | null;
+  discord_bot_verified?: number | null;
+  discord_verify_code?: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type DbServerOnlineSampleRow = {
+  server_id: number;
+  online: number;
+  players: number;
+  max: number;
+  votes: number;
+  views: number;
+  recorded_at: string;
+};
+
+type DbServerReviewRow = {
+  id: number;
+  server_id: number;
+  user_id: string | null;
+  author_name: string | null;
+  text: string;
+  rating: number;
+  created_at: string;
+  updated_at: string;
+  full_name: string | null;
+  avatar_url: string | null;
+};
+
+type DbNewsRow = {
+  id: number;
+  author_user_id: string;
+  title: string;
+  excerpt: string;
+  content: string;
+  content_json: string | null;
+  category: string;
+  cover_url: string | null;
+  created_at: string;
+  updated_at: string;
+  full_name: string | null;
+  profile_slug: string | null;
+  avatar_url: string | null;
+};
+
+
+type DbServerVoteRow = {
+  id: number;
+  server_id: number;
+  nickname: string;
+  ip_address: string;
+  vote_count?: number | null;
+  created_at: string;
+};
+
+export type ServerReview = {
+  id: number;
+  serverId: number;
+  userId: string | null;
+  authorName: string;
+  avatarUrl: string | null;
+  text: string;
+  rating: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+
+export type ServerVoteEntry = {
+  id: number;
+  serverId: number;
+  nickname: string;
+  ipAddress: string;
+  voteCount: number;
+  createdAt: string;
+};
+
+export type NewsPost = {
+  id: number;
+  authorUserId: string;
+  title: string;
+  excerpt: string;
+  content: string;
+  blocks: NewsContentBlock[];
+  category: string;
+  coverUrl: string | null;
+  createdAt: string;
+  updatedAt: string;
+  authorName: string;
+  authorSlug: string | null;
+  authorAvatarUrl: string | null;
+};
+
+export type NewsBlockType = 'heading' | 'paragraph' | 'quote' | 'image' | 'video';
+
+export type NewsContentBlock = {
+  id: string;
+  type: NewsBlockType;
+  text?: string;
+  url?: string;
+  caption?: string;
+};
+
+type UpdateNewsPostInput = {
+  newsId: number;
+  actorUserId: string;
+  isAdmin?: boolean;
+  title: string;
+  excerpt?: string;
+  content?: string;
+  blocks?: NewsContentBlock[];
+  category?: string;
+  coverUrl?: string | null;
+};
+
+export type AuthUser = {
+  id: string;
+  email: string;
+  created_at: string;
+  user_metadata: {
+    full_name: string;
+    profile_slug: string | null;
+    bio: string;
+    location: string;
+    website: string | null;
+    telegram: string | null;
+    discord: string | null;
+    discord_user_id: string | null;
+    avatar_url: string | null;
+    banner_url: string | null;
+    role: UserRole;
+  };
+};
+
+export type AuthSession = {
+  id: string;
+  created_at: string;
+  current: boolean;
+  user_agent: string | null;
+};
+
+type AuthSessionResult = {
+  user: AuthUser;
+  sessionId: string;
+};
+
+type GlobalDb = typeof globalThis & {
+  __eyzencoreAuthDb?: DatabaseSync;
+};
+
+const globalDb = globalThis as GlobalDb;
+
+function nowIso() {
+  return new Date().toISOString();
+}
+
+function getDbPath() {
+  const dataDir = path.join(process.cwd(), 'data');
+  mkdirSync(dataDir, { recursive: true });
+  return path.join(dataDir, 'eyzencore-auth.sqlite');
+}
+
+function initDb(db: DatabaseSync) {
+  db.exec(`
+    PRAGMA journal_mode = WAL;
+
+    CREATE TABLE IF NOT EXISTS app_users (
+      id TEXT PRIMARY KEY,
+      email TEXT NOT NULL UNIQUE,
+      password_hash TEXT NOT NULL,
+      full_name TEXT NOT NULL,
+      profile_slug TEXT UNIQUE,
+      bio TEXT DEFAULT '',
+      location TEXT DEFAULT '',
+      website TEXT,
+      telegram TEXT,
+      discord TEXT,
+      avatar_url TEXT,
+      banner_url TEXT,
+      role TEXT NOT NULL DEFAULT 'USER',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS user_login_sessions (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
+      token_hash TEXT NOT NULL UNIQUE,
+      user_agent TEXT,
+      created_at TEXT NOT NULL,
+      revoked_at TEXT
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_app_users_email ON app_users(email);
+    CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON user_login_sessions(user_id);
+    CREATE INDEX IF NOT EXISTS idx_sessions_token_hash ON user_login_sessions(token_hash);
+
+    CREATE TABLE IF NOT EXISTS app_servers (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      owner_id TEXT NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      addr TEXT NOT NULL UNIQUE,
+      platform TEXT NOT NULL DEFAULT 'minecraft',
+      mode TEXT NOT NULL,
+      ver TEXT NOT NULL,
+      core TEXT NOT NULL DEFAULT 'java',
+      country TEXT,
+      motd TEXT,
+      short_desc TEXT DEFAULT '',
+      full_desc TEXT DEFAULT '',
+      desc TEXT DEFAULT '',
+      website TEXT,
+      discord TEXT,
+      telegram TEXT,
+      donate TEXT,
+      tiktok TEXT,
+      launcher_url TEXT,
+      avatar_url TEXT,
+      banner_url TEXT,
+      gallery_json TEXT NOT NULL DEFAULT '[]',
+      videos_json TEXT NOT NULL DEFAULT '[]',
+      tags TEXT NOT NULL DEFAULT '[]',
+      online INTEGER NOT NULL DEFAULT 0,
+      players INTEGER NOT NULL DEFAULT 0,
+      max INTEGER NOT NULL DEFAULT 0,
+      uptime TEXT NOT NULL DEFAULT 'new',
+      verified INTEGER NOT NULL DEFAULT 0,
+      cluster INTEGER,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_app_servers_addr ON app_servers(addr);
+    CREATE INDEX IF NOT EXISTS idx_app_servers_owner_id ON app_servers(owner_id);
+
+    CREATE TABLE IF NOT EXISTS app_server_online_samples (
+      server_id INTEGER NOT NULL REFERENCES app_servers(id) ON DELETE CASCADE,
+      online INTEGER NOT NULL DEFAULT 0,
+      players INTEGER NOT NULL DEFAULT 0,
+      max INTEGER NOT NULL DEFAULT 0,
+      votes INTEGER NOT NULL DEFAULT 0,
+      views INTEGER NOT NULL DEFAULT 0,
+      recorded_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_server_online_samples_server_id ON app_server_online_samples(server_id);
+    CREATE INDEX IF NOT EXISTS idx_server_online_samples_recorded_at ON app_server_online_samples(recorded_at);
+
+    CREATE TABLE IF NOT EXISTS app_server_views (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      server_id INTEGER NOT NULL REFERENCES app_servers(id) ON DELETE CASCADE,
+      user_id TEXT REFERENCES app_users(id) ON DELETE SET NULL,
+      fingerprint TEXT NOT NULL,
+      ip_address TEXT,
+      country_code TEXT,
+      created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_server_views_server_id ON app_server_views(server_id);
+    CREATE INDEX IF NOT EXISTS idx_server_views_created_at ON app_server_views(created_at);
+    CREATE INDEX IF NOT EXISTS idx_server_views_fingerprint ON app_server_views(fingerprint);
+
+    CREATE TABLE IF NOT EXISTS app_server_votes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      server_id INTEGER NOT NULL REFERENCES app_servers(id) ON DELETE CASCADE,
+      user_id TEXT REFERENCES app_users(id) ON DELETE SET NULL,
+      fingerprint TEXT NOT NULL,
+      author_name TEXT,
+      value INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_server_votes_unique_user
+      ON app_server_votes(server_id, user_id) WHERE user_id IS NOT NULL;
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_server_votes_unique_fingerprint
+      ON app_server_votes(server_id, fingerprint);
+    CREATE INDEX IF NOT EXISTS idx_server_votes_server_id ON app_server_votes(server_id);
+
+    CREATE TABLE IF NOT EXISTS app_server_nickname_votes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      server_id INTEGER NOT NULL REFERENCES app_servers(id) ON DELETE CASCADE,
+      nickname TEXT NOT NULL,
+      ip_address TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_server_nickname_votes_server_id ON app_server_nickname_votes(server_id);
+    CREATE INDEX IF NOT EXISTS idx_server_nickname_votes_nickname ON app_server_nickname_votes(nickname);
+    CREATE INDEX IF NOT EXISTS idx_server_nickname_votes_ip ON app_server_nickname_votes(ip_address);
+    CREATE INDEX IF NOT EXISTS idx_server_nickname_votes_created_at ON app_server_nickname_votes(created_at);
+
+    CREATE TABLE IF NOT EXISTS app_server_reviews (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      server_id INTEGER NOT NULL REFERENCES app_servers(id) ON DELETE CASCADE,
+      user_id TEXT REFERENCES app_users(id) ON DELETE SET NULL,
+      fingerprint TEXT NOT NULL,
+      author_name TEXT,
+      text TEXT NOT NULL,
+      rating INTEGER NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_server_reviews_unique_user
+      ON app_server_reviews(server_id, user_id) WHERE user_id IS NOT NULL;
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_server_reviews_unique_fingerprint
+      ON app_server_reviews(server_id, fingerprint);
+    CREATE INDEX IF NOT EXISTS idx_server_reviews_server_id ON app_server_reviews(server_id);
+
+    CREATE TABLE IF NOT EXISTS app_notifications (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id TEXT NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
+      server_id INTEGER REFERENCES app_servers(id) ON DELETE CASCADE,
+      type TEXT NOT NULL,
+      title TEXT NOT NULL,
+      body TEXT NOT NULL,
+      is_read INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON app_notifications(user_id);
+    CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON app_notifications(created_at);
+
+    CREATE TABLE IF NOT EXISTS app_server_applications (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      owner_id TEXT NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
+      status TEXT NOT NULL DEFAULT 'pending',
+      rejection_reason TEXT,
+      name TEXT NOT NULL,
+      addr TEXT NOT NULL,
+      platform TEXT NOT NULL DEFAULT 'minecraft',
+      mode TEXT NOT NULL,
+      ver TEXT NOT NULL,
+      core TEXT NOT NULL DEFAULT 'java',
+      country TEXT,
+      motd TEXT,
+      short_desc TEXT DEFAULT '',
+      full_desc TEXT DEFAULT '',
+      desc TEXT DEFAULT '',
+      website TEXT,
+      discord TEXT,
+      telegram TEXT,
+      donate TEXT,
+      tiktok TEXT,
+      launcher_url TEXT,
+      avatar_url TEXT,
+      banner_url TEXT,
+      gallery_json TEXT NOT NULL DEFAULT '[]',
+      videos_json TEXT NOT NULL DEFAULT '[]',
+      tags TEXT NOT NULL DEFAULT '[]',
+      owner_name TEXT,
+      owner_avatar TEXT,
+      created_at TEXT NOT NULL,
+      reviewed_at TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_server_apps_owner_id ON app_server_applications(owner_id);
+    CREATE INDEX IF NOT EXISTS idx_server_apps_status ON app_server_applications(status);
+
+    CREATE TABLE IF NOT EXISTS app_news_posts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      author_user_id TEXT NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
+      title TEXT NOT NULL,
+      excerpt TEXT NOT NULL DEFAULT '',
+      content TEXT NOT NULL,
+      content_json TEXT NOT NULL DEFAULT '[]',
+      category TEXT NOT NULL DEFAULT 'Новини',
+      cover_url TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_news_posts_created_at ON app_news_posts(created_at);
+    CREATE INDEX IF NOT EXISTS idx_news_posts_author ON app_news_posts(author_user_id);
+  `);
+
+  try {
+    db.exec(`ALTER TABLE app_servers ADD COLUMN online INTEGER NOT NULL DEFAULT 0;`);
+  } catch {
+    // Column already exists in current schema.
+  }
+  try {
+    db.exec(`ALTER TABLE app_users ADD COLUMN telegram TEXT;`);
+  } catch {
+    // Column already exists in current schema.
+  }
+  try {
+    db.exec(`ALTER TABLE app_users ADD COLUMN discord TEXT;`);
+  } catch {
+    // Column already exists in current schema.
+  }
+  try {
+    db.exec(`ALTER TABLE app_servers ADD COLUMN core TEXT NOT NULL DEFAULT 'java';`);
+  } catch {}
+  try {
+    db.exec(`ALTER TABLE app_servers ADD COLUMN country TEXT;`);
+  } catch {}
+  try {
+    db.exec(`ALTER TABLE app_servers ADD COLUMN motd TEXT;`);
+  } catch {}
+  try {
+    db.exec(`ALTER TABLE app_servers ADD COLUMN short_desc TEXT DEFAULT '';`);
+  } catch {}
+  try {
+    db.exec(`ALTER TABLE app_servers ADD COLUMN full_desc TEXT DEFAULT '';`);
+  } catch {}
+  try {
+    db.exec(`ALTER TABLE app_servers ADD COLUMN telegram TEXT;`);
+  } catch {}
+  try {
+    db.exec(`ALTER TABLE app_servers ADD COLUMN donate TEXT;`);
+  } catch {}
+  try {
+    db.exec(`ALTER TABLE app_servers ADD COLUMN tiktok TEXT;`);
+  } catch {}
+  try {
+    db.exec(`ALTER TABLE app_servers ADD COLUMN launcher_url TEXT;`);
+  } catch {}
+  try {
+    db.exec(`ALTER TABLE app_servers ADD COLUMN avatar_url TEXT;`);
+  } catch {}
+  try {
+    db.exec(`ALTER TABLE app_servers ADD COLUMN banner_url TEXT;`);
+  } catch {}
+  try {
+    db.exec(`ALTER TABLE app_servers ADD COLUMN gallery_json TEXT NOT NULL DEFAULT '[]';`);
+  } catch {}
+  try {
+    db.exec(`ALTER TABLE app_servers ADD COLUMN videos_json TEXT NOT NULL DEFAULT '[]';`);
+  } catch {}
+  try {
+    db.exec(`ALTER TABLE app_server_online_samples ADD COLUMN votes INTEGER NOT NULL DEFAULT 0;`);
+  } catch {}
+  try {
+    db.exec(`ALTER TABLE app_server_online_samples ADD COLUMN views INTEGER NOT NULL DEFAULT 0;`);
+  } catch {}
+  try {
+    db.exec(`ALTER TABLE app_server_votes ADD COLUMN author_name TEXT;`);
+  } catch {}
+  try {
+    db.exec(`ALTER TABLE app_server_reviews ADD COLUMN author_name TEXT;`);
+  } catch {}
+  try {
+    db.exec(`ALTER TABLE app_server_views ADD COLUMN ip_address TEXT;`);
+  } catch {}
+  try {
+    db.exec(`ALTER TABLE app_server_views ADD COLUMN country_code TEXT;`);
+  } catch {}
+  try {
+    db.exec(`ALTER TABLE app_users ADD COLUMN role TEXT NOT NULL DEFAULT 'USER';`);
+  } catch {}
+  db.exec(`
+    UPDATE app_users
+    SET role = CASE
+      WHEN lower(role) = 'admin' THEN 'ADMIN'
+      WHEN lower(role) = 'owner' THEN 'OWNER'
+      ELSE 'USER'
+    END
+  `);
+}
+
+function getDb() {
+  if (!globalDb.__eyzencoreAuthDb) {
+    globalDb.__eyzencoreAuthDb = new DatabaseSync(getDbPath());
+    initDb(globalDb.__eyzencoreAuthDb);
+  }
+  ensureEngagementTables(globalDb.__eyzencoreAuthDb);
+  return globalDb.__eyzencoreAuthDb;
+}
+
+function ensureEngagementTables(db: DatabaseSync) {
+  db.exec(
+    `CREATE TABLE IF NOT EXISTS app_server_views (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      server_id INTEGER NOT NULL REFERENCES app_servers(id) ON DELETE CASCADE,
+      user_id TEXT REFERENCES app_users(id) ON DELETE SET NULL,
+      fingerprint TEXT NOT NULL,
+      ip_address TEXT,
+      country_code TEXT,
+      created_at TEXT NOT NULL
+    );`
+  );
+  db.exec('CREATE INDEX IF NOT EXISTS idx_server_views_server_id ON app_server_views(server_id);');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_server_views_created_at ON app_server_views(created_at);');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_server_views_fingerprint ON app_server_views(fingerprint);');
+
+  db.exec(
+    `CREATE TABLE IF NOT EXISTS app_server_votes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      server_id INTEGER NOT NULL REFERENCES app_servers(id) ON DELETE CASCADE,
+      user_id TEXT REFERENCES app_users(id) ON DELETE SET NULL,
+      fingerprint TEXT NOT NULL,
+      author_name TEXT,
+      value INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );`
+  );
+  db.exec('CREATE INDEX IF NOT EXISTS idx_server_votes_server_id ON app_server_votes(server_id);');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_server_votes_user_id ON app_server_votes(user_id);');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_server_votes_fingerprint ON app_server_votes(fingerprint);');
+
+  db.exec(
+    `CREATE TABLE IF NOT EXISTS app_server_nickname_votes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      server_id INTEGER NOT NULL REFERENCES app_servers(id) ON DELETE CASCADE,
+      nickname TEXT NOT NULL,
+      ip_address TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );`
+  );
+  db.exec('CREATE INDEX IF NOT EXISTS idx_server_nickname_votes_server_id ON app_server_nickname_votes(server_id);');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_server_nickname_votes_nickname ON app_server_nickname_votes(nickname);');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_server_nickname_votes_ip ON app_server_nickname_votes(ip_address);');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_server_nickname_votes_created_at ON app_server_nickname_votes(created_at);');
+
+  db.exec(
+    `CREATE TABLE IF NOT EXISTS app_server_reviews (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      server_id INTEGER NOT NULL REFERENCES app_servers(id) ON DELETE CASCADE,
+      user_id TEXT REFERENCES app_users(id) ON DELETE SET NULL,
+      fingerprint TEXT NOT NULL,
+      author_name TEXT,
+      text TEXT NOT NULL,
+      rating INTEGER NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );`
+  );
+  db.exec('CREATE INDEX IF NOT EXISTS idx_server_reviews_server_id ON app_server_reviews(server_id);');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_server_reviews_user_id ON app_server_reviews(user_id);');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_server_reviews_fingerprint ON app_server_reviews(fingerprint);');
+  db.exec(
+    `CREATE TABLE IF NOT EXISTS app_notifications (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id TEXT NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
+      server_id INTEGER REFERENCES app_servers(id) ON DELETE CASCADE,
+      type TEXT NOT NULL,
+      title TEXT NOT NULL,
+      body TEXT NOT NULL,
+      is_read INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL
+    );`
+  );
+  db.exec('CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON app_notifications(user_id);');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON app_notifications(created_at);');
+  db.exec(
+    `CREATE TABLE IF NOT EXISTS app_news_posts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      author_user_id TEXT NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
+      title TEXT NOT NULL,
+      excerpt TEXT NOT NULL DEFAULT '',
+      content TEXT NOT NULL,
+      content_json TEXT NOT NULL DEFAULT '[]',
+      category TEXT NOT NULL DEFAULT 'Новини',
+      cover_url TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );`
+  );
+  try {
+    db.exec(`ALTER TABLE app_news_posts ADD COLUMN content_json TEXT NOT NULL DEFAULT '[]';`);
+  } catch {}
+  db.exec('CREATE INDEX IF NOT EXISTS idx_news_posts_created_at ON app_news_posts(created_at);');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_news_posts_author ON app_news_posts(author_user_id);');
+
+  db.exec(
+    `CREATE TABLE IF NOT EXISTS app_server_applications (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      owner_id TEXT NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
+      status TEXT NOT NULL DEFAULT 'pending',
+      rejection_reason TEXT,
+      name TEXT NOT NULL,
+      addr TEXT NOT NULL,
+      mode TEXT NOT NULL,
+      ver TEXT NOT NULL,
+      core TEXT NOT NULL DEFAULT 'java',
+      country TEXT,
+      motd TEXT,
+      short_desc TEXT DEFAULT '',
+      full_desc TEXT DEFAULT '',
+      desc TEXT DEFAULT '',
+      website TEXT,
+      discord TEXT,
+      telegram TEXT,
+      donate TEXT,
+      tiktok TEXT,
+      launcher_url TEXT,
+      avatar_url TEXT,
+      banner_url TEXT,
+      gallery_json TEXT NOT NULL DEFAULT '[]',
+      videos_json TEXT NOT NULL DEFAULT '[]',
+      tags TEXT NOT NULL DEFAULT '[]',
+      owner_name TEXT,
+      owner_avatar TEXT,
+      created_at TEXT NOT NULL,
+      reviewed_at TEXT
+    );`
+  );
+  db.exec('CREATE INDEX IF NOT EXISTS idx_server_apps_owner_id ON app_server_applications(owner_id);');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_server_apps_status ON app_server_applications(status);');
+
+  db.exec(
+    `CREATE TABLE IF NOT EXISTS app_api_tokens (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      token_hash TEXT NOT NULL UNIQUE,
+      scopes TEXT NOT NULL DEFAULT '["servers:read"]',
+      last_used_at TEXT,
+      created_at TEXT NOT NULL,
+      revoked_at TEXT
+    );`
+  );
+  db.exec('CREATE INDEX IF NOT EXISTS idx_api_tokens_user_id ON app_api_tokens(user_id);');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_api_tokens_token_hash ON app_api_tokens(token_hash);');
+
+  db.exec(
+    `CREATE TABLE IF NOT EXISTS app_projects (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      owner_id TEXT NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      description TEXT DEFAULT '',
+      logo_url TEXT,
+      website TEXT,
+      discord TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );`
+  );
+  db.exec('CREATE INDEX IF NOT EXISTS idx_projects_owner ON app_projects(owner_id);');
+
+  db.exec(
+    `CREATE TABLE IF NOT EXISTS app_server_verifications (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      server_id INTEGER NOT NULL UNIQUE REFERENCES app_servers(id) ON DELETE CASCADE,
+      owner_id TEXT NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
+      token TEXT NOT NULL UNIQUE,
+      created_at TEXT NOT NULL,
+      verified_at TEXT
+    );`
+  );
+  db.exec('CREATE INDEX IF NOT EXISTS idx_server_verifications_server_id ON app_server_verifications(server_id);');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_server_verifications_owner_id ON app_server_verifications(owner_id);');
+
+  try {
+    db.exec(`ALTER TABLE app_servers ADD COLUMN project_id INTEGER REFERENCES app_projects(id) ON DELETE SET NULL;`);
+  } catch {}
+  try {
+    db.exec(`ALTER TABLE app_server_applications ADD COLUMN project_id INTEGER REFERENCES app_projects(id) ON DELETE SET NULL;`);
+  } catch {}
+  try {
+    db.exec(`ALTER TABLE app_servers ADD COLUMN platform TEXT NOT NULL DEFAULT 'minecraft';`);
+  } catch {}
+  try {
+    db.exec(`ALTER TABLE app_server_applications ADD COLUMN platform TEXT NOT NULL DEFAULT 'minecraft';`);
+  } catch {}
+  try {
+    db.exec(`ALTER TABLE app_users ADD COLUMN discord_user_id TEXT;`);
+  } catch {}
+  try {
+    db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_app_users_discord_user_id ON app_users(discord_user_id) WHERE discord_user_id IS NOT NULL;`);
+  } catch {}
+  try {
+    db.exec(`ALTER TABLE app_servers ADD COLUMN discord_guild_id TEXT;`);
+  } catch {}
+  try {
+    db.exec(`ALTER TABLE app_servers ADD COLUMN discord_bot_verified INTEGER NOT NULL DEFAULT 0;`);
+  } catch {}
+  try {
+    db.exec(`ALTER TABLE app_servers ADD COLUMN discord_verify_code TEXT;`);
+  } catch {}
+}
+
+const SERVER_SELECT_COLUMNS = `
+  s.id, s.owner_id, u.full_name AS owner_name, u.avatar_url AS owner_avatar, u.profile_slug AS owner_slug,
+  s.name, s.addr, s.platform, s.mode, s.ver, s.core, s.country, s.motd, s.short_desc, s.full_desc, s.desc,
+  s.website, s.discord, s.telegram, s.donate, s.tiktok, s.launcher_url, s.avatar_url, s.banner_url,
+  s.gallery_json, s.videos_json, s.tags, s.online, s.players, s.max, s.uptime, s.verified, s.cluster,
+  s.project_id, s.discord_guild_id, s.discord_bot_verified, s.discord_verify_code, s.created_at, s.updated_at
+`;
+
+function slugify(value: string) {
+  return value
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 48);
+}
+
+function ensureUniqueSlug(base: string) {
+  const db = getDb();
+  const cleanBase = slugify(base) || 'user';
+  let candidate = cleanBase;
+  let suffix = 2;
+
+  while (
+    db
+      .prepare('SELECT id FROM app_users WHERE profile_slug = ? LIMIT 1')
+      .get(candidate)
+  ) {
+    candidate = `${cleanBase}-${suffix}`;
+    suffix += 1;
+  }
+
+  return candidate;
+}
+
+function hashSessionToken(token: string) {
+  return createHash('sha256').update(token).digest('hex');
+}
+
+function hashPassword(password: string) {
+  const salt = randomBytes(16).toString('hex');
+  const hash = scryptSync(password, salt, 64).toString('hex');
+  return `scrypt$${salt}$${hash}`;
+}
+
+function verifyPassword(password: string, stored: string) {
+  const [algo, salt, existingHash] = stored.split('$');
+  if (algo !== 'scrypt' || !salt || !existingHash) return false;
+  const incomingHash = scryptSync(password, salt, 64);
+  const existingBuffer = Buffer.from(existingHash, 'hex');
+  if (incomingHash.length !== existingBuffer.length) return false;
+  return timingSafeEqual(incomingHash, existingBuffer);
+}
+
+function normalizeUserRole(role: string | null | undefined): UserRole {
+  const normalizedRole = String(role || '').trim().toUpperCase();
+  if (normalizedRole === 'ADMIN') {
+    return 'ADMIN';
+  }
+  if (normalizedRole === 'OWNER') {
+    return 'OWNER';
+  }
+  return 'USER';
+}
+
+function mapUserRow(row: DbUserRow): AuthUser {
+  return {
+    id: row.id,
+    email: row.email,
+    created_at: row.created_at,
+    user_metadata: {
+      full_name: row.full_name || '',
+      profile_slug: row.profile_slug || null,
+      bio: row.bio || '',
+      location: row.location || '',
+      website: row.website || null,
+      telegram: row.telegram || null,
+      discord: row.discord || null,
+      discord_user_id: row.discord_user_id || null,
+      avatar_url: row.avatar_url || null,
+      banner_url: row.banner_url || null,
+      role: resolveUserRole({ userId: row.id, role: row.role }),
+    },
+  };
+}
+
+function getServerInitials(name: string) {
+  return (
+    name
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase() || '')
+      .join('')
+      .slice(0, 2) || 'SV'
+  );
+}
+
+function mapServerRow(row: DbServerRow): Server {
+  const tags = JSON.parse(row.tags || '[]') as string[];
+  const gallery = JSON.parse(row.gallery_json || '[]') as string[];
+  const videos = JSON.parse(row.videos_json || '[]') as string[];
+  return {
+    seed: Number(row.id),
+    ic: getServerInitials(row.name),
+    name: row.name,
+    shortDesc: row.short_desc || '',
+    fullDesc: row.full_desc || '',
+    desc: row.desc || '',
+    addr: row.addr,
+    platform: (row.platform === 'discord' ? 'discord' : 'minecraft') as ServerPlatform,
+    country: row.country || undefined,
+    motd: row.motd || undefined,
+    on: Boolean(row.online),
+    players: Number(row.players || 0),
+    max: Number(row.max || 0),
+    ver: row.ver,
+    mode: row.mode,
+    core: row.platform === 'discord' || row.core === 'discord'
+      ? 'discord'
+      : ((row.core as 'java' | 'bedrock' | 'java_bedrock') || 'java'),
+    uptime: row.uptime || 'new',
+    rank: Number(row.id),
+    verified: Boolean(row.verified),
+    cluster: row.cluster ?? undefined,
+    tags,
+    website: row.website || undefined,
+    discord: row.discord || undefined,
+    telegram: row.telegram || undefined,
+    donate: row.donate || undefined,
+    tiktok: row.tiktok || undefined,
+    launcherUrl: row.launcher_url || undefined,
+    avatarUrl: row.avatar_url || undefined,
+    bannerUrl: row.banner_url || undefined,
+    gallery,
+    videos,
+    ownerId: row.owner_id,
+    ownerName: row.owner_name,
+    ownerAvatarUrl: row.owner_avatar || null,
+    ownerSlug: row.owner_slug || null,
+    createdAt: row.created_at,
+    projectId: row.project_id ?? null,
+    discordGuildId: row.discord_guild_id || null,
+    discordBotVerified: Boolean(row.discord_bot_verified),
+    discordVerifyCode: row.discord_verify_code || null,
+  };
+}
+
+function generateDiscordVerifyCode(): string {
+  return randomBytes(4).toString('hex').toUpperCase();
+}
+
+function mapServerReviewRow(row: DbServerReviewRow): ServerReview {
+  return {
+    id: Number(row.id),
+    serverId: Number(row.server_id),
+    userId: row.user_id || null,
+    authorName: String(row.full_name || row.author_name || 'Гість'),
+    avatarUrl: row.avatar_url || null,
+    text: String(row.text || ''),
+    rating: Number(row.rating || 0),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+
+function mapServerVoteRow(row: DbServerVoteRow): ServerVoteEntry {
+  return {
+    id: Number(row.id),
+    serverId: Number(row.server_id),
+    nickname: String(row.nickname || ''),
+    ipAddress: String(row.ip_address || ''),
+    voteCount: Math.max(1, Number(row.vote_count || 1)),
+    createdAt: row.created_at,
+  };
+}
+
+export function normalizeEmail(value: string) {
+  return String(value || '').trim().toLowerCase();
+}
+
+export function isValidEmail(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+export function getSessionMaxAgeSeconds() {
+  return SESSION_MAX_AGE_SECONDS;
+}
+
+export function createUser(input: { email: string; password: string; name?: string | null }) {
+  const email = normalizeEmail(input.email);
+  const fallbackName = email.split('@')[0] || 'user';
+  const fullName = String(input.name || fallbackName).trim().slice(0, 120) || fallbackName;
+  const db = getDb();
+  const existing = db.prepare('SELECT id FROM app_users WHERE email = ? LIMIT 1').get(email);
+
+  if (existing) {
+    throw new Error('User already exists');
+  }
+
+  const id = randomUUID();
+  const timestamp = nowIso();
+  const profileSlug = ensureUniqueSlug(fullName || fallbackName);
+
+  db.prepare(
+    `INSERT INTO app_users (
+      id, email, password_hash, full_name, profile_slug, bio, location, website, telegram, discord, avatar_url, banner_url, role, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, '', '', NULL, NULL, NULL, NULL, NULL, 'USER', ?, ?)`
+  ).run(id, email, hashPassword(input.password), fullName, profileSlug, timestamp, timestamp);
+
+  const user = db.prepare('SELECT * FROM app_users WHERE id = ? LIMIT 1').get(id) as DbUserRow;
+  return mapUserRow(user);
+}
+
+export function authenticateUser(emailInput: string, password: string) {
+  const email = normalizeEmail(emailInput);
+  const db = getDb();
+  const row = db.prepare('SELECT * FROM app_users WHERE email = ? LIMIT 1').get(email) as DbUserRow | undefined;
+
+  if (!row || !verifyPassword(password, row.password_hash)) {
+    return null;
+  }
+
+  return mapUserRow(row);
+}
+
+export function createSession(userId: string, userAgent?: string | null) {
+  const db = getDb();
+  const sessionId = randomUUID();
+  const token = randomBytes(32).toString('base64url');
+  const createdAt = nowIso();
+
+  db.prepare(
+    `INSERT INTO user_login_sessions (id, user_id, token_hash, user_agent, created_at, revoked_at)
+     VALUES (?, ?, ?, ?, ?, NULL)`
+  ).run(sessionId, userId, hashSessionToken(token), String(userAgent || '').slice(0, 400) || null, createdAt);
+
+  return { sessionId, token };
+}
+
+export function getAuthSessionFromToken(token: string | undefined | null): AuthSessionResult | null {
+  if (!token) return null;
+
+  const db = getDb();
+  const row = db
+    .prepare(
+      `SELECT
+         s.id AS session_id,
+         u.id,
+         u.email,
+         u.password_hash,
+         u.full_name,
+         u.profile_slug,
+         u.bio,
+         u.location,
+         u.website,
+         u.telegram,
+         u.discord,
+         u.discord_user_id,
+         u.avatar_url,
+         u.banner_url,
+         u.role,
+         u.created_at,
+         u.updated_at
+       FROM user_login_sessions s
+       JOIN app_users u ON u.id = s.user_id
+       WHERE s.token_hash = ? AND s.revoked_at IS NULL
+       LIMIT 1`
+    )
+    .get(hashSessionToken(token)) as (DbUserRow & { session_id: string }) | undefined;
+
+  if (!row) return null;
+
+  return {
+    user: mapUserRow(row),
+    sessionId: row.session_id,
+  };
+}
+
+export function revokeSessionByToken(token: string | undefined | null) {
+  if (!token) return;
+  const db = getDb();
+  db.prepare('UPDATE user_login_sessions SET revoked_at = ? WHERE token_hash = ? AND revoked_at IS NULL').run(
+    nowIso(),
+    hashSessionToken(token)
+  );
+}
+
+export function listSessions(userId: string, currentSessionId?: string | null) {
+  const db = getDb();
+  const rows = db
+    .prepare(
+      `SELECT id, user_id, token_hash, user_agent, created_at, revoked_at
+       FROM user_login_sessions
+       WHERE user_id = ? AND revoked_at IS NULL
+       ORDER BY datetime(created_at) DESC`
+    )
+    .all(userId) as DbSessionRow[];
+
+  return rows.map((row) => ({
+    id: row.id,
+    created_at: row.created_at,
+    current: row.id === currentSessionId,
+    user_agent: row.user_agent,
+  })) satisfies AuthSession[];
+}
+
+export function revokeSessionById(userId: string, sessionId: string) {
+  const db = getDb();
+  db.prepare(
+    'UPDATE user_login_sessions SET revoked_at = ? WHERE id = ? AND user_id = ? AND revoked_at IS NULL'
+  ).run(nowIso(), sessionId, userId);
+}
+
+export function revokeOtherSessions(userId: string, currentSessionId: string) {
+  const db = getDb();
+  db.prepare(
+    'UPDATE user_login_sessions SET revoked_at = ? WHERE user_id = ? AND id != ? AND revoked_at IS NULL'
+  ).run(nowIso(), userId, currentSessionId);
+}
+
+export function updatePassword(userId: string, currentPassword: string, nextPassword: string) {
+  const db = getDb();
+  const row = db.prepare('SELECT password_hash FROM app_users WHERE id = ? LIMIT 1').get(userId) as
+    | { password_hash: string }
+    | undefined;
+
+  if (!row || !verifyPassword(currentPassword, row.password_hash)) {
+    throw new Error('Current password is incorrect');
+  }
+
+  db.prepare('UPDATE app_users SET password_hash = ?, updated_at = ? WHERE id = ?').run(
+    hashPassword(nextPassword),
+    nowIso(),
+    userId
+  );
+}
+
+const MAX_IMAGE_DATA_URL_LENGTH = 1_500_000;
+
+function sanitizeImageUrl(value: unknown, field: string): string | null {
+  if (value === null || value === undefined) return null;
+  const trimmed = String(value).trim();
+  if (!trimmed) return null;
+  if (trimmed.length > MAX_IMAGE_DATA_URL_LENGTH) {
+    throw new Error(`${field} is too large (limit ~1MB)`);
+  }
+  if (trimmed.startsWith('data:image/')) return trimmed;
+  if (/^https?:\/\//i.test(trimmed)) return trimmed.slice(0, 2048);
+  // Site-relative paths produced by /api/uploads (e.g. "/uploads/news/2026-05/abc.png")
+  if (trimmed.startsWith('/uploads/')) return trimmed.slice(0, 2048);
+  throw new Error(`${field} must be an image URL or data URL`);
+}
+
+function sanitizeHandle(value: string) {
+  const cleaned = value
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9_]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 32);
+  return cleaned;
+}
+
+function normalizeBio(value: string): string {
+  return String(value || '').replace(/[\r\n]+/g, ' ').replace(/\s{2,}/g, ' ').trim();
+}
+
+export function updateProfile(
+  userId: string,
+  input: {
+    full_name?: string;
+    profile_slug?: string;
+    bio?: string;
+    location?: string;
+    website?: string;
+    telegram?: string;
+    discord?: string;
+    avatar_url?: string | null;
+    banner_url?: string | null;
+  }
+) {
+  const db = getDb();
+  const current = db.prepare('SELECT * FROM app_users WHERE id = ? LIMIT 1').get(userId) as
+    | DbUserRow
+    | undefined;
+  if (!current) {
+    throw new Error('User not found');
+  }
+
+  const fullName =
+    input.full_name === undefined
+      ? current.full_name
+      : String(input.full_name || '').trim().slice(0, 120);
+  if (!fullName) {
+    throw new Error('Name is required');
+  }
+
+  let nextSlug = current.profile_slug;
+  if (input.profile_slug !== undefined) {
+    const requested = sanitizeHandle(String(input.profile_slug));
+    if (!requested) {
+      throw new Error('Handle is required');
+    }
+    if (requested !== current.profile_slug) {
+      const taken = db
+        .prepare('SELECT id FROM app_users WHERE profile_slug = ? AND id != ? LIMIT 1')
+        .get(requested, userId);
+      if (taken) {
+        throw new Error('This handle is already taken');
+      }
+      nextSlug = requested;
+    }
+  } else if (!nextSlug) {
+    nextSlug = ensureUniqueSlug(fullName);
+  }
+
+  const bio =
+    input.bio === undefined
+      ? normalizeBio(String(current.bio || '')).slice(0, 250)
+      : normalizeBio(String(input.bio || '')).slice(0, 250);
+  const location =
+    input.location === undefined
+      ? current.location || ''
+      : String(input.location || '').slice(0, 120);
+  const website =
+    input.website === undefined
+      ? current.website
+      : String(input.website || '').trim().slice(0, 240) || null;
+  const telegram =
+    input.telegram === undefined
+      ? current.telegram
+      : String(input.telegram || '').trim().slice(0, 240) || null;
+  const discord =
+    input.discord === undefined
+      ? current.discord
+      : String(input.discord || '').trim().slice(0, 240) || null;
+  const avatarUrl =
+    input.avatar_url === undefined ? current.avatar_url : sanitizeImageUrl(input.avatar_url, 'Avatar');
+  const bannerUrl =
+    input.banner_url === undefined ? current.banner_url : sanitizeImageUrl(input.banner_url, 'Banner');
+
+  db.prepare(
+    `UPDATE app_users
+     SET full_name = ?, profile_slug = ?, bio = ?, location = ?, website = ?,
+         telegram = ?, discord = ?, avatar_url = ?, banner_url = ?, updated_at = ?
+     WHERE id = ?`
+  ).run(
+    fullName,
+    nextSlug,
+    bio,
+    location,
+    website,
+    telegram,
+    discord,
+    avatarUrl,
+    bannerUrl,
+    nowIso(),
+    userId
+  );
+
+  const row = db.prepare('SELECT * FROM app_users WHERE id = ? LIMIT 1').get(userId) as DbUserRow;
+  return mapUserRow(row);
+}
+
+export function countServersByOwner(userId: string): number {
+  const db = getDb();
+  const row = db
+    .prepare('SELECT COUNT(*) AS c FROM app_servers WHERE owner_id = ?')
+    .get(userId) as { c: number };
+  return Number(row?.c || 0);
+}
+
+function ensureOwnerRole(userId: string): void {
+  const db = getDb();
+  db.prepare(
+    `UPDATE app_users
+     SET role = 'OWNER', updated_at = ?
+     WHERE id = ?
+       AND role = 'USER'`
+  ).run(nowIso(), userId);
+}
+
+export function getUserByProfileSlug(profileSlug: string): AuthUser | null {
+  const normalizedSlug = String(profileSlug || '').trim().toLowerCase();
+  if (!normalizedSlug) {
+    return null;
+  }
+  const db = getDb();
+  const row = db
+    .prepare('SELECT * FROM app_users WHERE lower(profile_slug) = lower(?) LIMIT 1')
+    .get(normalizedSlug) as DbUserRow | undefined;
+  if (!row) {
+    return null;
+  }
+  return mapUserRow(row);
+}
+
+export function listServersByOwner(userId: string): Server[] {
+  const db = getDb();
+  const rows = db
+    .prepare(
+      `SELECT ${SERVER_SELECT_COLUMNS}
+       FROM app_servers s
+       JOIN app_users u ON u.id = s.owner_id
+       WHERE s.owner_id = ?
+       ORDER BY s.id ASC`
+    )
+    .all(userId) as DbServerRow[];
+  return mergeLatestOnlineSamples(rows.map(mapServerRow));
+}
+
+export function listServers() {
+  const db = getDb();
+  const rows = db.prepare(
+    `SELECT ${SERVER_SELECT_COLUMNS}
+     FROM app_servers s
+     JOIN app_users u ON u.id = s.owner_id
+     ORDER BY s.id ASC`
+  ).all() as DbServerRow[];
+
+  return mergeLatestOnlineSamples(rows.map(mapServerRow));
+}
+
+function mergeLatestOnlineSamples(servers: Server[]): Server[] {
+  if (servers.length === 0) {
+    return servers;
+  }
+  const db = getDb();
+  const serverIds = servers.map((server) => server.seed);
+  const placeholders = serverIds.map(() => '?').join(', ');
+  const latestRows = db
+    .prepare(
+      `SELECT latest.server_id, latest.online, latest.players, latest.max
+       FROM app_server_online_samples latest
+       JOIN (
+         SELECT server_id, MAX(recorded_at) AS recorded_at
+         FROM app_server_online_samples
+         WHERE server_id IN (${placeholders})
+         GROUP BY server_id
+       ) grouped
+         ON grouped.server_id = latest.server_id
+        AND grouped.recorded_at = latest.recorded_at`
+    )
+    .all(...serverIds) as Array<Pick<DbServerOnlineSampleRow, 'server_id' | 'online' | 'players' | 'max'>>;
+  const latestByServerId = new Map<number, Pick<DbServerOnlineSampleRow, 'online' | 'players' | 'max'>>();
+  latestRows.forEach((row) => {
+    latestByServerId.set(Number(row.server_id), {
+      online: Number(row.online || 0),
+      players: Number(row.players || 0),
+      max: Number(row.max || 0),
+    });
+  });
+  return servers.map((server) => {
+    const latest = latestByServerId.get(server.seed);
+    if (!latest) {
+      return server;
+    }
+    return {
+      ...server,
+      on: Boolean(latest.online),
+      players: Number(latest.players || 0),
+      max: Number(latest.max || 0),
+    };
+  });
+}
+
+export function getServerById(id: number) {
+  const db = getDb();
+  const row = db.prepare(
+    `SELECT ${SERVER_SELECT_COLUMNS}
+     FROM app_servers s
+     JOIN app_users u ON u.id = s.owner_id
+     WHERE s.id = ?
+     LIMIT 1`
+  ).get(id) as DbServerRow | undefined;
+
+  return row ? mapServerRow(row) : null;
+}
+
+export function findServerByAddress(addr: string, platform: ServerPlatform = 'minecraft') {
+  const db = getDb();
+  const normalizedAddr = normalizeServerAddress(addr, platform);
+  const row = db.prepare(
+    `SELECT ${SERVER_SELECT_COLUMNS}
+     FROM app_servers s
+     JOIN app_users u ON u.id = s.owner_id
+     WHERE lower(s.addr) = lower(?)
+     LIMIT 1`
+  ).get(normalizedAddr) as DbServerRow | undefined;
+
+  return row ? mapServerRow(row) : null;
+}
+
+export function createServer(input: {
+  ownerId: string;
+  name: string;
+  addr: string;
+  platform?: ServerPlatform;
+  mode: string;
+  ver: string;
+  core?: 'java' | 'bedrock' | 'java_bedrock';
+  country?: string;
+  motd?: string;
+  shortDesc?: string;
+  fullDesc?: string;
+  desc?: string;
+  website?: string;
+  discord?: string;
+  telegram?: string;
+  donate?: string;
+  tiktok?: string;
+  launcherUrl?: string;
+  avatarUrl?: string;
+  bannerUrl?: string;
+  gallery?: string[];
+  videos?: string[];
+  tags?: string[];
+  projectId?: number | null;
+}) {
+  const db = getDb();
+  ensureOwnerRole(input.ownerId);
+  const platform: ServerPlatform = input.platform === 'discord' ? 'discord' : 'minecraft';
+  const normalizedAddr = normalizeServerAddress(input.addr, platform);
+  const existing = db.prepare('SELECT id FROM app_servers WHERE lower(addr) = lower(?) LIMIT 1').get(normalizedAddr);
+  if (existing) {
+    throw new Error('Сервер із цією адресою вже існує');
+  }
+
+  const timestamp = nowIso();
+  const discordVerifyCode = platform === 'discord' ? generateDiscordVerifyCode() : null;
+  const result = db.prepare(
+    `INSERT INTO app_servers (
+      owner_id, name, addr, platform, mode, ver, core, country, motd, short_desc, full_desc, desc, website, discord, telegram, donate, tiktok, launcher_url,
+      avatar_url, banner_url, gallery_json, videos_json, tags, online, players, max, uptime, verified, cluster, project_id,
+      discord_guild_id, discord_bot_verified, discord_verify_code, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, 'new', 0, NULL, NULL, 0, ?, ?, ?)`
+  ).run(
+    input.ownerId,
+    String(input.name || '').trim(),
+    normalizedAddr,
+    platform,
+    String(input.mode || '').trim(),
+    String(input.ver || '').trim(),
+    platform === 'discord' ? 'discord' : String(input.core || 'java').trim(),
+    String(input.country || '').trim() || null,
+    String(input.motd || '').trim() || null,
+    String(input.shortDesc || '').trim(),
+    String(input.fullDesc || '').trim(),
+    String(input.desc || '').trim(),
+    String(input.website || '').trim() || null,
+    String(input.discord || '').trim() || null,
+    String(input.telegram || '').trim() || null,
+    String(input.donate || '').trim() || null,
+    String(input.tiktok || '').trim() || null,
+    String(input.launcherUrl || '').trim() || null,
+    String(input.avatarUrl || '').trim() || null,
+    String(input.bannerUrl || '').trim() || null,
+    JSON.stringify((input.gallery || []).slice(0, 6)),
+    JSON.stringify((input.videos || []).slice(0, 2)),
+    JSON.stringify(input.tags || []),
+    input.projectId ?? null,
+    discordVerifyCode,
+    timestamp,
+    timestamp
+  ) as { lastInsertRowid?: number | bigint };
+
+  return getServerById(Number(result.lastInsertRowid));
+}
+
+export function getUserByDiscordId(discordUserId: string): AuthUser | null {
+  const db = getDb();
+  const row = db
+    .prepare('SELECT * FROM app_users WHERE discord_user_id = ? LIMIT 1')
+    .get(String(discordUserId).trim()) as DbUserRow | undefined;
+  return row ? mapUserRow(row) : null;
+}
+
+export function createUserFromDiscordProfile(input: {
+  discordUserId: string;
+  email: string;
+  fullName: string;
+  avatarUrl?: string | null;
+  discordProfileUrl?: string | null;
+}): AuthUser {
+  const db = getDb();
+  const discordUserId = String(input.discordUserId).trim();
+  const existingDiscord = getUserByDiscordId(discordUserId);
+  if (existingDiscord) {
+    return existingDiscord;
+  }
+  const email = normalizeEmail(input.email);
+  const existingEmail = db.prepare('SELECT id FROM app_users WHERE email = ? LIMIT 1').get(email);
+  if (existingEmail) {
+    throw new Error('Email вже використовується іншим акаунтом');
+  }
+  const id = randomUUID();
+  const timestamp = nowIso();
+  const profileSlug = ensureUniqueSlug(input.fullName);
+  const passwordHash = hashPassword(randomBytes(24).toString('hex'));
+  db.prepare(
+    `INSERT INTO app_users (
+      id, email, password_hash, full_name, profile_slug, bio, location, website, telegram, discord, discord_user_id,
+      avatar_url, banner_url, role, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, '', '', NULL, NULL, ?, ?, ?, NULL, 'USER', ?, ?)`
+  ).run(
+    id,
+    email,
+    passwordHash,
+    String(input.fullName || 'Discord User').trim().slice(0, 120),
+    profileSlug,
+    String(input.discordProfileUrl || '').trim() || null,
+    discordUserId,
+    String(input.avatarUrl || '').trim() || null,
+    timestamp,
+    timestamp
+  );
+  const user = db.prepare('SELECT * FROM app_users WHERE id = ? LIMIT 1').get(id) as DbUserRow;
+  return mapUserRow(user);
+}
+
+export function linkDiscordUserAccount(input: {
+  userId: string;
+  discordUserId: string;
+  discordProfileUrl?: string | null;
+  avatarUrl?: string | null;
+}): AuthUser {
+  const db = getDb();
+  const discordUserId = String(input.discordUserId).trim();
+  const occupied = db
+    .prepare('SELECT id FROM app_users WHERE discord_user_id = ? AND id != ? LIMIT 1')
+    .get(discordUserId, input.userId);
+  if (occupied) {
+    throw new Error('Цей Discord акаунт вже привʼязаний до іншого користувача');
+  }
+  const timestamp = nowIso();
+  db.prepare(
+    `UPDATE app_users
+     SET discord_user_id = ?, discord = COALESCE(?, discord), avatar_url = COALESCE(?, avatar_url), updated_at = ?
+     WHERE id = ?`
+  ).run(
+    discordUserId,
+    String(input.discordProfileUrl || '').trim() || null,
+    String(input.avatarUrl || '').trim() || null,
+    timestamp,
+    input.userId
+  );
+  const user = db.prepare('SELECT * FROM app_users WHERE id = ? LIMIT 1').get(input.userId) as DbUserRow;
+  return mapUserRow(user);
+}
+
+export function unlinkDiscordUserAccount(userId: string): AuthUser {
+  const db = getDb();
+  db.prepare(
+    `UPDATE app_users SET discord_user_id = NULL, updated_at = ? WHERE id = ?`
+  ).run(nowIso(), userId);
+  const user = db.prepare('SELECT * FROM app_users WHERE id = ? LIMIT 1').get(userId) as DbUserRow;
+  return mapUserRow(user);
+}
+
+export function verifyDiscordServerByBot(input: { code: string; guildId: string; guildName?: string }): {
+  serverId: number;
+  serverName: string;
+} {
+  const db = getDb();
+  const normalizedCode = String(input.code || '').trim().toUpperCase();
+  const guildId = String(input.guildId || '').trim();
+  if (!normalizedCode || !guildId) {
+    throw new Error('Код або guild ID відсутні');
+  }
+  const row = db
+    .prepare(
+      `SELECT id, name, platform FROM app_servers
+       WHERE upper(discord_verify_code) = ? AND platform = 'discord'
+       LIMIT 1`
+    )
+    .get(normalizedCode) as { id: number; name: string; platform: string } | undefined;
+  if (!row) {
+    throw new Error('Невірний код верифікації');
+  }
+  db.prepare(
+    `UPDATE app_servers
+     SET discord_guild_id = ?, discord_bot_verified = 1, verified = 1, updated_at = ?
+     WHERE id = ?`
+  ).run(guildId, nowIso(), row.id);
+  return { serverId: Number(row.id), serverName: row.name };
+}
+
+export function syncDiscordGuildStats(input: {
+  guildId: string;
+  players: number;
+  max: number;
+  guildName?: string;
+}): number {
+  const db = getDb();
+  const guildId = String(input.guildId || '').trim();
+  if (!guildId) {
+    return 0;
+  }
+  const servers = db
+    .prepare(`SELECT id FROM app_servers WHERE discord_guild_id = ? AND platform = 'discord'`)
+    .all(guildId) as Array<{ id: number }>;
+  if (servers.length === 0) {
+    return 0;
+  }
+  const timestamp = nowIso();
+  servers.forEach((server) => {
+    db.prepare(
+      `UPDATE app_servers SET online = 1, players = ?, max = ?, updated_at = ? WHERE id = ?`
+    ).run(Number(input.players || 0), Number(input.max || 0), timestamp, server.id);
+    db.prepare(
+      `INSERT INTO app_server_online_samples (server_id, online, players, max, votes, views, recorded_at)
+       VALUES (?, 1, ?, ?, 0, 0, ?)`
+    ).run(server.id, Number(input.players || 0), Number(input.max || 0), timestamp);
+  });
+  return servers.length;
+}
+
+export function updateServerDiscordGuildId(serverId: number, guildId: string | null): void {
+  const db = getDb();
+  db.prepare(`UPDATE app_servers SET discord_guild_id = ?, updated_at = ? WHERE id = ?`).run(
+    guildId ? String(guildId).trim() : null,
+    nowIso(),
+    serverId
+  );
+}
+
+export function updateServerById(
+  input: {
+    serverId: number;
+    ownerId: string;
+    name: string;
+    addr: string;
+    platform?: ServerPlatform;
+    mode: string;
+    ver: string;
+    core: 'java' | 'bedrock' | 'java_bedrock' | 'discord';
+    country?: string;
+    motd?: string;
+    shortDesc?: string;
+    fullDesc?: string;
+    desc?: string;
+    website?: string;
+    discord?: string;
+    telegram?: string;
+    donate?: string;
+    tiktok?: string;
+    launcherUrl?: string;
+    avatarUrl?: string;
+    bannerUrl?: string;
+    gallery?: string[];
+    videos?: string[];
+    tags?: string[];
+    projectId?: number | null;
+  }
+) {
+  const db = getDb();
+  const existing = db
+    .prepare('SELECT id FROM app_servers WHERE id = ? AND owner_id = ? LIMIT 1')
+    .get(input.serverId, input.ownerId);
+  if (!existing) {
+    throw new Error('Сервер не знайдено або доступ заборонено');
+  }
+  const platform: ServerPlatform = input.platform === 'discord' ? 'discord' : 'minecraft';
+  const normalizedAddr = normalizeServerAddress(input.addr, platform);
+  const duplicate = db
+    .prepare('SELECT id FROM app_servers WHERE lower(addr) = lower(?) AND id != ? LIMIT 1')
+    .get(normalizedAddr, input.serverId);
+  if (duplicate) {
+    throw new Error('Сервер із цією адресою вже існує');
+  }
+  db.prepare(
+    `UPDATE app_servers
+     SET name = ?, addr = ?, platform = ?, mode = ?, ver = ?, core = ?, country = ?, motd = ?, short_desc = ?, full_desc = ?, desc = ?,
+         website = ?, discord = ?, telegram = ?, donate = ?, tiktok = ?, launcher_url = ?, avatar_url = ?, banner_url = ?,
+         gallery_json = ?, videos_json = ?, tags = ?, project_id = ?, updated_at = ?
+     WHERE id = ? AND owner_id = ?`
+  ).run(
+    String(input.name || '').trim(),
+    normalizedAddr,
+    platform,
+    String(input.mode || '').trim(),
+    String(input.ver || '').trim(),
+    platform === 'discord' ? 'discord' : String(input.core || 'java').trim(),
+    String(input.country || '').trim() || null,
+    String(input.motd || '').trim() || null,
+    String(input.shortDesc || '').trim(),
+    String(input.fullDesc || '').trim(),
+    String(input.desc || '').trim(),
+    String(input.website || '').trim() || null,
+    String(input.discord || '').trim() || null,
+    String(input.telegram || '').trim() || null,
+    String(input.donate || '').trim() || null,
+    String(input.tiktok || '').trim() || null,
+    String(input.launcherUrl || '').trim() || null,
+    String(input.avatarUrl || '').trim() || null,
+    String(input.bannerUrl || '').trim() || null,
+    JSON.stringify((input.gallery || []).slice(0, 6)),
+    JSON.stringify((input.videos || []).slice(0, 2)),
+    JSON.stringify((input.tags || []).slice(0, 6)),
+    input.projectId ?? null,
+    nowIso(),
+    input.serverId,
+    input.ownerId
+  );
+  return getServerById(input.serverId);
+}
+
+export function clearAllTestData() {
+  const db = getDb();
+  db.exec(`
+    DELETE FROM user_login_sessions;
+    DELETE FROM app_server_reviews;
+    DELETE FROM app_server_nickname_votes;
+    DELETE FROM app_server_votes;
+    DELETE FROM app_server_views;
+    DELETE FROM app_server_online_samples;
+    DELETE FROM app_servers;
+    DELETE FROM app_users;
+  `);
+}
+
+function normalizeFingerprint(input: string): string {
+  return createHash('sha256').update(input).digest('hex');
+}
+
+export function buildActorFingerprint(input: { ip?: string | null; userAgent?: string | null }): string {
+  const normalizedIp = String(input.ip || '').trim().toLowerCase() || 'no-ip';
+  const normalizedAgent = String(input.userAgent || '').trim().toLowerCase() || 'no-ua';
+  return normalizeFingerprint(`${normalizedIp}::${normalizedAgent}`);
+}
+
+export function registerServerView(input: {
+  serverId: number;
+  userId?: string | null;
+  fingerprint: string;
+  ipAddress?: string | null;
+  countryCode?: string | null;
+  cooldownMinutes?: number;
+}) {
+  const db = getDb();
+  const now = nowIso();
+  const cooldownWindow = Math.max(1, Number(input.cooldownMinutes || 15));
+  const recentByUser =
+    input.userId
+      ? db
+          .prepare(
+            `SELECT id
+             FROM app_server_views
+             WHERE server_id = ? AND user_id = ? AND created_at >= datetime('now', ?)
+             LIMIT 1`
+          )
+          .get(input.serverId, input.userId, `-${cooldownWindow} minutes`)
+      : null;
+  if (recentByUser) {
+    return { counted: false };
+  }
+  const recentByFingerprint = db
+    .prepare(
+      `SELECT id
+       FROM app_server_views
+       WHERE server_id = ? AND fingerprint = ? AND created_at >= datetime('now', ?)
+       LIMIT 1`
+    )
+    .get(input.serverId, input.fingerprint, `-${cooldownWindow} minutes`);
+  if (recentByFingerprint) {
+    return { counted: false };
+  }
+  db.prepare(
+    `INSERT INTO app_server_views (server_id, user_id, fingerprint, ip_address, country_code, created_at)
+     VALUES (?, ?, ?, ?, ?, ?)`
+  ).run(
+    input.serverId,
+    input.userId || null,
+    input.fingerprint,
+    String(input.ipAddress || '').trim() || null,
+    String(input.countryCode || '').trim().toUpperCase() || null,
+    now
+  );
+  return { counted: true };
+}
+
+export function registerServerNicknameVote(input: {
+  serverId: number;
+  nickname: string;
+  ipAddress: string;
+  ipDailyLimit?: number;
+  cooldownHours?: number;
+}) {
+  const db = getDb();
+  const now = nowIso();
+  const normalizedNickname = String(input.nickname || '').trim().toLowerCase();
+  const normalizedIp = String(input.ipAddress || '').trim().slice(0, 120) || 'unknown';
+  const ipDailyLimit = Math.max(1, Number(input.ipDailyLimit || 5));
+  const cooldownHours = Math.max(1, Number(input.cooldownHours || 24));
+  const existingNicknameVote = db
+    .prepare(
+      `SELECT id
+       FROM app_server_nickname_votes
+       WHERE server_id = ? AND nickname = ? AND created_at >= datetime('now', ?)
+       LIMIT 1`
+    )
+    .get(input.serverId, normalizedNickname, `-${cooldownHours} hours`) as { id: number } | undefined;
+  if (existingNicknameVote) {
+    return { success: false as const, reason: 'already-voted' as const };
+  }
+  const votesByIp = db
+    .prepare(
+      `SELECT COUNT(*) AS c
+       FROM app_server_nickname_votes
+       WHERE ip_address = ? AND created_at >= datetime('now', '-24 hours')`
+    )
+    .get(normalizedIp) as { c: number } | undefined;
+  if (Number(votesByIp?.c || 0) >= ipDailyLimit) {
+    return { success: false as const, reason: 'ip-limit' as const };
+  }
+  db.prepare(
+    `INSERT INTO app_server_nickname_votes (server_id, nickname, ip_address, created_at)
+     VALUES (?, ?, ?, ?)`
+  ).run(input.serverId, normalizedNickname, normalizedIp, now);
+  return { success: true as const };
+}
+
+export function upsertServerReview(input: {
+  serverId: number;
+  userId?: string | null;
+  fingerprint: string;
+  text: string;
+  rating: number;
+  authorName?: string | null;
+}) {
+  const db = getDb();
+  const now = nowIso();
+  const normalizedText = String(input.text || '').trim();
+  const normalizedRating = Math.max(1, Math.min(5, Number(input.rating || 0)));
+  const normalizedAuthor = String(input.authorName || '').trim().slice(0, 80) || null;
+  if (!normalizedText) {
+    throw new Error('Текст відгуку є обовʼязковим');
+  }
+  if (normalizedText.length > 250) {
+    throw new Error('Відгук може містити максимум 250 символів');
+  }
+  if (input.userId) {
+    const existingByUser = db
+      .prepare('SELECT id FROM app_server_reviews WHERE server_id = ? AND user_id = ? LIMIT 1')
+      .get(input.serverId, input.userId) as { id: number } | undefined;
+    if (existingByUser) {
+      db.prepare(
+        `UPDATE app_server_reviews
+         SET text = ?, rating = ?, fingerprint = ?, author_name = COALESCE(?, author_name), updated_at = ?
+         WHERE id = ?`
+      ).run(normalizedText, normalizedRating, input.fingerprint, normalizedAuthor, now, existingByUser.id);
+      return { updated: true };
+    }
+  }
+  const existingByFingerprint = db
+    .prepare('SELECT id FROM app_server_reviews WHERE server_id = ? AND fingerprint = ? LIMIT 1')
+    .get(input.serverId, input.fingerprint) as { id: number } | undefined;
+  if (existingByFingerprint) {
+    db.prepare(
+      `UPDATE app_server_reviews
+       SET text = ?, rating = ?, user_id = COALESCE(user_id, ?), author_name = COALESCE(?, author_name), updated_at = ?
+       WHERE id = ?`
+    ).run(normalizedText, normalizedRating, input.userId || null, normalizedAuthor, now, existingByFingerprint.id);
+    return { updated: true };
+  }
+  db.prepare(
+    `INSERT INTO app_server_reviews (server_id, user_id, fingerprint, author_name, text, rating, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+  ).run(input.serverId, input.userId || null, input.fingerprint, normalizedAuthor, normalizedText, normalizedRating, now, now);
+  return { created: true };
+}
+
+export function listServerReviews(serverId: number, limit = 50): ServerReview[] {
+  const db = getDb();
+  const rows = db
+    .prepare(
+      `SELECT
+         r.id, r.server_id, r.user_id, r.author_name, r.text, r.rating, r.created_at, r.updated_at,
+         u.full_name, u.avatar_url
+       FROM app_server_reviews r
+       LEFT JOIN app_users u ON u.id = r.user_id
+       WHERE r.server_id = ?
+       ORDER BY datetime(r.updated_at) DESC
+       LIMIT ?`
+    )
+    .all(serverId, Math.max(1, Math.min(limit, 100))) as DbServerReviewRow[];
+  return rows.map(mapServerReviewRow);
+}
+
+
+export function listServerVotes(serverId: number, limit = 50): ServerVoteEntry[] {
+  const db = getDb();
+  const rows = db
+    .prepare(
+      `SELECT
+         v.id, v.server_id, v.nickname, v.ip_address, v.created_at
+       FROM app_server_nickname_votes v
+       WHERE v.server_id = ?
+       ORDER BY datetime(v.created_at) DESC
+       LIMIT ?`
+    )
+    .all(serverId, Math.max(1, Math.min(limit, 100))) as DbServerVoteRow[];
+  return rows.map(mapServerVoteRow);
+}
+
+export function listTopServerVoters(serverId: number, limit = 10): ServerVoteEntry[] {
+  const db = getDb();
+  const rows = db
+    .prepare(
+      `SELECT
+         MIN(v.id) AS id,
+         v.server_id,
+         v.nickname,
+         MIN(v.ip_address) AS ip_address,
+         MAX(v.created_at) AS created_at,
+         COUNT(*) AS vote_count
+       FROM app_server_nickname_votes v
+       WHERE v.server_id = ?
+       GROUP BY v.server_id, v.nickname
+       ORDER BY vote_count DESC, datetime(created_at) DESC
+       LIMIT ?`
+    )
+    .all(serverId, Math.max(1, Math.min(limit, 100))) as DbServerVoteRow[];
+  return rows.map(mapServerVoteRow);
+}
+
+export function getServerEngagementSummary(serverId: number) {
+  const db = getDb();
+  const viewsRow = db
+    .prepare('SELECT COUNT(*) AS c FROM app_server_views WHERE server_id = ?')
+    .get(serverId) as { c: number } | undefined;
+  const votesRow = db
+    .prepare('SELECT COUNT(*) AS c FROM app_server_nickname_votes WHERE server_id = ?')
+    .get(serverId) as { c: number } | undefined;
+  const reviewsRow = db
+    .prepare('SELECT COUNT(*) AS c, AVG(rating) AS avg_rating FROM app_server_reviews WHERE server_id = ?')
+    .get(serverId) as { c: number; avg_rating: number | null } | undefined;
+  return {
+    views: Number(viewsRow?.c || 0),
+    votes: Number(votesRow?.c || 0),
+    reviews: Number(reviewsRow?.c || 0),
+    averageRating: Number(reviewsRow?.avg_rating || 0),
+  };
+}
+
+export function getServerReviewByActor(input: { serverId: number; userId?: string | null; fingerprint: string }) {
+  const db = getDb();
+  if (input.userId) {
+    const row = db
+      .prepare('SELECT id, text, rating, created_at, updated_at FROM app_server_reviews WHERE server_id = ? AND user_id = ? LIMIT 1')
+      .get(input.serverId, input.userId) as { id: number; text: string; rating: number; created_at: string; updated_at: string } | undefined;
+    if (row) {
+      return {
+        id: Number(row.id),
+        text: String(row.text || ''),
+        rating: Number(row.rating || 0),
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      };
+    }
+  }
+  const row = db
+    .prepare('SELECT id, text, rating, created_at, updated_at FROM app_server_reviews WHERE server_id = ? AND fingerprint = ? LIMIT 1')
+    .get(input.serverId, input.fingerprint) as { id: number; text: string; rating: number; created_at: string; updated_at: string } | undefined;
+  if (!row) return null;
+  return {
+    id: Number(row.id),
+    text: String(row.text || ''),
+    rating: Number(row.rating || 0),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export function recordServerOnlineSample(input: { serverId: number; online: boolean; players: number; max: number; votes: number; views: number }) {
+  const db = getDb();
+  const recordedAt = nowIso();
+  db.prepare(
+    `INSERT INTO app_server_online_samples (server_id, online, players, max, votes, views, recorded_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`
+  ).run(
+    input.serverId,
+    input.online ? 1 : 0,
+    Math.max(0, Number(input.players || 0)),
+    Math.max(0, Number(input.max || 0)),
+    Math.max(0, Number(input.votes || 0)),
+    Math.max(0, Number(input.views || 0)),
+    recordedAt
+  );
+  db.prepare(
+    `DELETE FROM app_server_online_samples
+     WHERE server_id = ?
+       AND recorded_at < datetime('now', '-3 days')`
+  ).run(input.serverId);
+}
+
+export function listServerOnlineSamples(serverId: number, hours = 24) {
+  const db = getDb();
+  const rows = db.prepare(
+    `SELECT server_id, online, players, max, votes, views, recorded_at
+     FROM app_server_online_samples
+     WHERE server_id = ?
+       AND recorded_at >= datetime('now', ?)
+     ORDER BY datetime(recorded_at) ASC`
+  ).all(serverId, `-${Math.max(1, Math.min(hours, 24 * 365))} hours`) as DbServerOnlineSampleRow[];
+  return rows.map((row) => ({
+    serverId: Number(row.server_id),
+    online: Boolean(row.online),
+    players: Number(row.players || 0),
+    max: Number(row.max || 0),
+    votes: Number(row.votes || 0),
+    views: Number(row.views || 0),
+    recordedAt: row.recorded_at,
+  }));
+}
+
+export function getLatestServerOnlineSample(serverId: number) {
+  const db = getDb();
+  const row = db.prepare(
+    `SELECT server_id, online, players, max, votes, views, recorded_at
+     FROM app_server_online_samples
+     WHERE server_id = ?
+     ORDER BY datetime(recorded_at) DESC
+     LIMIT 1`
+  ).get(serverId) as DbServerOnlineSampleRow | undefined;
+  if (!row) return null;
+  return {
+    serverId: Number(row.server_id),
+    online: Boolean(row.online),
+    players: Number(row.players || 0),
+    max: Number(row.max || 0),
+    votes: Number(row.votes || 0),
+    views: Number(row.views || 0),
+    recordedAt: row.recorded_at,
+  };
+}
+
+export type UserDashboardVote = {
+  serverId: number;
+  serverName: string;
+  nickname: string;
+  votedAt: string;
+  canVoteAt: string;
+  cooldownHours: number;
+  cooldownRemainingHours: number;
+  isCooldownActive: boolean;
+};
+
+export type UserDashboardReview = {
+  id: number;
+  serverId: number;
+  serverName: string;
+  rating: number;
+  text: string;
+  updatedAt: string;
+};
+
+export type UserDashboardPayload = {
+  role: UserRole;
+  profile: {
+    id: string;
+    username: string;
+    nickname: string;
+    email: string;
+    joinedAt: string;
+  };
+  activity: {
+    votes: UserDashboardVote[];
+    reviews: UserDashboardReview[];
+  };
+  reviews: UserDashboardReview[];
+  votes: UserDashboardVote[];
+};
+
+export type OwnerServerListItem = {
+  serverId: number;
+  serverName: string;
+  status: 'active' | 'pending';
+  totalViews: number;
+  totalVotes: number;
+  averageRating: number;
+  projectId: number | null;
+};
+
+export type OwnerNotification = {
+  id: number;
+  serverId: number | null;
+  type: string;
+  title: string;
+  body: string;
+  createdAt: string;
+  isRead: boolean;
+};
+
+export type OwnerDashboardPayload = {
+  role: UserRole;
+  ownedServers: OwnerServerListItem[];
+  totals: {
+    servers: number;
+    views: number;
+    votes: number;
+    reviews: number;
+    averageRating: number;
+  };
+  notifications: OwnerNotification[];
+};
+
+export type OwnerServerStatsPayload = {
+  summary: {
+    serverId: number;
+    views: number;
+    votes: number;
+    reviews: number;
+    averageRating: number;
+  };
+  charts: {
+    views: Array<{ date: string; value: number }>;
+    votes: Array<{ date: string; value: number }>;
+  };
+};
+
+export type OwnerServerActivityPayload = {
+  latestVotes: ServerVoteEntry[];
+  latestReviews: ServerReview[];
+  geolocation: Array<{
+    countryCode: string;
+    visitors: number;
+  }>;
+};
+
+export function resolveUserRole(input: { userId: string; role?: string | null }): UserRole {
+  const baseRole = normalizeUserRole(input.role);
+  if (baseRole === 'ADMIN') {
+    return 'ADMIN';
+  }
+  const ownedServersCount = countServersByOwner(input.userId);
+  if (ownedServersCount > 0) {
+    return 'OWNER';
+  }
+  return 'USER';
+}
+
+export function registerAuthenticatedServerVote(input: {
+  serverId: number;
+  userId: string;
+  nickname: string;
+  cooldownHours?: number;
+}) {
+  const db = getDb();
+  const cooldownHours = Math.max(1, Number(input.cooldownHours || DEFAULT_VOTE_COOLDOWN_HOURS));
+  const now = new Date();
+  const nowIsoValue = now.toISOString();
+  const existing = db
+    .prepare(
+      `SELECT id, updated_at
+       FROM app_server_votes
+       WHERE server_id = ? AND user_id = ?
+       LIMIT 1`
+    )
+    .get(input.serverId, input.userId) as { id: number; updated_at: string } | undefined;
+  if (!existing) {
+    db.prepare(
+      `INSERT INTO app_server_votes (server_id, user_id, fingerprint, author_name, value, created_at, updated_at)
+       VALUES (?, ?, ?, ?, 1, ?, ?)`
+    ).run(input.serverId, input.userId, `user:${input.userId}`, String(input.nickname || '').trim().slice(0, 60) || null, nowIsoValue, nowIsoValue);
+    return {
+      success: true as const,
+      cooldownHours,
+      votedAt: nowIsoValue,
+      nextVoteAt: new Date(now.getTime() + cooldownHours * 60 * 60 * 1000).toISOString(),
+    };
+  }
+  const lastVoteTime = new Date(existing.updated_at).getTime();
+  const nextVoteTimestamp = lastVoteTime + cooldownHours * 60 * 60 * 1000;
+  if (Number.isFinite(lastVoteTime) && Date.now() < nextVoteTimestamp) {
+    return {
+      success: false as const,
+      reason: 'cooldown' as const,
+      cooldownHours,
+      votedAt: existing.updated_at,
+      nextVoteAt: new Date(nextVoteTimestamp).toISOString(),
+    };
+  }
+  db.prepare(
+    `UPDATE app_server_votes
+     SET author_name = ?, updated_at = ?
+     WHERE id = ?`
+  ).run(String(input.nickname || '').trim().slice(0, 60) || null, nowIsoValue, existing.id);
+  return {
+    success: true as const,
+    cooldownHours,
+    votedAt: nowIsoValue,
+    nextVoteAt: new Date(now.getTime() + cooldownHours * 60 * 60 * 1000).toISOString(),
+  };
+}
+
+function calculateCooldownHours(input: { nextVoteAt: string; now: Date }): number {
+  const target = new Date(input.nextVoteAt).getTime();
+  if (!Number.isFinite(target) || target <= input.now.getTime()) {
+    return 0;
+  }
+  const hoursDiff = (target - input.now.getTime()) / (60 * 60 * 1000);
+  return Math.max(1, Math.ceil(hoursDiff));
+}
+
+export function listNotificationsByUser(input: { userId: string; limit?: number }): OwnerNotification[] {
+  const db = getDb();
+  const rows = db
+    .prepare(
+      `SELECT id, server_id, type, title, body, is_read, created_at
+       FROM app_notifications
+       WHERE user_id = ?
+       ORDER BY datetime(created_at) DESC
+       LIMIT ?`
+    )
+    .all(input.userId, Math.max(1, Math.min(Number(input.limit || 20), 100))) as Array<{
+    id: number;
+    server_id: number | null;
+    type: string;
+    title: string;
+    body: string;
+    is_read: number;
+    created_at: string;
+  }>;
+  return rows.map((row) => ({
+    id: Number(row.id),
+    serverId: row.server_id === null ? null : Number(row.server_id),
+    type: String(row.type || ''),
+    title: String(row.title || ''),
+    body: String(row.body || ''),
+    createdAt: row.created_at,
+    isRead: Boolean(row.is_read),
+  }));
+}
+
+export function createOwnerNotification(input: {
+  serverId: number;
+  type: 'vote' | 'review';
+  actorName: string;
+  text?: string;
+  rating?: number;
+}) {
+  const db = getDb();
+  const serverRow = db
+    .prepare('SELECT id, owner_id, name FROM app_servers WHERE id = ? LIMIT 1')
+    .get(input.serverId) as { id: number; owner_id: string; name: string } | undefined;
+  if (!serverRow) {
+    return;
+  }
+  const title = input.type === 'vote' ? 'New vote received' : 'New review posted';
+  const body =
+    input.type === 'vote'
+      ? `${input.actorName} voted for ${serverRow.name}`
+      : `${input.actorName} left a ${Math.max(1, Math.min(5, Number(input.rating || 5))).toFixed(1)}★ review on ${serverRow.name}${input.text ? `: ${String(input.text).slice(0, 120)}` : ''}`;
+  db.prepare(
+    `INSERT INTO app_notifications (user_id, server_id, type, title, body, is_read, created_at)
+     VALUES (?, ?, ?, ?, ?, 0, ?)`
+  ).run(serverRow.owner_id, serverRow.id, input.type, title, body, nowIso());
+}
+
+export function getUserDashboard(userId: string): UserDashboardPayload {
+  const db = getDb();
+  const userRow = db.prepare('SELECT * FROM app_users WHERE id = ? LIMIT 1').get(userId) as DbUserRow | undefined;
+  if (!userRow) {
+    throw new Error('User not found');
+  }
+  const now = new Date();
+  const role = resolveUserRole({ userId, role: userRow.role });
+  const votes = db
+    .prepare(
+      `SELECT
+         s.id AS server_id,
+         s.name AS server_name,
+         COALESCE(v.author_name, u.full_name, 'player') AS nickname,
+         v.updated_at
+       FROM app_server_votes v
+       JOIN app_servers s ON s.id = v.server_id
+       LEFT JOIN app_users u ON u.id = v.user_id
+       WHERE v.user_id = ?
+       ORDER BY datetime(v.updated_at) DESC`
+    )
+    .all(userId) as Array<{
+    server_id: number;
+    server_name: string;
+    nickname: string;
+    updated_at: string;
+  }>;
+  const voteItems: UserDashboardVote[] = votes.map((row) => {
+    const votedAt = row.updated_at;
+    const nextVoteAt = new Date(new Date(votedAt).getTime() + DEFAULT_VOTE_COOLDOWN_HOURS * 60 * 60 * 1000).toISOString();
+    const cooldownRemainingHours = calculateCooldownHours({ nextVoteAt, now });
+    return {
+      serverId: Number(row.server_id),
+      serverName: String(row.server_name || ''),
+      nickname: String(row.nickname || ''),
+      votedAt,
+      canVoteAt: nextVoteAt,
+      cooldownHours: DEFAULT_VOTE_COOLDOWN_HOURS,
+      cooldownRemainingHours,
+      isCooldownActive: cooldownRemainingHours > 0,
+    };
+  });
+  const reviews = db
+    .prepare(
+      `SELECT
+         r.id,
+         r.server_id,
+         s.name AS server_name,
+         r.rating,
+         r.text,
+         r.updated_at
+       FROM app_server_reviews r
+       JOIN app_servers s ON s.id = r.server_id
+       WHERE r.user_id = ?
+       ORDER BY datetime(r.updated_at) DESC`
+    )
+    .all(userId) as Array<{
+    id: number;
+    server_id: number;
+    server_name: string;
+    rating: number;
+    text: string;
+    updated_at: string;
+  }>;
+  const reviewItems: UserDashboardReview[] = reviews.map((row) => ({
+    id: Number(row.id),
+    serverId: Number(row.server_id),
+    serverName: String(row.server_name || ''),
+    rating: Number(row.rating || 0),
+    text: String(row.text || ''),
+    updatedAt: row.updated_at,
+  }));
+  return {
+    role,
+    profile: {
+      id: userRow.id,
+      username: userRow.full_name || userRow.email.split('@')[0] || 'User',
+      nickname: userRow.profile_slug || (userRow.full_name || 'user').toLowerCase().replace(/[^a-z0-9_]+/g, '_'),
+      email: userRow.email,
+      joinedAt: userRow.created_at,
+    },
+    activity: {
+      votes: voteItems.slice(0, 10),
+      reviews: reviewItems.slice(0, 10),
+    },
+    reviews: reviewItems,
+    votes: voteItems,
+  };
+}
+
+export function getOwnerDashboard(userId: string): OwnerDashboardPayload {
+  const db = getDb();
+  const userRow = db.prepare('SELECT id, role FROM app_users WHERE id = ? LIMIT 1').get(userId) as { id: string; role: string } | undefined;
+  if (!userRow) {
+    throw new Error('User not found');
+  }
+  const role = resolveUserRole({ userId, role: userRow.role });
+  if (role === 'USER') {
+    return {
+      role,
+      ownedServers: [],
+      totals: {
+        servers: 0,
+        views: 0,
+        votes: 0,
+        reviews: 0,
+        averageRating: 0,
+      },
+      notifications: [],
+    };
+  }
+  const rows = db
+    .prepare(
+      `SELECT
+         s.id,
+         s.name,
+         s.verified,
+         s.project_id,
+         COALESCE(v_stats.views_count, 0) AS views_count,
+         COALESCE(vote_stats.votes_count, 0) AS votes_count,
+         COALESCE(review_stats.reviews_count, 0) AS reviews_count,
+         COALESCE(review_stats.average_rating, 0) AS average_rating
+       FROM app_servers s
+       LEFT JOIN (
+         SELECT server_id, COUNT(*) AS views_count
+         FROM app_server_views
+         GROUP BY server_id
+       ) v_stats ON v_stats.server_id = s.id
+       LEFT JOIN (
+         SELECT server_id, COUNT(*) AS votes_count
+         FROM app_server_nickname_votes
+         GROUP BY server_id
+       ) vote_stats ON vote_stats.server_id = s.id
+       LEFT JOIN (
+         SELECT server_id, COUNT(*) AS reviews_count, AVG(rating) AS average_rating
+         FROM app_server_reviews
+         GROUP BY server_id
+       ) review_stats ON review_stats.server_id = s.id
+       WHERE s.owner_id = ?
+       ORDER BY s.project_id NULLS LAST, datetime(s.created_at) DESC`
+    )
+    .all(userId) as Array<{
+    id: number;
+    name: string;
+    verified: number;
+    project_id: number | null;
+    views_count: number;
+    votes_count: number;
+    reviews_count: number;
+    average_rating: number;
+  }>;
+  const ownedServers: OwnerServerListItem[] = rows.map((row) => ({
+    serverId: Number(row.id),
+    serverName: String(row.name || ''),
+    status: Number(row.verified) > 0 ? 'active' : 'pending',
+    totalViews: Number(row.views_count || 0),
+    totalVotes: Number(row.votes_count || 0),
+    averageRating: Number(row.average_rating || 0),
+    projectId: row.project_id ?? null,
+  }));
+  const reviewsCount = rows.reduce((sum, row) => sum + Number(row.reviews_count || 0), 0);
+  const weightedRating = rows.reduce((sum, row) => sum + Number(row.average_rating || 0) * Number(row.reviews_count || 0), 0);
+  return {
+    role,
+    ownedServers,
+    totals: {
+      servers: ownedServers.length,
+      views: ownedServers.reduce((sum, row) => sum + row.totalViews, 0),
+      votes: ownedServers.reduce((sum, row) => sum + row.totalVotes, 0),
+      reviews: reviewsCount,
+      averageRating: reviewsCount > 0 ? weightedRating / reviewsCount : 0,
+    },
+    notifications: listNotificationsByUser({ userId, limit: 20 }),
+  };
+}
+
+function assertServerAccess(input: { serverId: number; userId: string; isAdmin?: boolean }): void {
+  if (input.isAdmin) {
+    return;
+  }
+  const server = getServerById(input.serverId);
+  if (!server || server.ownerId !== input.userId) {
+    throw new Error('Server not found or access denied');
+  }
+}
+
+export function getOwnerServerStats(input: { serverId: number; userId: string; isAdmin?: boolean; days?: number }): OwnerServerStatsPayload {
+  assertServerAccess(input);
+  const db = getDb();
+  const days = Math.max(1, Math.min(Number(input.days || 7), 365));
+  const summary = getServerEngagementSummary(input.serverId);
+  const hourlyVotesRows = db
+    .prepare(
+      `SELECT substr(created_at, 1, 13) AS hour_key, COUNT(*) AS total
+       FROM app_server_nickname_votes
+       WHERE server_id = ? AND created_at >= datetime('now', ?)
+       GROUP BY hour_key`
+    )
+    .all(input.serverId, `-${days} days`) as Array<{ hour_key: string; total: number }>;
+  const hourlyViewsRows = db
+    .prepare(
+      `SELECT substr(created_at, 1, 13) AS hour_key, COUNT(*) AS total
+       FROM app_server_views
+       WHERE server_id = ? AND created_at >= datetime('now', ?)
+       GROUP BY hour_key`
+    )
+    .all(input.serverId, `-${days} days`) as Array<{ hour_key: string; total: number }>;
+  const votesMap = new Map<string, number>();
+  hourlyVotesRows.forEach((row) => {
+    votesMap.set(String(row.hour_key || ''), Number(row.total || 0));
+  });
+  const viewsMap = new Map<string, number>();
+  hourlyViewsRows.forEach((row) => {
+    viewsMap.set(String(row.hour_key || ''), Number(row.total || 0));
+  });
+  const votesSeries: Array<{ date: string; value: number }> = [];
+  const viewsSeries: Array<{ date: string; value: number }> = [];
+  const totalHours = days * 24;
+  for (let offset = totalHours - 1; offset >= 0; offset -= 1) {
+    const date = new Date();
+    date.setUTCMinutes(0, 0, 0);
+    date.setUTCHours(date.getUTCHours() - offset);
+    const hourKey = date.toISOString().slice(0, 13);
+    votesSeries.push({ date: `${hourKey}:00:00.000Z`, value: Number(votesMap.get(hourKey) || 0) });
+    viewsSeries.push({ date: `${hourKey}:00:00.000Z`, value: Number(viewsMap.get(hourKey) || 0) });
+  }
+  return {
+    summary: {
+      serverId: input.serverId,
+      views: summary.views,
+      votes: summary.votes,
+      reviews: summary.reviews,
+      averageRating: summary.averageRating,
+    },
+    charts: {
+      views: viewsSeries,
+      votes: votesSeries,
+    },
+  };
+}
+
+export function getOwnerServerActivity(input: { serverId: number; userId: string; isAdmin?: boolean; limit?: number }): OwnerServerActivityPayload {
+  assertServerAccess(input);
+  const db = getDb();
+  const limit = Math.max(1, Math.min(Number(input.limit || 20), 100));
+  const geolocationRows = db
+    .prepare(
+      `SELECT
+         COALESCE(NULLIF(country_code, ''), 'UN') AS country_code,
+         COUNT(*) AS visitors
+       FROM app_server_views
+       WHERE server_id = ?
+         AND created_at >= datetime('now', '-30 days')
+       GROUP BY country_code
+       ORDER BY visitors DESC
+       LIMIT 10`
+    )
+    .all(input.serverId) as Array<{ country_code: string; visitors: number }>;
+  return {
+    latestVotes: listServerVotes(input.serverId, limit),
+    latestReviews: listServerReviews(input.serverId, limit),
+    geolocation: geolocationRows.map((row) => ({
+      countryCode: String(row.country_code || 'UN').toUpperCase(),
+      visitors: Number(row.visitors || 0),
+    })),
+  };
+}
+
+export function deleteServerById(input: { serverId: number; userId: string; isAdmin?: boolean }) {
+  assertServerAccess(input);
+  const db = getDb();
+  db.prepare('DELETE FROM app_servers WHERE id = ?').run(input.serverId);
+  return { success: true as const };
+}
+
+export function deleteServerReviewById(input: { serverId: number; reviewId: number; userId: string; isAdmin?: boolean }) {
+  assertServerAccess(input);
+  const db = getDb();
+  const result = db.prepare('DELETE FROM app_server_reviews WHERE id = ? AND server_id = ?').run(input.reviewId, input.serverId) as { changes?: number };
+  return { success: Number(result?.changes || 0) > 0 };
+}
+
+// ─── Owner Dashboard (per-server) ───────────────────────────────────────────
+export type DashRange = '24h' | '7d' | '30d' | '90d' | 'all';
+export type DashActivityKind = 'vote' | 'review' | 'view';
+export type DashActivityItem = {
+  kind: DashActivityKind;
+  actor: string;
+  detail: string;
+  rating?: number;
+  createdAt: string;
+  // Source hint for the front-end avatar:
+  //   'mc'      — Minecraft nickname (use mc-heads service)
+  //   'profile' — registered user (use avatarUrl / profileSlug)
+  //   'guest'   — anonymous visitor
+  actorKind: 'mc' | 'profile' | 'guest';
+  avatarUrl?: string | null;
+  profileSlug?: string | null;
+};
+export type DashOwnedServer = {
+  seed: number;
+  name: string;
+  ic: string;
+  addr: string;
+  avatarUrl: string | null;
+};
+export type DashTopVoter = {
+  id: number;
+  nickname: string;
+  voteCount: number;
+  createdAt: string;
+};
+export type DashReviewItem = {
+  id: number;
+  authorName: string;
+  avatarUrl: string | null;
+  profileSlug: string | null;
+  text: string;
+  rating: number;
+  createdAt: string;
+};
+
+const DASH_RANGE_DAYS: Record<DashRange, number> = {
+  '24h': 1,
+  '7d': 7,
+  '30d': 30,
+  '90d': 90,
+  all: 365,
+};
+
+function rangeDays(range: DashRange): number {
+  return DASH_RANGE_DAYS[range] ?? 7;
+}
+
+function countSince(table: 'app_server_views' | 'app_server_nickname_votes' | 'app_server_reviews', serverId: number, sinceDays: number, untilDays?: number): number {
+  const db = getDb();
+  let sql = `SELECT COUNT(*) AS c FROM ${table} WHERE server_id = ? AND created_at >= datetime('now', ?)`;
+  const params: Array<number | string> = [serverId, `-${sinceDays} days`];
+  if (typeof untilDays === 'number') {
+    sql += ` AND created_at < datetime('now', ?)`;
+    params.push(`-${untilDays} days`);
+  }
+  const row = db.prepare(sql).get(...params) as { c: number } | undefined;
+  return Number(row?.c || 0);
+}
+
+function avgRatingSince(serverId: number, sinceDays: number): number {
+  const db = getDb();
+  const row = db
+    .prepare(`SELECT AVG(rating) AS r FROM app_server_reviews WHERE server_id = ? AND created_at >= datetime('now', ?)`)
+    .get(serverId, `-${sinceDays} days`) as { r: number | null } | undefined;
+  return Number(row?.r || 0);
+}
+
+export function getServerDashboardSnapshot(input: { serverId: number; userId: string; isAdmin?: boolean; range?: DashRange }) {
+  assertServerAccess({ serverId: input.serverId, userId: input.userId, isAdmin: input.isAdmin });
+  const db = getDb();
+  const range: DashRange = (input.range as DashRange) || '7d';
+  const days = rangeDays(range);
+
+  // KPI: current vs prior period
+  const votesNow = countSince('app_server_nickname_votes', input.serverId, days);
+  const votesPrior = countSince('app_server_nickname_votes', input.serverId, days * 2, days);
+  const viewsNow = countSince('app_server_views', input.serverId, days);
+  const viewsPrior = countSince('app_server_views', input.serverId, days * 2, days);
+  const reviewsNow = countSince('app_server_reviews', input.serverId, days);
+  const reviewsPrior = countSince('app_server_reviews', input.serverId, days * 2, days);
+  const ratingNow = avgRatingSince(input.serverId, days);
+  const ratingPrior = avgRatingSince(input.serverId, days * 2);
+
+  const summary = getServerEngagementSummary(input.serverId);
+
+  // IP copies — count distinct fingerprints with views (proxy: unique visitors who reached the server page)
+  const uniqueRow = db
+    .prepare(`SELECT COUNT(DISTINCT fingerprint) AS c FROM app_server_views WHERE server_id = ? AND created_at >= datetime('now', ?)`)
+    .get(input.serverId, `-${days} days`) as { c: number } | undefined;
+  const uniqueVisitorsNow = Number(uniqueRow?.c || 0);
+  const uniquePriorRow = db
+    .prepare(`SELECT COUNT(DISTINCT fingerprint) AS c FROM app_server_views WHERE server_id = ? AND created_at >= datetime('now', ?) AND created_at < datetime('now', ?)`)
+    .get(input.serverId, `-${days * 2} days`, `-${days} days`) as { c: number } | undefined;
+  const uniqueVisitorsPrior = Number(uniquePriorRow?.c || 0);
+
+  // Live band: peak today + uptime 30d + current
+  const peakRow = db
+    .prepare(`SELECT MAX(players) AS m FROM app_server_online_samples WHERE server_id = ? AND recorded_at >= date('now')`)
+    .get(input.serverId) as { m: number | null } | undefined;
+  const peakToday = Number(peakRow?.m || 0);
+
+  const uptimeRow = db
+    .prepare(`SELECT AVG(CASE WHEN online = 1 THEN 1.0 ELSE 0.0 END) AS up FROM app_server_online_samples WHERE server_id = ? AND recorded_at >= datetime('now', '-30 days')`)
+    .get(input.serverId) as { up: number | null } | undefined;
+  const uptime30 = uptimeRow?.up == null ? null : Math.round(Number(uptimeRow.up) * 1000) / 10;
+
+  const latest = getLatestServerOnlineSample(input.serverId);
+
+  // Daily chart: avg players per day + distinct visitors per day
+  const playerRows = db
+    .prepare(
+      `SELECT substr(recorded_at, 1, 10) AS d, AVG(players) AS p, MAX(players) AS peak
+       FROM app_server_online_samples
+       WHERE server_id = ? AND recorded_at >= datetime('now', ?)
+       GROUP BY d
+       ORDER BY d ASC`
+    )
+    .all(input.serverId, `-${days} days`) as Array<{ d: string; p: number; peak: number }>;
+  const visitorRows = db
+    .prepare(
+      `SELECT substr(created_at, 1, 10) AS d, COUNT(DISTINCT fingerprint) AS v
+       FROM app_server_views
+       WHERE server_id = ? AND created_at >= datetime('now', ?)
+       GROUP BY d
+       ORDER BY d ASC`
+    )
+    .all(input.serverId, `-${days} days`) as Array<{ d: string; v: number }>;
+  const playerMap = new Map(playerRows.map((row) => [row.d, { avg: Number(row.p || 0), peak: Number(row.peak || 0) }]));
+  const visitorMap = new Map(visitorRows.map((row) => [row.d, Number(row.v || 0)]));
+  const chart: Array<{ date: string; online: number; peak: number; visitors: number }> = [];
+  for (let offset = days - 1; offset >= 0; offset -= 1) {
+    const date = new Date();
+    date.setUTCHours(0, 0, 0, 0);
+    date.setUTCDate(date.getUTCDate() - offset);
+    const key = date.toISOString().slice(0, 10);
+    const player = playerMap.get(key);
+    chart.push({
+      date: key,
+      online: Math.round(player?.avg || 0),
+      peak: Math.round(player?.peak || 0),
+      visitors: visitorMap.get(key) || 0,
+    });
+  }
+
+  // Activity feed: merge votes + reviews + views (last 50 each), sort, limit 60
+  const recentVotes = listServerVotes(input.serverId, 50).map<DashActivityItem>((v) => ({
+    kind: 'vote',
+    actor: v.nickname,
+    actorKind: 'mc',
+    detail: `Голос #${v.id}`,
+    createdAt: v.createdAt,
+  }));
+  const recentReviewsRows = db
+    .prepare(
+      `SELECT r.id, r.text, r.rating, r.created_at, r.author_name, r.user_id,
+              u.full_name AS user_full_name, u.avatar_url AS user_avatar, u.profile_slug AS user_slug
+       FROM app_server_reviews r
+       LEFT JOIN app_users u ON u.id = r.user_id
+       WHERE r.server_id = ?
+       ORDER BY datetime(r.created_at) DESC
+       LIMIT 50`
+    )
+    .all(input.serverId) as Array<{
+      id: number;
+      text: string | null;
+      rating: number;
+      created_at: string;
+      author_name: string | null;
+      user_id: string | null;
+      user_full_name: string | null;
+      user_avatar: string | null;
+      user_slug: string | null;
+    }>;
+  const recentReviews = recentReviewsRows.map<DashActivityItem>((row) => {
+    const isProfile = Boolean(row.user_id);
+    const actor = String(row.user_full_name || row.author_name || 'Гість');
+    const text = String(row.text || '').trim();
+    const trimmed = text.length > 90 ? `${text.slice(0, 90)}…` : text;
+    return {
+      kind: 'review',
+      actor,
+      actorKind: isProfile ? 'profile' : 'guest',
+      detail: `${row.rating}★${trimmed ? ` "${trimmed}"` : ''}`,
+      rating: Number(row.rating || 0),
+      createdAt: row.created_at,
+      avatarUrl: row.user_avatar || null,
+      profileSlug: row.user_slug || null,
+    };
+  });
+  const recentViewsRows = db
+    .prepare(
+      `SELECT v.id, v.created_at, v.fingerprint, v.user_id,
+              u.full_name AS user_full_name, u.avatar_url AS user_avatar, u.profile_slug AS user_slug
+       FROM app_server_views v
+       LEFT JOIN app_users u ON u.id = v.user_id
+       WHERE v.server_id = ?
+       ORDER BY datetime(v.created_at) DESC
+       LIMIT 50`
+    )
+    .all(input.serverId) as Array<{
+      id: number;
+      created_at: string;
+      fingerprint: string;
+      user_id: string | null;
+      user_full_name: string | null;
+      user_avatar: string | null;
+      user_slug: string | null;
+    }>;
+  const recentViews = recentViewsRows.map<DashActivityItem>((row) => {
+    const isProfile = Boolean(row.user_id);
+    const guestLabel = row.fingerprint ? `guest_${String(row.fingerprint).slice(0, 6)}` : 'guest';
+    const actor = isProfile ? String(row.user_full_name || 'Користувач') : guestLabel;
+    return {
+      kind: 'view',
+      actor,
+      actorKind: isProfile ? 'profile' : 'guest',
+      detail: isProfile ? 'Переглянув сторінку серверу' : 'Анонімний перегляд сторінки',
+      createdAt: row.created_at,
+      avatarUrl: row.user_avatar || null,
+      profileSlug: row.user_slug || null,
+    };
+  });
+  const activity = [...recentVotes, ...recentReviews, ...recentViews]
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .slice(0, 60);
+
+  // Top voters (Minecraft nicknames)
+  const topVoters = listTopServerVoters(input.serverId, 8).map<DashTopVoter>((v) => ({
+    id: v.id,
+    nickname: v.nickname,
+    voteCount: v.voteCount,
+    createdAt: v.createdAt,
+  }));
+
+  // Recent reviews for the bottom card — include profile data
+  const reviewsListRows = db
+    .prepare(
+      `SELECT r.id, r.text, r.rating, r.created_at, r.author_name, r.user_id,
+              u.full_name AS user_full_name, u.avatar_url AS user_avatar, u.profile_slug AS user_slug
+       FROM app_server_reviews r
+       LEFT JOIN app_users u ON u.id = r.user_id
+       WHERE r.server_id = ?
+       ORDER BY datetime(r.created_at) DESC
+       LIMIT 4`
+    )
+    .all(input.serverId) as Array<{
+      id: number;
+      text: string | null;
+      rating: number;
+      created_at: string;
+      author_name: string | null;
+      user_id: string | null;
+      user_full_name: string | null;
+      user_avatar: string | null;
+      user_slug: string | null;
+    }>;
+  const reviewsList: DashReviewItem[] = reviewsListRows.map((row) => ({
+    id: Number(row.id),
+    authorName: String(row.user_full_name || row.author_name || 'Гість'),
+    avatarUrl: row.user_avatar || null,
+    profileSlug: row.user_slug || null,
+    text: String(row.text || ''),
+    rating: Number(row.rating || 0),
+    createdAt: row.created_at,
+  }));
+
+  // List of all servers owned by the user (for the dashboard server-picker)
+  const ownedServerRows = db
+    .prepare(
+      `SELECT id, name, addr, avatar_url
+       FROM app_servers
+       WHERE owner_id = ?
+       ORDER BY name COLLATE NOCASE ASC`
+    )
+    .all(input.userId) as Array<{ id: number; name: string; addr: string; avatar_url: string | null }>;
+  const ownedServers: DashOwnedServer[] = ownedServerRows.map((row) => ({
+    seed: Number(row.id),
+    name: String(row.name || ''),
+    ic: getServerInitials(String(row.name || '')),
+    addr: String(row.addr || ''),
+    avatarUrl: row.avatar_url || null,
+  }));
+
+  // Heatmap: views by (day_of_week × hour) over last 7 days
+  const heatRows = db
+    .prepare(
+      `SELECT
+         CAST(strftime('%w', created_at) AS INTEGER) AS dow,
+         CAST(strftime('%H', created_at) AS INTEGER) AS hour,
+         COUNT(*) AS c
+       FROM app_server_views
+       WHERE server_id = ? AND created_at >= datetime('now', '-7 days')
+       GROUP BY dow, hour`
+    )
+    .all(input.serverId) as Array<{ dow: number; hour: number; c: number }>;
+  const heatmap: number[][] = Array.from({ length: 7 }, () => Array.from({ length: 24 }, () => 0));
+  let heatMax = 0;
+  heatRows.forEach((row) => {
+    const dowSqlite = Number(row.dow); // 0 = Sunday in SQLite
+    const dow = dowSqlite === 0 ? 6 : dowSqlite - 1; // remap: 0=Mon … 6=Sun
+    const hour = Number(row.hour);
+    const count = Number(row.c || 0);
+    if (dow >= 0 && dow < 7 && hour >= 0 && hour < 24) {
+      heatmap[dow][hour] = count;
+      if (count > heatMax) heatMax = count;
+    }
+  });
+
+  // Country breakdown — distinct visitors per country over the selected period
+  const countryRows = db
+    .prepare(
+      `SELECT
+         COALESCE(NULLIF(country_code, ''), 'UN') AS code,
+         COUNT(DISTINCT fingerprint) AS visitors
+       FROM app_server_views
+       WHERE server_id = ? AND created_at >= datetime('now', ?)
+       GROUP BY code
+       ORDER BY visitors DESC
+       LIMIT 8`
+    )
+    .all(input.serverId, `-${days} days`) as Array<{ code: string; visitors: number }>;
+  const countryTotal = countryRows.reduce((sum, row) => sum + Number(row.visitors || 0), 0);
+  const byCountry = countryRows.map((row) => ({
+    code: String(row.code || 'UN').toUpperCase(),
+    visitors: Number(row.visitors || 0),
+    percent: countryTotal > 0 ? (Number(row.visitors) / countryTotal) * 100 : 0,
+  }));
+
+  return {
+    range,
+    days,
+    summary,
+    kpi: {
+      votes: { current: votesNow, prior: votesPrior },
+      visitors: { current: uniqueVisitorsNow, prior: uniqueVisitorsPrior },
+      views: { current: viewsNow, prior: viewsPrior },
+      reviews: { current: reviewsNow, prior: reviewsPrior },
+      rating: { current: ratingNow, prior: ratingPrior, overall: summary.averageRating },
+    },
+    live: {
+      currentPlayers: latest?.players || 0,
+      currentMax: latest?.max || 0,
+      online: Boolean(latest?.online),
+      peakToday,
+      uptime30,
+      lastSampleAt: latest?.recordedAt || null,
+    },
+    chart,
+    activity,
+    topVoters,
+    reviews: reviewsList,
+    heatmap,
+    heatMax,
+    ownedServers,
+    byCountry,
+  };
+}
+
+/**
+ * Backfill missing country_code on app_server_views rows that have an IP but no country.
+ * Returns the number of rows that were updated. Safe to call repeatedly.
+ */
+export async function backfillViewCountries(input: { serverId?: number; limit?: number } = {}): Promise<{ scanned: number; updated: number }> {
+  const db = getDb();
+  const limit = Math.max(1, Math.min(Number(input.limit || 50), 200));
+  const rows = (input.serverId
+    ? db.prepare(
+        `SELECT id, ip_address FROM app_server_views
+         WHERE server_id = ?
+           AND (country_code IS NULL OR country_code = '')
+           AND ip_address IS NOT NULL AND ip_address != ''
+         ORDER BY id DESC LIMIT ?`
+      ).all(input.serverId, limit)
+    : db.prepare(
+        `SELECT id, ip_address FROM app_server_views
+         WHERE (country_code IS NULL OR country_code = '')
+           AND ip_address IS NOT NULL AND ip_address != ''
+         ORDER BY id DESC LIMIT ?`
+      ).all(limit)) as Array<{ id: number; ip_address: string }>;
+  if (rows.length === 0) return { scanned: 0, updated: 0 };
+  const { lookupCountry } = await import('@/lib/geoip');
+  let updated = 0;
+  // Group by IP to minimize lookups
+  const ipToIds = new Map<string, number[]>();
+  rows.forEach((row) => {
+    const ip = String(row.ip_address || '').trim();
+    if (!ip) return;
+    const list = ipToIds.get(ip) || [];
+    list.push(Number(row.id));
+    ipToIds.set(ip, list);
+  });
+  const updateStmt = db.prepare('UPDATE app_server_views SET country_code = ? WHERE id = ?');
+  const entries = Array.from(ipToIds.entries());
+  for (let i = 0; i < entries.length; i += 1) {
+    const [ip, ids] = entries[i];
+    const geo = await lookupCountry(ip);
+    if (!geo?.code) continue;
+    for (let j = 0; j < ids.length; j += 1) {
+      updateStmt.run(geo.code, ids[j]);
+      updated += 1;
+    }
+  }
+  return { scanned: rows.length, updated };
+}
+
+// ─── User profile summary (karma + activity feed) ───────────────────────────
+
+export type UserProfileActivityKind =
+  | 'server_created'
+  | 'server_verified'
+  | 'vote_received'
+  | 'review_received'
+  | 'profile_updated';
+
+export type UserProfileActivity = {
+  kind: UserProfileActivityKind;
+  serverId: number | null;
+  serverName: string | null;
+  actor: string | null;
+  detail: string;
+  rating?: number | null;
+  createdAt: string;
+};
+
+export type UserProfileSummary = {
+  votesReceived: number;
+  reviewsReceived: number;
+  viewsReceived: number;
+  averageRating: number;
+  serversCount: number;
+  karma: number;
+  activity: UserProfileActivity[];
+};
+
+/**
+ * Aggregate engagement on all servers owned by the user, plus a recent
+ * activity feed (server creations, votes received, reviews received,
+ * profile updates).
+ *
+ * Karma = votes_received + reviews_received × 5 + round((avg_rating - 3) × reviews × 2)
+ *   - rewards both popularity (votes) and quality (positive reviews)
+ *   - average rating > 3 boosts, < 3 lightly penalises
+ */
+export function getUserProfileSummary(userId: string, activityLimit = 30): UserProfileSummary {
+  const db = getDb();
+
+  // Engagement aggregates across the user's owned servers
+  const engagementRow = db
+    .prepare(
+      `SELECT
+         (SELECT COUNT(*) FROM app_server_nickname_votes v
+            JOIN app_servers s ON s.id = v.server_id
+            WHERE s.owner_id = ?) AS votes_received,
+         (SELECT COUNT(*) FROM app_server_reviews r
+            JOIN app_servers s ON s.id = r.server_id
+            WHERE s.owner_id = ?) AS reviews_received,
+         (SELECT COUNT(*) FROM app_server_views vw
+            JOIN app_servers s ON s.id = vw.server_id
+            WHERE s.owner_id = ?) AS views_received,
+         (SELECT AVG(r.rating) FROM app_server_reviews r
+            JOIN app_servers s ON s.id = r.server_id
+            WHERE s.owner_id = ?) AS avg_rating,
+         (SELECT COUNT(*) FROM app_servers WHERE owner_id = ?) AS servers_count`
+    )
+    .get(userId, userId, userId, userId, userId) as {
+      votes_received: number | null;
+      reviews_received: number | null;
+      views_received: number | null;
+      avg_rating: number | null;
+      servers_count: number | null;
+    } | undefined;
+
+  const votesReceived = Number(engagementRow?.votes_received || 0);
+  const reviewsReceived = Number(engagementRow?.reviews_received || 0);
+  const viewsReceived = Number(engagementRow?.views_received || 0);
+  const averageRating = Number(engagementRow?.avg_rating || 0);
+  const serversCount = Number(engagementRow?.servers_count || 0);
+
+  const ratingBonus = reviewsReceived > 0 ? Math.round((averageRating - 3) * reviewsReceived * 2) : 0;
+  const karma = Math.max(0, votesReceived + reviewsReceived * 5 + ratingBonus);
+
+  // Recent activity — pulled from multiple tables, merged client-side, sorted desc.
+  const safeLimit = Math.max(1, Math.min(Number(activityLimit || 30), 100));
+
+  const serverRows = db
+    .prepare(
+      `SELECT id, name, created_at, verified
+       FROM app_servers
+       WHERE owner_id = ?
+       ORDER BY datetime(created_at) DESC
+       LIMIT ?`
+    )
+    .all(userId, safeLimit) as Array<{ id: number; name: string; created_at: string; verified: number }>;
+
+  const voteRows = db
+    .prepare(
+      `SELECT v.id, v.nickname, v.created_at, s.id AS server_id, s.name AS server_name
+       FROM app_server_nickname_votes v
+       JOIN app_servers s ON s.id = v.server_id
+       WHERE s.owner_id = ?
+       ORDER BY datetime(v.created_at) DESC
+       LIMIT ?`
+    )
+    .all(userId, safeLimit) as Array<{ id: number; nickname: string; created_at: string; server_id: number; server_name: string }>;
+
+  const reviewRows = db
+    .prepare(
+      `SELECT r.id, r.text, r.rating, r.created_at, r.author_name,
+              s.id AS server_id, s.name AS server_name,
+              u.full_name AS reviewer_name
+       FROM app_server_reviews r
+       JOIN app_servers s ON s.id = r.server_id
+       LEFT JOIN app_users u ON u.id = r.user_id
+       WHERE s.owner_id = ?
+       ORDER BY datetime(r.created_at) DESC
+       LIMIT ?`
+    )
+    .all(userId, safeLimit) as Array<{
+      id: number;
+      text: string | null;
+      rating: number;
+      created_at: string;
+      author_name: string | null;
+      server_id: number;
+      server_name: string;
+      reviewer_name: string | null;
+    }>;
+
+  const profileRow = db
+    .prepare('SELECT updated_at, created_at FROM app_users WHERE id = ? LIMIT 1')
+    .get(userId) as { updated_at: string | null; created_at: string | null } | undefined;
+
+  const activity: UserProfileActivity[] = [];
+
+  serverRows.forEach((row) => {
+    activity.push({
+      kind: 'server_created',
+      serverId: Number(row.id),
+      serverName: String(row.name || ''),
+      actor: null,
+      detail: 'Додав сервер у моніторинг',
+      createdAt: row.created_at,
+    });
+    if (Number(row.verified) > 0) {
+      activity.push({
+        kind: 'server_verified',
+        serverId: Number(row.id),
+        serverName: String(row.name || ''),
+        actor: null,
+        detail: 'Сервер пройшов верифікацію',
+        createdAt: row.created_at,
+      });
+    }
+  });
+
+  voteRows.forEach((row) => {
+    activity.push({
+      kind: 'vote_received',
+      serverId: Number(row.server_id),
+      serverName: String(row.server_name || ''),
+      actor: String(row.nickname || ''),
+      detail: `Голос від ${row.nickname}`,
+      createdAt: row.created_at,
+    });
+  });
+
+  reviewRows.forEach((row) => {
+    const text = String(row.text || '').trim();
+    const trimmed = text.length > 90 ? `${text.slice(0, 90)}…` : text;
+    const reviewer = String(row.reviewer_name || row.author_name || 'Гість');
+    activity.push({
+      kind: 'review_received',
+      serverId: Number(row.server_id),
+      serverName: String(row.server_name || ''),
+      actor: reviewer,
+      detail: `${row.rating}★ від ${reviewer}${trimmed ? ` — "${trimmed}"` : ''}`,
+      rating: Number(row.rating),
+      createdAt: row.created_at,
+    });
+  });
+
+  if (profileRow?.updated_at && profileRow.updated_at !== profileRow.created_at) {
+    activity.push({
+      kind: 'profile_updated',
+      serverId: null,
+      serverName: null,
+      actor: null,
+      detail: 'Оновив свій профіль',
+      createdAt: profileRow.updated_at,
+    });
+  }
+
+  activity.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+  return {
+    votesReceived,
+    reviewsReceived,
+    viewsReceived,
+    averageRating,
+    serversCount,
+    karma,
+    activity: activity.slice(0, safeLimit),
+  };
+}
+
+function mapNewsPostRow(row: DbNewsRow): NewsPost {
+  const blocks = parseNewsBlocks(row.content_json, row.content);
+  return {
+    id: Number(row.id),
+    authorUserId: String(row.author_user_id || ''),
+    title: String(row.title || ''),
+    excerpt: String(row.excerpt || ''),
+    content: String(row.content || ''),
+    blocks,
+    category: String(row.category || 'Новини'),
+    coverUrl: row.cover_url || null,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    authorName: String(row.full_name || 'Користувач'),
+    authorSlug: row.profile_slug || null,
+    authorAvatarUrl: row.avatar_url || null,
+  };
+}
+
+function normalizeNewsText(value: string, maxLength: number): string {
+  return String(value || '').replace(/\r\n/g, '\n').trim().slice(0, maxLength);
+}
+
+function isValidVideoUrl(value: string): boolean {
+  const trimmed = String(value || '').trim();
+  if (!trimmed) return false;
+  if (/^https?:\/\//i.test(trimmed)) return true;
+  // Site-relative paths produced by /api/uploads (locally hosted videos)
+  if (trimmed.startsWith('/uploads/')) return true;
+  return false;
+}
+
+function buildNewsPlainContent(blocks: NewsContentBlock[]): string {
+  const lines: string[] = [];
+  blocks.forEach((block) => {
+    if (block.type === 'heading' || block.type === 'paragraph' || block.type === 'quote') {
+      const text = String(block.text || '').trim();
+      if (text) {
+        lines.push(text);
+      }
+    }
+    if ((block.type === 'image' || block.type === 'video') && block.caption) {
+      lines.push(String(block.caption).trim());
+    }
+  });
+  return normalizeNewsText(lines.join('\n\n'), 4000);
+}
+
+function normalizeNewsBlocks(input: { blocks?: NewsContentBlock[]; fallbackContent: string }): NewsContentBlock[] {
+  const incomingBlocks = Array.isArray(input.blocks) ? input.blocks : [];
+  const normalizedBlocks: NewsContentBlock[] = [];
+  incomingBlocks.forEach((block, index) => {
+    const id = normalizeNewsText(block?.id || `block-${index + 1}`, 64) || `block-${index + 1}`;
+    const type = String(block?.type || '').trim() as NewsBlockType;
+    if (type === 'heading' || type === 'paragraph' || type === 'quote') {
+      const text = normalizeNewsText(String(block?.text || ''), 2500);
+      if (text) {
+        normalizedBlocks.push({ id, type, text });
+      }
+      return;
+    }
+    if (type === 'image') {
+      const url = sanitizeImageUrl(block?.url || '', 'News image');
+      if (!url) {
+        return;
+      }
+      normalizedBlocks.push({
+        id,
+        type,
+        url,
+        caption: normalizeNewsText(String(block?.caption || ''), 220),
+      });
+      return;
+    }
+    if (type === 'video') {
+      const url = normalizeNewsText(String(block?.url || ''), 2048);
+      if (!url || !isValidVideoUrl(url)) {
+        return;
+      }
+      normalizedBlocks.push({
+        id,
+        type,
+        url,
+        caption: normalizeNewsText(String(block?.caption || ''), 220),
+      });
+    }
+  });
+  if (normalizedBlocks.length === 0) {
+    const fallbackText = normalizeNewsText(input.fallbackContent, 4000);
+    if (fallbackText) {
+      return [{ id: 'block-1', type: 'paragraph', text: fallbackText }];
+    }
+  }
+  return normalizedBlocks.slice(0, 80);
+}
+
+function parseNewsBlocks(rawJson: string | null, fallbackContent: string): NewsContentBlock[] {
+  if (rawJson) {
+    try {
+      const parsed = JSON.parse(rawJson) as NewsContentBlock[];
+      const blocks = normalizeNewsBlocks({
+        blocks: parsed,
+        fallbackContent,
+      });
+      if (blocks.length > 0) {
+        return blocks;
+      }
+    } catch {}
+  }
+  return normalizeNewsBlocks({
+    fallbackContent,
+  });
+}
+
+export function listNewsPosts(limit = 30): NewsPost[] {
+  const db = getDb();
+  const rows = db
+    .prepare(
+      `SELECT
+         n.id, n.author_user_id, n.title, n.excerpt, n.content, n.content_json, n.category, n.cover_url, n.created_at, n.updated_at,
+         u.full_name, u.profile_slug, u.avatar_url
+       FROM app_news_posts n
+       JOIN app_users u ON u.id = n.author_user_id
+       ORDER BY datetime(n.created_at) DESC
+       LIMIT ?`
+    )
+    .all(Math.max(1, Math.min(Number(limit || 30), 100))) as DbNewsRow[];
+  return rows.map(mapNewsPostRow);
+}
+
+export function getNewsPostById(newsId: number): NewsPost | null {
+  const db = getDb();
+  const row = db
+    .prepare(
+      `SELECT
+         n.id, n.author_user_id, n.title, n.excerpt, n.content, n.content_json, n.category, n.cover_url, n.created_at, n.updated_at,
+         u.full_name, u.profile_slug, u.avatar_url
+       FROM app_news_posts n
+       JOIN app_users u ON u.id = n.author_user_id
+       WHERE n.id = ?
+       LIMIT 1`
+    )
+    .get(newsId) as DbNewsRow | undefined;
+  if (!row) {
+    return null;
+  }
+  return mapNewsPostRow(row);
+}
+
+export function createNewsPost(input: {
+  authorUserId: string;
+  title: string;
+  excerpt?: string;
+  content?: string;
+  blocks?: NewsContentBlock[];
+  category?: string;
+  coverUrl?: string | null;
+}): NewsPost {
+  const db = getDb();
+  const title = normalizeNewsText(input.title, 140);
+  const blocks = normalizeNewsBlocks({
+    blocks: input.blocks,
+    fallbackContent: String(input.content || ''),
+  });
+  const content = buildNewsPlainContent(blocks);
+  const excerpt = normalizeNewsText(input.excerpt || '', 320);
+  const category = normalizeNewsText(input.category || 'Новини', 40) || 'Новини';
+  const coverUrl = input.coverUrl === undefined ? null : sanitizeImageUrl(input.coverUrl, 'News cover');
+  if (!title) {
+    throw new Error('Заголовок новини є обовʼязковим');
+  }
+  if (!content) {
+    throw new Error('Текст новини є обовʼязковим');
+  }
+  const createdAt = nowIso();
+  const result = db
+    .prepare(
+      `INSERT INTO app_news_posts (author_user_id, title, excerpt, content, content_json, category, cover_url, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    )
+    .run(
+      input.authorUserId,
+      title,
+      excerpt,
+      content,
+      JSON.stringify(blocks),
+      category,
+      coverUrl,
+      createdAt,
+      createdAt
+    ) as { lastInsertRowid?: number | bigint };
+  const insertedRow = db
+    .prepare(
+      `SELECT
+         n.id, n.author_user_id, n.title, n.excerpt, n.content, n.content_json, n.category, n.cover_url, n.created_at, n.updated_at,
+         u.full_name, u.profile_slug, u.avatar_url
+       FROM app_news_posts n
+       JOIN app_users u ON u.id = n.author_user_id
+       WHERE n.id = ?
+       LIMIT 1`
+    )
+    .get(Number(result.lastInsertRowid || 0)) as DbNewsRow | undefined;
+  if (!insertedRow) {
+    throw new Error('Не вдалося створити новину');
+  }
+  return mapNewsPostRow(insertedRow);
+}
+
+function assertNewsPostAccess(input: { newsId: number; actorUserId: string; isAdmin?: boolean }): void {
+  if (input.isAdmin) {
+    return;
+  }
+  const current = getNewsPostById(input.newsId);
+  if (!current || current.authorUserId !== input.actorUserId) {
+    throw new Error('Новину не знайдено або доступ заборонено');
+  }
+}
+
+export function updateNewsPost(input: UpdateNewsPostInput): NewsPost {
+  assertNewsPostAccess({
+    newsId: input.newsId,
+    actorUserId: input.actorUserId,
+    isAdmin: input.isAdmin,
+  });
+  const db = getDb();
+  const title = normalizeNewsText(input.title, 140);
+  const blocks = normalizeNewsBlocks({
+    blocks: input.blocks,
+    fallbackContent: String(input.content || ''),
+  });
+  const content = buildNewsPlainContent(blocks);
+  const excerpt = normalizeNewsText(input.excerpt || '', 320);
+  const category = normalizeNewsText(input.category || 'Новини', 40) || 'Новини';
+  const coverUrl = input.coverUrl === undefined ? null : sanitizeImageUrl(input.coverUrl, 'News cover');
+  if (!title) {
+    throw new Error('Заголовок новини є обовʼязковим');
+  }
+  if (!content) {
+    throw new Error('Текст новини є обовʼязковим');
+  }
+  db.prepare(
+    `UPDATE app_news_posts
+     SET title = ?, excerpt = ?, content = ?, content_json = ?, category = ?, cover_url = ?, updated_at = ?
+     WHERE id = ?`
+  ).run(title, excerpt, content, JSON.stringify(blocks), category, coverUrl, nowIso(), input.newsId);
+  const updated = getNewsPostById(input.newsId);
+  if (!updated) {
+    throw new Error('Не вдалося оновити новину');
+  }
+  return updated;
+}
+
+export function deleteNewsPost(input: { newsId: number; actorUserId: string; isAdmin?: boolean }): { success: true } {
+  assertNewsPostAccess({
+    newsId: input.newsId,
+    actorUserId: input.actorUserId,
+    isAdmin: input.isAdmin,
+  });
+  const db = getDb();
+  db.prepare('DELETE FROM app_news_posts WHERE id = ?').run(input.newsId);
+  return { success: true };
+}
+
+export function countServerActivityInDays(input: { serverId: number; days?: number }): { views: number; votes: number; reviews: number } {
+  const db = getDb();
+  const days = Math.max(1, Math.min(Number(input.days || 30), 365));
+  const windowExpr = `-${days} days`;
+  const viewsRow = db
+    .prepare(`SELECT COUNT(*) AS c FROM app_server_views WHERE server_id = ? AND created_at >= datetime('now', ?)`)
+    .get(input.serverId, windowExpr) as { c: number } | undefined;
+  const votesRow = db
+    .prepare(`SELECT COUNT(*) AS c FROM app_server_nickname_votes WHERE server_id = ? AND created_at >= datetime('now', ?)`)
+    .get(input.serverId, windowExpr) as { c: number } | undefined;
+  const reviewsRow = db
+    .prepare(`SELECT COUNT(*) AS c FROM app_server_reviews WHERE server_id = ? AND created_at >= datetime('now', ?)`)
+    .get(input.serverId, windowExpr) as { c: number } | undefined;
+  return {
+    views: Number(viewsRow?.c || 0),
+    votes: Number(votesRow?.c || 0),
+    reviews: Number(reviewsRow?.c || 0),
+  };
+}
+
+export type PublicServerActivityEvent = {
+  id: string;
+  type: 'vote.received' | 'review.created' | 'view.tracked';
+  createdAt: string;
+  payload: Record<string, string | number>;
+};
+
+export function listServerActivityEvents(input: { serverId: number; limit?: number }): PublicServerActivityEvent[] {
+  const db = getDb();
+  const limit = Math.max(1, Math.min(Number(input.limit || 25), 100));
+  const voteRows = db
+    .prepare(
+      `SELECT id, nickname, created_at
+       FROM app_server_nickname_votes
+       WHERE server_id = ?
+       ORDER BY datetime(created_at) DESC
+       LIMIT ?`
+    )
+    .all(input.serverId, limit) as Array<{ id: number; nickname: string; created_at: string }>;
+  const reviewRows = db
+    .prepare(
+      `SELECT id, COALESCE(author_name, 'Guest') AS author_name, rating, created_at
+       FROM app_server_reviews
+       WHERE server_id = ?
+       ORDER BY datetime(created_at) DESC
+       LIMIT ?`
+    )
+    .all(input.serverId, limit) as Array<{ id: number; author_name: string; rating: number; created_at: string }>;
+  const viewRows = db
+    .prepare(
+      `SELECT id, COALESCE(NULLIF(country_code, ''), 'UN') AS country_code, created_at
+       FROM app_server_views
+       WHERE server_id = ?
+       ORDER BY datetime(created_at) DESC
+       LIMIT ?`
+    )
+    .all(input.serverId, limit) as Array<{ id: number; country_code: string; created_at: string }>;
+  const events: PublicServerActivityEvent[] = [
+    ...voteRows.map((row) => ({
+      id: `vote-${row.id}`,
+      type: 'vote.received' as const,
+      createdAt: row.created_at,
+      payload: {
+        nickname: String(row.nickname || 'unknown'),
+      },
+    })),
+    ...reviewRows.map((row) => ({
+      id: `review-${row.id}`,
+      type: 'review.created' as const,
+      createdAt: row.created_at,
+      payload: {
+        author: String(row.author_name || 'Guest'),
+        rating: Number(row.rating || 0),
+      },
+    })),
+    ...viewRows.map((row) => ({
+      id: `view-${row.id}`,
+      type: 'view.tracked' as const,
+      createdAt: row.created_at,
+      payload: {
+        countryCode: String(row.country_code || 'UN').toUpperCase(),
+      },
+    })),
+  ];
+  return events
+    .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime())
+    .slice(0, limit);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Admin-only helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+export { ADMIN_EMAIL } from '@/lib/constants';
+
+export type AdminUserRow = {
+  id: string;
+  email: string;
+  fullName: string;
+  profileSlug: string | null;
+  role: string;
+  createdAt: string;
+  avatarUrl: string | null;
+}
+
+export type AdminStatsRow = {
+  totalUsers: number;
+  totalServers: number;
+  totalNews: number;
+  activeSessions: number;
+  totalReviews: number;
+  totalVotes: number;
+}
+
+export function listAllUsers(): AdminUserRow[] {
+  const db = getDb();
+  const rows = db
+    .prepare(
+      `SELECT id, email, full_name, profile_slug, role, created_at, avatar_url
+       FROM app_users
+       ORDER BY datetime(created_at) DESC`
+    )
+    .all() as Array<{
+      id: string;
+      email: string;
+      full_name: string;
+      profile_slug: string | null;
+      role: string;
+      created_at: string;
+      avatar_url: string | null;
+    }>;
+  return rows.map((row) => ({
+    id: row.id,
+    email: row.email,
+    fullName: row.full_name,
+    profileSlug: row.profile_slug,
+    role: row.role,
+    createdAt: row.created_at,
+    avatarUrl: row.avatar_url,
+  }));
+}
+
+export function updateUserRoleById(userId: string, role: UserRole): { success: true } {
+  const db = getDb();
+  db.prepare('UPDATE app_users SET role = ?, updated_at = ? WHERE id = ?').run(
+    role,
+    new Date().toISOString(),
+    userId
+  );
+  return { success: true };
+}
+
+export function deleteUserById(userId: string): { success: true } {
+  const db = getDb();
+  db.prepare('DELETE FROM user_login_sessions WHERE user_id = ?').run(userId);
+  db.prepare('DELETE FROM app_users WHERE id = ?').run(userId);
+  return { success: true };
+}
+
+export function verifyServerById(serverId: number, verified: boolean): { success: true } {
+  const db = getDb();
+  db.prepare('UPDATE app_servers SET verified = ?, updated_at = ? WHERE id = ?').run(
+    verified ? 1 : 0,
+    new Date().toISOString(),
+    serverId
+  );
+  return { success: true };
+}
+
+export function getAdminStats(): AdminStatsRow {
+  const db = getDb();
+  const totalUsers = (db.prepare('SELECT COUNT(*) AS cnt FROM app_users').get() as { cnt: number }).cnt;
+  const totalServers = (db.prepare('SELECT COUNT(*) AS cnt FROM app_servers').get() as { cnt: number }).cnt;
+  const totalNews = (db.prepare('SELECT COUNT(*) AS cnt FROM app_news_posts').get() as { cnt: number }).cnt;
+  const activeSessions = (db.prepare('SELECT COUNT(*) AS cnt FROM user_login_sessions WHERE revoked_at IS NULL').get() as { cnt: number }).cnt;
+  const totalReviews = (db.prepare('SELECT COUNT(*) AS cnt FROM app_server_reviews').get() as { cnt: number }).cnt;
+  const totalVotes = (db.prepare('SELECT COUNT(*) AS cnt FROM app_server_votes').get() as { cnt: number }).cnt;
+  return { totalUsers, totalServers, totalNews, activeSessions, totalReviews, totalVotes };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Server applications
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type ServerApplicationStatus = 'pending' | 'approved' | 'rejected';
+
+export type ServerApplication = {
+  id: number;
+  ownerId: string;
+  ownerName: string;
+  ownerAvatar: string | null;
+  status: ServerApplicationStatus;
+  rejectionReason: string | null;
+  name: string;
+  addr: string;
+  platform: ServerPlatform;
+  mode: string;
+  ver: string;
+  core: string;
+  country: string | null;
+  motd: string | null;
+  shortDesc: string;
+  fullDesc: string;
+  desc: string;
+  website: string | null;
+  discord: string | null;
+  telegram: string | null;
+  donate: string | null;
+  tiktok: string | null;
+  launcherUrl: string | null;
+  avatarUrl: string | null;
+  bannerUrl: string | null;
+  gallery: string[];
+  videos: string[];
+  tags: string[];
+  projectId: number | null;
+  createdAt: string;
+  reviewedAt: string | null;
+}
+
+type DbServerApplicationRow = {
+  id: number;
+  owner_id: string;
+  owner_name: string | null;
+  owner_avatar: string | null;
+  status: string;
+  rejection_reason: string | null;
+  name: string;
+  addr: string;
+  platform?: string | null;
+  mode: string;
+  ver: string;
+  core: string;
+  country: string | null;
+  motd: string | null;
+  short_desc: string | null;
+  full_desc: string | null;
+  desc: string | null;
+  website: string | null;
+  discord: string | null;
+  telegram: string | null;
+  donate: string | null;
+  tiktok: string | null;
+  launcher_url: string | null;
+  avatar_url: string | null;
+  banner_url: string | null;
+  gallery_json: string;
+  videos_json: string;
+  tags: string;
+  project_id: number | null;
+  created_at: string;
+  reviewed_at: string | null;
+}
+
+function mapApplicationRow(row: DbServerApplicationRow): ServerApplication {
+  return {
+    id: row.id,
+    ownerId: row.owner_id,
+    ownerName: row.owner_name || 'Unknown',
+    ownerAvatar: row.owner_avatar,
+    status: (row.status as ServerApplicationStatus) || 'pending',
+    rejectionReason: row.rejection_reason,
+    name: row.name,
+    addr: row.addr,
+    platform: row.platform === 'discord' ? 'discord' : 'minecraft',
+    mode: row.mode,
+    ver: row.ver,
+    core: row.core,
+    country: row.country,
+    motd: row.motd,
+    shortDesc: row.short_desc || '',
+    fullDesc: row.full_desc || '',
+    desc: row.desc || '',
+    website: row.website,
+    discord: row.discord,
+    telegram: row.telegram,
+    donate: row.donate,
+    tiktok: row.tiktok,
+    launcherUrl: row.launcher_url,
+    avatarUrl: row.avatar_url,
+    bannerUrl: row.banner_url,
+    gallery: JSON.parse(row.gallery_json || '[]') as string[],
+    videos: JSON.parse(row.videos_json || '[]') as string[],
+    tags: JSON.parse(row.tags || '[]') as string[],
+    projectId: row.project_id ?? null,
+    createdAt: row.created_at,
+    reviewedAt: row.reviewed_at,
+  };
+}
+
+export function createServerApplication(input: {
+  ownerId: string;
+  name: string;
+  addr: string;
+  platform?: ServerPlatform;
+  mode: string;
+  ver: string;
+  core?: string;
+  country?: string;
+  motd?: string;
+  shortDesc?: string;
+  fullDesc?: string;
+  desc?: string;
+  website?: string;
+  discord?: string;
+  telegram?: string;
+  donate?: string;
+  tiktok?: string;
+  launcherUrl?: string;
+  avatarUrl?: string;
+  bannerUrl?: string;
+  gallery?: string[];
+  videos?: string[];
+  tags?: string[];
+  projectId?: number | null;
+}): { applicationId: number } {
+  const db = getDb();
+  const platform: ServerPlatform = input.platform === 'discord' ? 'discord' : 'minecraft';
+  const normalizedAddr = normalizeServerAddress(input.addr, platform);
+  const existingServer = db.prepare('SELECT id FROM app_servers WHERE lower(addr) = lower(?) LIMIT 1').get(normalizedAddr);
+  if (existingServer) {
+    throw new Error('Сервер із цією адресою вже існує');
+  }
+  const existingApp = db
+    .prepare("SELECT id FROM app_server_applications WHERE lower(addr) = lower(?) AND status = 'pending' LIMIT 1")
+    .get(normalizedAddr);
+  if (existingApp) {
+    throw new Error('Заявка для цього сервера вже знаходиться на розгляді');
+  }
+  const ownerRow = db
+    .prepare('SELECT full_name, avatar_url FROM app_users WHERE id = ? LIMIT 1')
+    .get(input.ownerId) as { full_name: string; avatar_url: string | null } | undefined;
+  const timestamp = nowIso();
+  const result = db
+    .prepare(
+      `INSERT INTO app_server_applications (
+        owner_id, owner_name, owner_avatar, status,
+        name, addr, platform, mode, ver, core, country, motd,
+        short_desc, full_desc, desc, website, discord, telegram,
+        donate, tiktok, launcher_url, avatar_url, banner_url,
+        gallery_json, videos_json, tags, project_id, created_at
+      ) VALUES (?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    )
+    .run(
+      input.ownerId,
+      ownerRow?.full_name || null,
+      ownerRow?.avatar_url || null,
+      String(input.name || '').trim(),
+      normalizedAddr,
+      platform,
+      String(input.mode || (platform === 'discord' ? 'Community' : 'Survival')).trim(),
+      String(input.ver || (platform === 'discord' ? 'Discord' : '1.21.11')).trim(),
+      platform === 'discord' ? 'discord' : String(input.core || 'java').trim(),
+      String(input.country || '').trim() || null,
+      String(input.motd || '').trim() || null,
+      String(input.shortDesc || '').trim(),
+      String(input.fullDesc || '').trim(),
+      String(input.desc || '').trim(),
+      String(input.website || '').trim() || null,
+      String(input.discord || '').trim() || null,
+      String(input.telegram || '').trim() || null,
+      String(input.donate || '').trim() || null,
+      String(input.tiktok || '').trim() || null,
+      String(input.launcherUrl || '').trim() || null,
+      String(input.avatarUrl || '').trim() || null,
+      String(input.bannerUrl || '').trim() || null,
+      JSON.stringify((input.gallery || []).slice(0, 6)),
+      JSON.stringify((input.videos || []).slice(0, 2)),
+      JSON.stringify((input.tags || []).slice(0, 6)),
+      input.projectId ?? null,
+      timestamp
+    ) as { lastInsertRowid?: number | bigint };
+  return { applicationId: Number(result.lastInsertRowid) };
+}
+
+export function listServerApplications(status?: ServerApplicationStatus): ServerApplication[] {
+  const db = getDb();
+  const rows = status
+    ? (db.prepare('SELECT * FROM app_server_applications WHERE status = ? ORDER BY datetime(created_at) DESC').all(status) as DbServerApplicationRow[])
+    : (db.prepare('SELECT * FROM app_server_applications ORDER BY datetime(created_at) DESC').all() as DbServerApplicationRow[]);
+  return rows.map(mapApplicationRow);
+}
+
+export function getServerApplicationById(id: number): ServerApplication | null {
+  const db = getDb();
+  const row = db
+    .prepare('SELECT * FROM app_server_applications WHERE id = ? LIMIT 1')
+    .get(id) as DbServerApplicationRow | undefined;
+  return row ? mapApplicationRow(row) : null;
+}
+
+export function approveServerApplication(id: number): { success: true; serverId: number } {
+  const db = getDb();
+  const app = getServerApplicationById(id);
+  if (!app) {
+    throw new Error('Заявку не знайдено');
+  }
+  if (app.status !== 'pending') {
+    throw new Error('Заявка вже була розглянута');
+  }
+  const server = createServer({
+    ownerId: app.ownerId,
+    name: app.name,
+    addr: app.addr,
+    platform: app.platform,
+    mode: app.mode,
+    ver: app.ver,
+    core: app.platform === 'discord' ? 'java' : (app.core as 'java' | 'bedrock' | 'java_bedrock'),
+    country: app.country || undefined,
+    motd: app.motd || undefined,
+    shortDesc: app.shortDesc,
+    fullDesc: app.fullDesc,
+    desc: app.desc,
+    website: app.website || undefined,
+    discord: app.discord || undefined,
+    telegram: app.telegram || undefined,
+    donate: app.donate || undefined,
+    tiktok: app.tiktok || undefined,
+    launcherUrl: app.launcherUrl || undefined,
+    avatarUrl: app.avatarUrl || undefined,
+    bannerUrl: app.bannerUrl || undefined,
+    gallery: app.gallery,
+    videos: app.videos,
+    tags: app.tags,
+    projectId: app.projectId ?? undefined,
+  });
+  db.prepare(
+    "UPDATE app_server_applications SET status = 'approved', reviewed_at = ? WHERE id = ?"
+  ).run(nowIso(), id);
+  if (server) {
+    db.prepare(
+      `INSERT INTO app_notifications (user_id, server_id, type, title, body, is_read, created_at)
+       VALUES (?, ?, 'system', ?, ?, 0, ?)`
+    ).run(
+      app.ownerId,
+      server.seed,
+      'Заявку схвалено',
+      `Ваш сервер "${app.name}" схвалено і тепер відображається в каталозі.`,
+      nowIso()
+    );
+  }
+  return { success: true, serverId: server?.seed ?? 0 };
+}
+
+export function rejectServerApplication(id: number, reason?: string): { success: true } {
+  const db = getDb();
+  const app = getServerApplicationById(id);
+  if (!app) {
+    throw new Error('Заявку не знайдено');
+  }
+  if (app.status !== 'pending') {
+    throw new Error('Заявка вже була розглянута');
+  }
+  db.prepare(
+    "UPDATE app_server_applications SET status = 'rejected', rejection_reason = ?, reviewed_at = ? WHERE id = ?"
+  ).run(reason || null, nowIso(), id);
+  db.prepare(
+    `INSERT INTO app_notifications (user_id, server_id, type, title, body, is_read, created_at)
+     VALUES (?, NULL, 'system', ?, ?, 0, ?)`
+  ).run(
+    app.ownerId,
+    'Заявку відхилено',
+    reason
+      ? `Ваш сервер "${app.name}" відхилено. Причина: ${reason}`
+      : `Ваш сервер "${app.name}" було відхилено адміністратором.`,
+    nowIso()
+  );
+  return { success: true };
+}
+
+export function countPendingApplications(): number {
+  const db = getDb();
+  return (db.prepare("SELECT COUNT(*) AS cnt FROM app_server_applications WHERE status = 'pending'").get() as { cnt: number }).cnt;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Personal Access Tokens (PAT)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type ApiTokenScope = 'servers:read' | 'events:read';
+
+export type ApiToken = {
+  id: string;
+  userId: string;
+  name: string;
+  scopes: ApiTokenScope[];
+  lastUsedAt: string | null;
+  createdAt: string;
+  revokedAt: string | null;
+};
+
+type DbApiTokenRow = {
+  id: string;
+  user_id: string;
+  name: string;
+  token_hash: string;
+  scopes: string;
+  last_used_at: string | null;
+  created_at: string;
+  revoked_at: string | null;
+};
+
+function mapApiTokenRow(row: DbApiTokenRow): ApiToken {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    name: row.name,
+    scopes: JSON.parse(row.scopes || '["servers:read"]') as ApiTokenScope[],
+    lastUsedAt: row.last_used_at,
+    createdAt: row.created_at,
+    revokedAt: row.revoked_at,
+  };
+}
+
+export function createApiToken(input: {
+  userId: string;
+  name: string;
+  scopes: ApiTokenScope[];
+}): { token: ApiToken; plaintext: string } {
+  const db = getDb();
+  const id = randomUUID();
+  const plaintext = randomBytes(32).toString('base64url');
+  const tokenHash = createHash('sha256').update(plaintext).digest('hex');
+  const timestamp = nowIso();
+  db.prepare(
+    `INSERT INTO app_api_tokens (id, user_id, name, token_hash, scopes, created_at)
+     VALUES (?, ?, ?, ?, ?, ?)`
+  ).run(id, input.userId, input.name.trim(), tokenHash, JSON.stringify(input.scopes), timestamp);
+  const token = mapApiTokenRow({
+    id,
+    user_id: input.userId,
+    name: input.name.trim(),
+    token_hash: tokenHash,
+    scopes: JSON.stringify(input.scopes),
+    last_used_at: null,
+    created_at: timestamp,
+    revoked_at: null,
+  });
+  return { token, plaintext };
+}
+
+export function listApiTokens(userId: string): ApiToken[] {
+  const db = getDb();
+  const rows = db
+    .prepare('SELECT * FROM app_api_tokens WHERE user_id = ? AND revoked_at IS NULL ORDER BY datetime(created_at) DESC')
+    .all(userId) as DbApiTokenRow[];
+  return rows.map(mapApiTokenRow);
+}
+
+export function revokeApiToken(tokenId: string, userId: string): { success: true } {
+  const db = getDb();
+  db.prepare('UPDATE app_api_tokens SET revoked_at = ? WHERE id = ? AND user_id = ?').run(nowIso(), tokenId, userId);
+  return { success: true };
+}
+
+export function resolveApiToken(rawToken: string): ApiToken | null {
+  const db = getDb();
+  const hash = createHash('sha256').update(rawToken).digest('hex');
+  const row = db
+    .prepare('SELECT * FROM app_api_tokens WHERE token_hash = ? AND revoked_at IS NULL LIMIT 1')
+    .get(hash) as DbApiTokenRow | undefined;
+  if (!row) return null;
+  db.prepare('UPDATE app_api_tokens SET last_used_at = ? WHERE id = ?').run(nowIso(), row.id);
+  return mapApiTokenRow(row);
+}
+
+// ─── Projects ────────────────────────────────────────────────────────────────
+
+export type Project = {
+  id: number;
+  ownerId: string;
+  name: string;
+  description: string;
+  logoUrl: string | null;
+  website: string | null;
+  discord: string | null;
+  serverCount: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type DbProjectRow = {
+  id: number;
+  owner_id: string;
+  name: string;
+  description: string | null;
+  logo_url: string | null;
+  website: string | null;
+  discord: string | null;
+  server_count: number;
+  created_at: string;
+  updated_at: string;
+};
+
+function mapProjectRow(row: DbProjectRow): Project {
+  return {
+    id: row.id,
+    ownerId: row.owner_id,
+    name: row.name,
+    description: row.description || '',
+    logoUrl: row.logo_url,
+    website: row.website,
+    discord: row.discord,
+    serverCount: row.server_count ?? 0,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export function createProject(input: {
+  ownerId: string;
+  name: string;
+  description?: string;
+  logoUrl?: string;
+  website?: string;
+  discord?: string;
+}): Project {
+  const db = getDb();
+  const now = nowIso();
+  const result = db
+    .prepare(
+      `INSERT INTO app_projects (owner_id, name, description, logo_url, website, discord, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+       RETURNING *`
+    )
+    .get(
+      input.ownerId,
+      input.name.trim(),
+      input.description?.trim() || '',
+      input.logoUrl || null,
+      input.website?.trim() || null,
+      input.discord?.trim() || null,
+      now,
+      now
+    ) as DbProjectRow;
+  return mapProjectRow({ ...result, server_count: 0 });
+}
+
+export function getProjectById(projectId: number): Project | null {
+  const db = getDb();
+  const row = db
+    .prepare(
+      `SELECT p.*, COUNT(s.id) as server_count
+       FROM app_projects p
+       LEFT JOIN app_servers s ON s.project_id = p.id
+       WHERE p.id = ?
+       GROUP BY p.id`
+    )
+    .get(projectId) as DbProjectRow | undefined;
+  return row ? mapProjectRow(row) : null;
+}
+
+export function listProjectsByOwner(ownerId: string): Project[] {
+  const db = getDb();
+  const rows = db
+    .prepare(
+      `SELECT p.*, COUNT(s.id) as server_count
+       FROM app_projects p
+       LEFT JOIN app_servers s ON s.project_id = p.id
+       WHERE p.owner_id = ?
+       GROUP BY p.id
+       ORDER BY datetime(p.created_at) DESC`
+    )
+    .all(ownerId) as DbProjectRow[];
+  return rows.map(mapProjectRow);
+}
+
+export function updateProject(input: {
+  projectId: number;
+  ownerId: string;
+  name: string;
+  description?: string;
+  logoUrl?: string | null;
+  website?: string | null;
+  discord?: string | null;
+}): Project {
+  const db = getDb();
+  const now = nowIso();
+  db.prepare(
+    `UPDATE app_projects
+     SET name = ?, description = ?, logo_url = ?, website = ?, discord = ?, updated_at = ?
+     WHERE id = ? AND owner_id = ?`
+  ).run(
+    input.name.trim(),
+    input.description?.trim() || '',
+    input.logoUrl ?? null,
+    input.website?.trim() ?? null,
+    input.discord?.trim() ?? null,
+    now,
+    input.projectId,
+    input.ownerId
+  );
+  const updated = getProjectById(input.projectId);
+  if (!updated) throw new Error('Project not found');
+  return updated;
+}
+
+export function deleteProject(projectId: number, ownerId: string): void {
+  const db = getDb();
+  db.prepare(`UPDATE app_servers SET project_id = NULL WHERE project_id = ?`).run(projectId);
+  db.prepare(`DELETE FROM app_projects WHERE id = ? AND owner_id = ?`).run(projectId, ownerId);
+}
+
+// ─── Server Verification ─────────────────────────────────────────────────────
+
+export type ServerVerification = {
+  id: number;
+  serverId: number;
+  ownerId: string;
+  token: string;
+  createdAt: string;
+  verifiedAt: string | null;
+};
+
+type DbVerificationRow = {
+  id: number;
+  server_id: number;
+  owner_id: string;
+  token: string;
+  created_at: string;
+  verified_at: string | null;
+};
+
+function mapVerificationRow(row: DbVerificationRow): ServerVerification {
+  return {
+    id: row.id,
+    serverId: row.server_id,
+    ownerId: row.owner_id,
+    token: row.token,
+    createdAt: row.created_at,
+    verifiedAt: row.verified_at,
+  };
+}
+
+function generateVerificationToken(): string {
+  const part1 = randomBytes(4).toString('hex');
+  const part2 = randomBytes(3).toString('hex');
+  return `eyzencore-verify-${part1}-${part2}`;
+}
+
+export function getOrCreateVerificationToken(serverId: number, ownerId: string): ServerVerification {
+  const db = getDb();
+  const existing = db
+    .prepare('SELECT * FROM app_server_verifications WHERE server_id = ? LIMIT 1')
+    .get(serverId) as DbVerificationRow | undefined;
+  if (existing) return mapVerificationRow(existing);
+  const token = generateVerificationToken();
+  const now = nowIso();
+  const row = db
+    .prepare(
+      `INSERT INTO app_server_verifications (server_id, owner_id, token, created_at)
+       VALUES (?, ?, ?, ?)
+       RETURNING *`
+    )
+    .get(serverId, ownerId, token, now) as DbVerificationRow;
+  return mapVerificationRow(row);
+}
+
+export function regenerateVerificationToken(serverId: number, ownerId: string): ServerVerification {
+  const db = getDb();
+  const token = generateVerificationToken();
+  const now = nowIso();
+  db.prepare('DELETE FROM app_server_verifications WHERE server_id = ? AND owner_id = ?').run(serverId, ownerId);
+  const row = db
+    .prepare(
+      `INSERT INTO app_server_verifications (server_id, owner_id, token, created_at)
+       VALUES (?, ?, ?, ?)
+       RETURNING *`
+    )
+    .get(serverId, ownerId, token, now) as DbVerificationRow;
+  return mapVerificationRow(row);
+}
+
+export function markServerVerified(serverId: number): void {
+  const db = getDb();
+  const now = nowIso();
+  db.prepare(`UPDATE app_servers SET verified = 1, updated_at = ? WHERE id = ?`).run(now, serverId);
+  db.prepare(`UPDATE app_server_verifications SET verified_at = ? WHERE server_id = ?`).run(now, serverId);
+}
+
+export function getVerificationByServerId(serverId: number): ServerVerification | null {
+  const db = getDb();
+  const row = db
+    .prepare('SELECT * FROM app_server_verifications WHERE server_id = ? LIMIT 1')
+    .get(serverId) as DbVerificationRow | undefined;
+  return row ? mapVerificationRow(row) : null;
+}
+
+export function assignServerToProject(serverId: number, projectId: number | null, ownerId: string): void {
+  const db = getDb();
+  db.prepare(`UPDATE app_servers SET project_id = ?, updated_at = ? WHERE id = ? AND owner_id = ?`).run(
+    projectId,
+    nowIso(),
+    serverId,
+    ownerId
+  );
+}

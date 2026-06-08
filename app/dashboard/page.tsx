@@ -1,0 +1,44 @@
+import type { Metadata } from 'next'
+import { redirect } from 'next/navigation'
+import { getCurrentUser } from '@/lib/auth-server'
+import { listServersByOwner, resolveUserRole } from '@/lib/auth-db'
+import { buildServerDashboardSlug } from '@/lib/server-slug'
+import { DashboardClient } from './DashboardClient'
+
+export const dynamic = 'force-dynamic'
+
+export const metadata: Metadata = {
+  title: 'Дашборд — Eyzencore',
+  description: 'Role-based dashboard for users and server owners',
+}
+
+export default function DashboardPage({ searchParams }: { searchParams?: Record<string, string | string[] | undefined> }) {
+  const user = getCurrentUser()
+  if (!user) {
+    redirect('/auth/login')
+  }
+  const role = resolveUserRole({
+    userId: user.id,
+    role: user.user_metadata.role,
+  })
+  if (role === 'USER') {
+    redirect('/')
+  }
+  // Owners and admins land on the per-server dashboard for their first server.
+  // ?tab=servers escapes the redirect (used by sidebar "My Servers" link).
+  if (role === 'OWNER' || role === 'ADMIN') {
+    const escape = String(searchParams?.tab || '')
+    if (escape !== 'servers') {
+      const owned = listServersByOwner(user.id)
+      if (owned.length > 0) {
+        redirect(`/dashboard/${buildServerDashboardSlug(owned[0].name)}`)
+      }
+    }
+  }
+  return (
+    <>
+      <div className="bg-aurora" />
+      <DashboardClient initialUser={user} initialRole={role} />
+    </>
+  )
+}

@@ -1,0 +1,104 @@
+'use client';
+
+import { useEffect, useState, useTransition } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useTheme } from '@/hooks/useTheme';
+import { SunIcon, MoonIcon } from '@/components/ui/Icons';
+import { BrandMark } from '@/components/ui/BrandMark';
+import type { AuthUser } from '@/lib/auth-db';
+
+export function Nav() {
+  const router = useRouter();
+  const { theme, toggle } = useTheme();
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [isPending, startTransition] = useTransition();
+
+  useEffect(() => {
+    async function loadUser() {
+      const response = await fetch('/api/auth/me', { cache: 'no-store' });
+      if (!response.ok) return;
+      const data = await response.json();
+      setUser(data.user || null);
+    }
+
+    void loadUser();
+  }, []);
+
+  async function handleLogout() {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    setUser(null);
+    startTransition(() => {
+      router.push('/');
+      router.refresh();
+    });
+  }
+
+  return (
+    <nav className="nav" style={{ position: 'sticky', top: 12, zIndex: 50, margin: '12px auto 0', maxWidth: 1100, padding: '0 16px' }}>
+      <div className="nav-inner">
+        <Link className="brand" href="/">
+          <BrandMark />
+          <span>Eyzencore</span>
+        </Link>
+
+        <div className="nav-links" style={{ display: 'flex', gap: 4, marginLeft: 8 }}>
+          {[
+            { href: '/servers', label: 'Сервери' },
+            { href: '/#blog', label: 'Новини' },
+            { href: '/#demo', label: 'Дашборд' },
+            { href: '/#features', label: 'Можливості' },
+            { href: '/#faq', label: 'Питання' },
+          ].map(({ href, label }) => (
+            <Link
+              key={href}
+              href={href}
+              style={{ padding: '6px 12px', fontSize: '13.5px', color: 'var(--fg-1)', borderRadius: 999, transition: 'color .15s, background .15s' }}
+              onMouseEnter={(event) => {
+                (event.target as HTMLAnchorElement).style.color = 'var(--fg)';
+                (event.target as HTMLAnchorElement).style.background = 'var(--bg-2)';
+              }}
+              onMouseLeave={(event) => {
+                (event.target as HTMLAnchorElement).style.color = 'var(--fg-1)';
+                (event.target as HTMLAnchorElement).style.background = 'transparent';
+              }}
+            >
+              {label}
+            </Link>
+          ))}
+        </div>
+
+        <div style={{ flex: 1 }} />
+
+        <div className="nav-cta" style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          <button
+            className="btn btn-ghost"
+            onClick={toggle}
+            aria-label="Перемкнути тему"
+            style={{ padding: '0 10px', height: 32 }}
+          >
+            {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
+          </button>
+
+          {user ? (
+            <>
+              <Link className="btn btn-secondary" href="/settings">
+                {user.user_metadata.full_name}
+              </Link>
+              <button className="btn btn-primary" onClick={() => void handleLogout()} disabled={isPending}>
+                Вийти
+              </button>
+            </>
+          ) : (
+            <>
+              <Link className="btn btn-secondary" href="/auth/login">Увійти</Link>
+              <Link className="btn btn-primary" href="/auth/register">
+                Реєстрація <span style={{ opacity: 0.6 }}>→</span>
+              </Link>
+            </>
+          )}
+        </div>
+      </div>
+    </nav>
+  );
+}
