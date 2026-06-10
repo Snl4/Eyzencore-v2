@@ -10,11 +10,11 @@ export const metadata: Metadata = {
   description: 'Офіційні новини, оновлення платформи та анонси серверів Eyzencore.',
 }
 
-export default function NewsPage() {
-  const initialUser = getCurrentUser()
-  const initialPosts = listNewsPosts(50)
+export default async function NewsPage() {
+  const initialUser = await getCurrentUser()
+  const initialPosts = await listNewsPosts(50)
   const role = initialUser
-    ? resolveUserRole({
+    ? await resolveUserRole({
         userId: initialUser.id,
         role: initialUser.user_metadata.role,
       })

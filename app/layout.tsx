@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Mulish, JetBrains_Mono } from 'next/font/google';
+import { Suspense } from 'react';
 import './globals.css';
 import { RouteTransitionLoader } from '@/components/layout/RouteTransitionLoader';
 
@@ -54,7 +55,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body className={`${mulish.variable} ${jetbrainsMono.variable}`}>
-        <RouteTransitionLoader />
+        <Suspense fallback={null}>
+          <RouteTransitionLoader />
+        </Suspense>
         {children}
       </body>
     </html>

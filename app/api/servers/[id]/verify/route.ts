@@ -13,12 +13,12 @@ interface RouteContext {
   params: { id: string }
 }
 
-export async function GET(request: NextRequest, context: RouteContext): Promise<NextResponse> {
-  const auth = getAuthSessionFromToken(request.cookies.get(AUTH_COOKIE_NAME)?.value)
+export async function GET(request: NextRequest, context: RouteContext) {
+  const auth = await getAuthSessionFromToken(request.cookies.get(AUTH_COOKIE_NAME)?.value)
   if (!auth) return NextResponse.json({ error: 'Потрібна авторизація' }, { status: 401 })
   const serverId = Number(context.params.id)
   if (!Number.isFinite(serverId)) return NextResponse.json({ error: 'Некоректний ідентифікатор' }, { status: 400 })
-  const server = getServerById(serverId)
+  const server = await getServerById(serverId)
   if (!server) return NextResponse.json({ error: 'Сервер не знайдено' }, { status: 404 })
   if (server.ownerId !== auth.user.id && auth.user.email !== process.env.ADMIN_EMAIL) {
     return NextResponse.json({ error: 'Немає доступу' }, { status: 403 })
@@ -26,21 +26,21 @@ export async function GET(request: NextRequest, context: RouteContext): Promise<
   const { searchParams } = new URL(request.url)
   const shouldRegenerate = searchParams.get('regenerate') === '1'
   const verification = shouldRegenerate
-    ? regenerateVerificationToken(serverId, auth.user.id)
-    : getOrCreateVerificationToken(serverId, auth.user.id)
+    ? await regenerateVerificationToken(serverId, auth.user.id)
+    : await getOrCreateVerificationToken(serverId, auth.user.id)
   return NextResponse.json({
     token: verification.token,
-    verified: server.verified === 1,
+    verified: Boolean(server.verified),
     verifiedAt: verification.verifiedAt,
   })
 }
 
-export async function POST(request: NextRequest, context: RouteContext): Promise<NextResponse> {
-  const auth = getAuthSessionFromToken(request.cookies.get(AUTH_COOKIE_NAME)?.value)
+export async function POST(request: NextRequest, context: RouteContext) {
+  const auth = await getAuthSessionFromToken(request.cookies.get(AUTH_COOKIE_NAME)?.value)
   if (!auth) return NextResponse.json({ error: 'Потрібна авторизація' }, { status: 401 })
   const serverId = Number(context.params.id)
   if (!Number.isFinite(serverId)) return NextResponse.json({ error: 'Некоректний ідентифікатор' }, { status: 400 })
-  const server = getServerById(serverId)
+  const server = await getServerById(serverId)
   if (!server) return NextResponse.json({ error: 'Сервер не знайдено' }, { status: 404 })
   if (server.ownerId !== auth.user.id && auth.user.email !== process.env.ADMIN_EMAIL) {
     return NextResponse.json({ error: 'Немає доступу' }, { status: 403 })
@@ -50,7 +50,7 @@ export async function POST(request: NextRequest, context: RouteContext): Promise
   if (method !== 'motd' && method !== 'dns') {
     return NextResponse.json({ error: 'Метод верифікації: "motd" або "dns"' }, { status: 400 })
   }
-  const verification = getOrCreateVerificationToken(serverId, auth.user.id)
+  const verification = await getOrCreateVerificationToken(serverId, auth.user.id)
   const token = verification.token
   if (method === 'motd') {
     return verifyViaMOTD({ serverId, addr: server.addr, token })
@@ -62,7 +62,7 @@ async function verifyViaMOTD(input: {
   serverId: number
   addr: string
   token: string
-}): Promise<NextResponse> {
+}) {
   const { serverId, addr, token } = input
   const host = addr.includes(':') ? addr.split(':')[0] : addr
   const port = addr.includes(':') ? addr.split(':')[1] : '25565'
@@ -92,7 +92,7 @@ async function verifyViaMOTD(input: {
         { status: 422 }
       )
     }
-    markServerVerified(serverId)
+    await markServerVerified(serverId)
     return NextResponse.json({ success: true, method: 'motd' })
   } catch {
     return NextResponse.json({ error: 'Не вдалося зʼєднатися з API перевірки сервера. Спробуйте пізніше.' }, { status: 503 })
@@ -103,7 +103,7 @@ async function verifyViaDNS(input: {
   serverId: number
   addr: string
   token: string
-}): Promise<NextResponse> {
+}) {
   const { serverId, addr, token } = input
   const hostname = addr.includes(':') ? addr.split(':')[0] : addr
   const isIp = /^\d{1,3}(\.\d{1,3}){3}$/.test(hostname)
@@ -122,7 +122,7 @@ async function verifyViaDNS(input: {
         { status: 422 }
       )
     }
-    markServerVerified(serverId)
+    await markServerVerified(serverId)
     return NextResponse.json({ success: true, method: 'dns' })
   } catch {
     return NextResponse.json(

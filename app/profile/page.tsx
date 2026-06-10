@@ -11,16 +11,16 @@ export const metadata: Metadata = {
   description: 'Особистий профіль користувача на платформі Eyzencore.',
 };
 
-export default function ProfilePage() {
-  const user = getCurrentUser();
+export default async function ProfilePage() {
+  const user = await getCurrentUser();
   if (!user) {
     redirect('/auth/login');
   }
 
-  const serverCount = countServersByOwner(user.id);
-  const ownedServers = listServersByOwner(user.id);
+  const serverCount = await countServersByOwner(user.id);
+  const ownedServers = await listServersByOwner(user.id);
   const totalOnline = ownedServers.reduce((sum, s) => sum + (s.on ? s.players : 0), 0);
-  const summary = getUserProfileSummary(user.id, 30);
+  const summary = await getUserProfileSummary(user.id, 30);
 
   return (
     <>

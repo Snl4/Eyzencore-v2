@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
   if (!Number.isFinite(serverId)) {
     return NextResponse.json({ error: 'Некоректний serverId' }, { status: 400 })
   }
-  const server = getServerById(serverId)
+  const server = await getServerById(serverId)
   if (!server) {
     return NextResponse.json({ error: 'Сервер не знайдено' }, { status: 404 })
   }
@@ -33,9 +33,9 @@ export async function POST(request: NextRequest) {
   if (!isValidNickname(normalizedNickname)) {
     return NextResponse.json({ error: 'Нікнейм має бути 3-16 символів і містити лише літери, цифри та _' }, { status: 400 })
   }
-  const auth = getAuthSessionFromToken(request.cookies.get(AUTH_COOKIE_NAME)?.value)
+  const auth = await getAuthSessionFromToken(request.cookies.get(AUTH_COOKIE_NAME)?.value)
   if (auth) {
-    const authVoteResult = registerAuthenticatedServerVote({
+    const authVoteResult = await registerAuthenticatedServerVote({
       serverId,
       userId: auth.user.id,
       nickname: normalizedNickname,
@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
   }
   const forwarded = request.headers.get('x-forwarded-for') || ''
   const ipAddress = forwarded.split(',')[0]?.trim() || request.headers.get('x-real-ip') || 'unknown'
-  const result = registerServerNicknameVote({
+  const result = await registerServerNicknameVote({
     serverId,
     nickname: normalizedNickname,
     ipAddress,
@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
   if (!result.success && result.reason === 'ip-limit') {
     return NextResponse.json({ error: 'Ліміт голосів з цієї IP-адреси на сьогодні вичерпано' }, { status: 429 })
   }
-  createOwnerNotification({
+  await createOwnerNotification({
     serverId,
     type: 'vote',
     actorName: normalizedNickname,

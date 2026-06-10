@@ -30,7 +30,7 @@ export async function GET(_request: Request, { params }: NewsParams) {
   if (!newsId) {
     return NextResponse.json({ error: 'Некоректний ID новини' }, { status: 400 })
   }
-  const post = getNewsPostById(newsId)
+  const post = await getNewsPostById(newsId)
   if (!post) {
     return NextResponse.json({ error: 'Новину не знайдено' }, { status: 404 })
   }
@@ -38,7 +38,7 @@ export async function GET(_request: Request, { params }: NewsParams) {
 }
 
 export async function PATCH(request: Request, { params }: NewsParams) {
-  const user = getCurrentUser()
+  const user = await getCurrentUser()
   if (!user) {
     return NextResponse.json({ error: 'Потрібна авторизація' }, { status: 401 })
   }
@@ -46,14 +46,14 @@ export async function PATCH(request: Request, { params }: NewsParams) {
   if (!newsId) {
     return NextResponse.json({ error: 'Некоректний ID новини' }, { status: 400 })
   }
-  const role = resolveUserRole({
+  const role = await resolveUserRole({
     userId: user.id,
     role: user.user_metadata.role,
   })
   const isAdmin = role === 'ADMIN'
   try {
     const body = (await request.json()) as UpdateNewsRequestBody
-    const post = updateNewsPost({
+    const post = await updateNewsPost({
       newsId,
       actorUserId: user.id,
       isAdmin,
@@ -73,7 +73,7 @@ export async function PATCH(request: Request, { params }: NewsParams) {
 }
 
 export async function DELETE(_request: Request, { params }: NewsParams) {
-  const user = getCurrentUser()
+  const user = await getCurrentUser()
   if (!user) {
     return NextResponse.json({ error: 'Потрібна авторизація' }, { status: 401 })
   }
@@ -81,13 +81,13 @@ export async function DELETE(_request: Request, { params }: NewsParams) {
   if (!newsId) {
     return NextResponse.json({ error: 'Некоректний ID новини' }, { status: 400 })
   }
-  const role = resolveUserRole({
+  const role = await resolveUserRole({
     userId: user.id,
     role: user.user_metadata.role,
   })
   const isAdmin = role === 'ADMIN'
   try {
-    deleteNewsPost({
+    await deleteNewsPost({
       newsId,
       actorUserId: user.id,
       isAdmin,

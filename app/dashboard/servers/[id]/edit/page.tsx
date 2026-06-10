@@ -1,4 +1,3 @@
-import type { Metadata } from 'next'
 import { notFound, redirect } from 'next/navigation'
 import { AddServerClient } from '@/app/add-server/AddServerClient'
 import { getServerById, resolveUserRole } from '@/lib/auth-db'
@@ -10,18 +9,18 @@ interface DashboardEditServerPageProps {
 
 export const dynamic = 'force-dynamic'
 
-export async function generateMetadata({ params }: DashboardEditServerPageProps): Promise<Metadata> {
-  const server = getServerById(Number(params.id))
+export async function generateMetadata({ params }: DashboardEditServerPageProps) {
+  const server = await getServerById(Number(params.id))
   if (!server) return { title: 'Server not found' }
   return { title: `Edit ${server.name} - Dashboard`, description: `Edit server ${server.name} from dashboard` }
 }
 
-export default function DashboardEditServerPage({ params }: DashboardEditServerPageProps) {
-  const user = getCurrentUser()
+export default async function DashboardEditServerPage({ params }: DashboardEditServerPageProps) {
+  const user = await getCurrentUser()
   if (!user) redirect('/auth/login')
-  const server = getServerById(Number(params.id))
+  const server = await getServerById(Number(params.id))
   if (!server) notFound()
-  const role = resolveUserRole({ userId: user.id, role: user.user_metadata.role })
+  const role = await resolveUserRole({ userId: user.id, role: user.user_metadata.role })
   if (server.ownerId !== user.id && role !== 'ADMIN') {
     redirect(`/dashboard/servers/${server.seed}`)
   }

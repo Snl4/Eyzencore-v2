@@ -3,7 +3,7 @@ import { revokeSessionById } from '@/lib/auth-db';
 import { getCurrentAuth } from '@/lib/auth-server';
 
 export async function POST(request: Request) {
-  const auth = getCurrentAuth();
+  const auth = await getCurrentAuth();
   if (!auth) {
     return NextResponse.json({ error: 'Потрібна авторизація' }, { status: 401 });
   }
@@ -16,6 +16,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Поточну сесію не можна завершити тут' }, { status: 400 });
   }
 
-  revokeSessionById(auth.user.id, session_id);
+  await revokeSessionById(auth.user.id, session_id);
   return NextResponse.json({ success: true });
 }

@@ -15,8 +15,8 @@ import {
 } from '@/lib/auth-db'
 import { lookupCountry } from '@/lib/geoip'
 
-function getActorContext(request: NextRequest) {
-  const auth = getAuthSessionFromToken(request.cookies.get(AUTH_COOKIE_NAME)?.value)
+async function getActorContext(request: NextRequest) {
+  const auth = await getAuthSessionFromToken(request.cookies.get(AUTH_COOKIE_NAME)?.value)
   const forwarded = request.headers.get('x-forwarded-for') || ''
   const ip = forwarded.split(',')[0]?.trim() || request.headers.get('x-real-ip') || ''
   const countryCode =
@@ -29,7 +29,7 @@ function getActorContext(request: NextRequest) {
     user: auth?.user || null,
     ip,
     countryCode,
-    fingerprint: buildActorFingerprint({ ip, userAgent }),
+    fingerprint: await buildActorFingerprint({ ip, userAgent }),
   }
 }
 
@@ -37,25 +37,21 @@ function normalizeMinecraftNickname(value: string): string {
   return String(value || '').trim()
 }
 
-function isValidMinecraftNickname(value: string): boolean {
-  return /^[A-Za-z0-9_]{3,16}$/.test(value)
-}
-
 export async function GET(request: NextRequest, context: { params: { id: string } }) {
   const serverId = Number(context.params.id)
   if (!Number.isFinite(serverId)) {
     return NextResponse.json({ error: 'Некоректний ідентифікатор сервера' }, { status: 400 })
   }
-  const server = getServerById(serverId)
+  const server = await getServerById(serverId)
   if (!server) {
     return NextResponse.json({ error: 'Сервер не знайдено' }, { status: 404 })
   }
-  const actor = getActorContext(request)
-  const summary = getServerEngagementSummary(serverId)
-  const reviews = listServerReviews(serverId, 40)
-  const latestVotes = listServerVotes(serverId, 30)
-  const topVoters = listTopServerVoters(serverId, 10)
-  const userReview = getServerReviewByActor({ serverId, userId: actor.user?.id, fingerprint: actor.fingerprint })
+  const actor = await getActorContext(request)
+  const summary = await getServerEngagementSummary(serverId)
+  const reviews = await listServerReviews(serverId, 40)
+  const latestVotes = await listServerVotes(serverId, 30)
+  const topVoters = await listTopServerVoters(serverId, 10)
+  const userReview = await getServerReviewByActor({ serverId, userId: actor.user?.id, fingerprint: actor.fingerprint })
   return NextResponse.json({
     summary,
     user: {
@@ -72,11 +68,11 @@ export async function POST(request: NextRequest, context: { params: { id: string
   if (!Number.isFinite(serverId)) {
     return NextResponse.json({ error: 'Некоректний ідентифікатор сервера' }, { status: 400 })
   }
-  const server = getServerById(serverId)
+  const server = await getServerById(serverId)
   if (!server) {
     return NextResponse.json({ error: 'Сервер не знайдено' }, { status: 404 })
   }
-  const actor = getActorContext(request)
+  const actor = await getActorContext(request)
   const body = (await request.json()) as {
     action?: 'view' | 'review'
     cooldownMinutes?: number
@@ -92,7 +88,7 @@ export async function POST(request: NextRequest, context: { params: { id: string
       const geo = await lookupCountry(actor.ip)
       if (geo?.code) countryCode = geo.code
     }
-    const result = registerServerView({
+    const result = await registerServerView({
       serverId,
       userId: actor.user?.id,
       fingerprint: actor.fingerprint,
@@ -100,13 +96,13 @@ export async function POST(request: NextRequest, context: { params: { id: string
       countryCode,
       cooldownMinutes: body.cooldownMinutes,
     })
-    return NextResponse.json({ success: true, counted: result.counted, summary: getServerEngagementSummary(serverId) })
+    return NextResponse.json({ success: true, counted: result.counted, summary: await getServerEngagementSummary(serverId) })
   }
   if (action === 'review') {
     const nickname = normalizeMinecraftNickname(body.nickname || '')
     const normalizedText = String(body.text || '')
     const normalizedRating = Number(body.rating || 0)
-    upsertServerReview({
+    await upsertServerReview({
       serverId,
       userId: actor.user?.id,
       fingerprint: actor.fingerprint,
@@ -114,7 +110,7 @@ export async function POST(request: NextRequest, context: { params: { id: string
       rating: normalizedRating,
       authorName: actor.user?.user_metadata.full_name || nickname || 'Гість',
     })
-    createOwnerNotification({
+    await createOwnerNotification({
       serverId,
       type: 'review',
       actorName: actor.user?.user_metadata.full_name || nickname || 'Guest',
@@ -123,9 +119,9 @@ export async function POST(request: NextRequest, context: { params: { id: string
     })
     return NextResponse.json({
       success: true,
-      summary: getServerEngagementSummary(serverId),
-      userReview: getServerReviewByActor({ serverId, userId: actor.user?.id, fingerprint: actor.fingerprint }),
-      reviews: listServerReviews(serverId, 40),
+      summary: await getServerEngagementSummary(serverId),
+      userReview: await getServerReviewByActor({ serverId, userId: actor.user?.id, fingerprint: actor.fingerprint }),
+      reviews: await listServerReviews(serverId, 40),
     })
   }
   return NextResponse.json({ error: 'Невідома дія' }, { status: 400 })

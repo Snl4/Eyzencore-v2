@@ -19,8 +19,8 @@ function parseNewsId(value: string): number | null {
 
 export const dynamic = 'force-dynamic'
 
-export default function NewsEditPage({ params }: NewsEditPageProps) {
-  const user = getCurrentUser()
+export default async function NewsEditPage({ params }: NewsEditPageProps) {
+  const user = await getCurrentUser()
   if (!user) {
     redirect('/auth/login')
   }
@@ -28,11 +28,11 @@ export default function NewsEditPage({ params }: NewsEditPageProps) {
   if (!newsId) {
     notFound()
   }
-  const post = getNewsPostById(newsId)
+  const post = await getNewsPostById(newsId)
   if (!post) {
     notFound()
   }
-  const role = resolveUserRole({
+  const role = await resolveUserRole({
     userId: user.id,
     role: user.user_metadata.role,
   })

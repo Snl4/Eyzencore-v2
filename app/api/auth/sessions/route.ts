@@ -3,11 +3,11 @@ import { listSessions } from '@/lib/auth-db';
 import { getCurrentAuth } from '@/lib/auth-server';
 
 export async function GET() {
-  const auth = getCurrentAuth();
+  const auth = await getCurrentAuth();
   if (!auth) {
     return NextResponse.json({ error: 'Потрібна авторизація' }, { status: 401 });
   }
   return NextResponse.json({
-    sessions: listSessions(auth.user.id, auth.sessionId),
+    sessions: await listSessions(auth.user.id, auth.sessionId),
   });
 }

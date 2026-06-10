@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { listServers } from '@/lib/auth-db'
 import { buildServerDashboardSlug } from '@/lib/server-slug'
 
-export function GET(request: NextRequest): NextResponse {
+export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const mode = searchParams.get('mode')
   const ver = searchParams.get('ver')
@@ -10,7 +10,7 @@ export function GET(request: NextRequest): NextResponse {
   const page = Math.max(1, Number(searchParams.get('page') ?? 1))
   const limit = Math.min(Math.max(1, Number(searchParams.get('limit') ?? 20)), 100)
 
-  let results = listServers()
+  let results = await listServers()
 
   if (mode && mode !== 'all') results = results.filter((s) => s.mode === mode)
   if (ver && ver !== 'all') results = results.filter((s) => s.ver.includes(ver.replace('.x', '')))

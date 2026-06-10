@@ -7,8 +7,8 @@ export const metadata: Metadata = {
   description: 'Спільнота українських Minecraft-гравців. Гайди, питання, оголошення та технічна підтримка.',
 };
 
-export default function ForumPage() {
-  const initialUser = getCurrentUser();
+export default async function ForumPage() {
+  const initialUser = await getCurrentUser();
   return (
     <>
       <div className="bg-aurora"/>

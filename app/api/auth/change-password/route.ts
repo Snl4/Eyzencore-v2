@@ -3,7 +3,7 @@ import { updatePassword } from '@/lib/auth-db';
 import { getCurrentUser } from '@/lib/auth-server';
 
 export async function POST(request: Request) {
-  const user = getCurrentUser();
+  const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json({ error: 'Потрібна авторизація' }, { status: 401 });
   }
@@ -21,7 +21,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Пароль має містити щонайменше 6 символів' }, { status: 400 });
     }
 
-    updatePassword(user.id, String(current_password), String(new_password));
+    await updatePassword(user.id, String(current_password), String(new_password));
     return NextResponse.json({ success: true });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Не вдалося змінити пароль';

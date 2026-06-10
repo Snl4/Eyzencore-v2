@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
   const page = Number(searchParams.get('page') ?? 1);
   const limit = Math.min(Number(searchParams.get('limit') ?? 20), 100);
 
-  let results = listServers();
+  let results = await listServers();
 
   const platform = searchParams.get('platform');
   if (platform === 'minecraft') results = results.filter((server) => server.platform !== 'discord');
@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const auth = getAuthSessionFromToken(request.cookies.get(AUTH_COOKIE_NAME)?.value);
+  const auth = await getAuthSessionFromToken(request.cookies.get(AUTH_COOKIE_NAME)?.value);
   if (!auth) {
     return NextResponse.json({ error: 'Потрібна авторизація' }, { status: 401 });
   }
@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
     }
 
     const platform = body.platform === 'discord' || body.core === 'discord' ? 'discord' : 'minecraft';
-    const { applicationId } = createServerApplication({
+    const { applicationId } = await createServerApplication({
       ownerId: auth.user.id,
       name,
       addr,

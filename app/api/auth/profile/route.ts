@@ -17,7 +17,7 @@ type Body = {
 };
 
 export async function POST(request: Request) {
-  const user = getCurrentUser();
+  const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json({ error: 'Потрібна авторизація' }, { status: 401 });
   }
@@ -30,7 +30,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const updatedUser = updateProfile(user.id, {
+    const updatedUser = await updateProfile(user.id, {
       full_name: body.full_name,
       profile_slug: body.profile_slug,
       bio: body.bio,

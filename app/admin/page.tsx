@@ -3,12 +3,12 @@ import { getCurrentUser } from '@/lib/auth-server'
 import { ADMIN_EMAIL, getAdminStats } from '@/lib/auth-db'
 import { AdminClient } from './AdminClient'
 
-export default function AdminPage() {
-  const user = getCurrentUser()
+export default async function AdminPage() {
+  const user = await getCurrentUser()
   if (!user || user.email !== ADMIN_EMAIL) {
     redirect('/')
   }
-  const initialStats = getAdminStats()
+  const initialStats = await getAdminStats()
   return (
     <>
       <div className="bg-aurora" />

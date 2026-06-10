@@ -11,11 +11,11 @@ export const metadata: Metadata = {
   description: 'Керуйте своїми проектами та групуйте сервери',
 }
 
-export default function ProjectsPage() {
-  const user = getCurrentUser()
+export default async function ProjectsPage() {
+  const user = await getCurrentUser()
   if (!user) redirect('/auth/login')
-  const role = resolveUserRole({ userId: user.id, role: user.user_metadata.role })
-  const initialProjects = listProjectsByOwner(user.id)
+  const role = await resolveUserRole({ userId: user.id, role: user.user_metadata.role })
+  const initialProjects = await listProjectsByOwner(user.id)
   return (
     <>
       <div className="bg-aurora" />

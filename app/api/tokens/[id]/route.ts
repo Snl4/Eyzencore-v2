@@ -4,9 +4,9 @@ import { revokeApiToken } from '@/lib/auth-db'
 
 type Params = { params: { id: string } }
 
-export function DELETE(_request: NextRequest, { params }: Params): NextResponse {
-  const user = getCurrentUser()
+export async function DELETE(_request: NextRequest, { params }: Params) {
+  const user = await getCurrentUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  const result = revokeApiToken(params.id, user.id)
+  const result = await revokeApiToken(params.id, user.id)
   return NextResponse.json(result)
 }

@@ -21,8 +21,8 @@ export async function POST(request: Request) {
     }
     const guilds = Array.isArray(body.guilds) ? body.guilds : []
     let updated = 0
-    guilds.forEach((guild) => {
-      updated += syncDiscordGuildStats({
+    guilds.forEach(async (guild) => {
+      updated += await syncDiscordGuildStats({
         guildId: String(guild.guildId || ''),
         players: Number(guild.players || 0),
         max: Number(guild.max || 0),

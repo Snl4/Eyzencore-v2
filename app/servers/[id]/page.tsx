@@ -1,4 +1,3 @@
-import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { getServerById } from '@/lib/auth-db';
 import { getCurrentUser } from '@/lib/auth-server';
@@ -10,8 +9,8 @@ interface Props {
 
 export const dynamic = 'force-dynamic';
 
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const server = getServerById(Number(params.id));
+export async function generateMetadata({ params }: Props) {
+  const server = await getServerById(Number(params.id));
   if (!server) return { title: 'Server not found' };
 
   return {
@@ -20,9 +19,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-export default function ServerPage({ params }: Props) {
-  const server = getServerById(Number(params.id));
-  const user = getCurrentUser();
+export default async function ServerPage({ params }: Props) {
+  const server = await getServerById(Number(params.id));
+  const user = await getCurrentUser();
   if (!server) notFound();
 
   return (

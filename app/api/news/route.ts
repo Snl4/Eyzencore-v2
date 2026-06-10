@@ -12,16 +12,16 @@ type CreateNewsRequestBody = {
 }
 
 export async function GET() {
-  const posts = listNewsPosts(50)
+  const posts = await listNewsPosts(50)
   return NextResponse.json({ posts })
 }
 
 export async function POST(request: Request) {
-  const user = getCurrentUser()
+  const user = await getCurrentUser()
   if (!user) {
     return NextResponse.json({ error: 'Потрібна авторизація' }, { status: 401 })
   }
-  const role = resolveUserRole({
+  const role = await resolveUserRole({
     userId: user.id,
     role: user.user_metadata.role,
   })
@@ -30,7 +30,7 @@ export async function POST(request: Request) {
   }
   try {
     const body = (await request.json()) as CreateNewsRequestBody
-    const createdPost = createNewsPost({
+    const createdPost = await createNewsPost({
       authorUserId: user.id,
       title: String(body.title || ''),
       excerpt: String(body.excerpt || ''),

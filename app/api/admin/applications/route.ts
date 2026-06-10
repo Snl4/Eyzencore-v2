@@ -3,8 +3,8 @@ import { getCurrentUser } from '@/lib/auth-server'
 import { ADMIN_EMAIL, listServerApplications } from '@/lib/auth-db'
 import type { ServerApplicationStatus } from '@/lib/auth-db'
 
-export function GET(request: NextRequest): NextResponse {
-  const user = getCurrentUser()
+export async function GET(request: NextRequest) {
+  const user = await getCurrentUser()
   if (!user || user.email !== ADMIN_EMAIL) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
@@ -12,6 +12,6 @@ export function GET(request: NextRequest): NextResponse {
   const status = searchParams.get('status') as ServerApplicationStatus | null
   const validStatuses: ServerApplicationStatus[] = ['pending', 'approved', 'rejected']
   const filtered = status && validStatuses.includes(status) ? status : undefined
-  const applications = listServerApplications(filtered)
+  const applications = await listServerApplications(filtered)
   return NextResponse.json(applications)
 }

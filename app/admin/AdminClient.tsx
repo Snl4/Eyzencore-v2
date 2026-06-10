@@ -480,6 +480,7 @@ const ApplicationsTab = ({ onPendingCountChange }: { onPendingCountChange: (coun
   const [rejectTarget, setRejectTarget] = useState<number | null>(null)
   const [rejectReason, setRejectReason] = useState('')
   const [expandedId, setExpandedId] = useState<number | null>(null)
+  const [actionError, setActionError] = useState('')
 
   const fetchApps = useCallback(async (filter: ServerApplicationStatus | 'all') => {
     setLoading(true)
@@ -496,24 +497,44 @@ const ApplicationsTab = ({ onPendingCountChange }: { onPendingCountChange: (coun
 
   const handleApprove = async (id: number) => {
     setActionId(id)
-    await fetch(`/api/admin/applications/${id}/approve`, { method: 'POST' })
-    setApps((prev) => prev.map((a) => a.id === id ? { ...a, status: 'approved' as ServerApplicationStatus } : a))
-    setActionId(null)
-    onPendingCountChange(apps.filter((a) => a.status === 'pending' && a.id !== id).length)
+    setActionError('')
+    try {
+      const response = await fetch(`/api/admin/applications/${id}/approve`, { method: 'POST' })
+      const payload = await response.json() as { error?: string }
+      if (!response.ok) {
+        throw new Error(payload.error || 'Не вдалося схвалити заявку')
+      }
+      setApps((prev) => prev.map((a) => a.id === id ? { ...a, status: 'approved' as ServerApplicationStatus } : a))
+      onPendingCountChange(apps.filter((a) => a.status === 'pending' && a.id !== id).length)
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Не вдалося схвалити заявку')
+    } finally {
+      setActionId(null)
+    }
   }
 
   const handleReject = async (id: number) => {
     setActionId(id)
-    await fetch(`/api/admin/applications/${id}/reject`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ reason: rejectReason.trim() || undefined }),
-    })
-    setApps((prev) => prev.map((a) => a.id === id ? { ...a, status: 'rejected' as ServerApplicationStatus, rejectionReason: rejectReason.trim() || null } : a))
-    setRejectTarget(null)
-    setRejectReason('')
-    setActionId(null)
-    onPendingCountChange(apps.filter((a) => a.status === 'pending' && a.id !== id).length)
+    setActionError('')
+    try {
+      const response = await fetch(`/api/admin/applications/${id}/reject`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: rejectReason.trim() || undefined }),
+      })
+      const payload = await response.json() as { error?: string }
+      if (!response.ok) {
+        throw new Error(payload.error || 'Не вдалося відхилити заявку')
+      }
+      setApps((prev) => prev.map((a) => a.id === id ? { ...a, status: 'rejected' as ServerApplicationStatus, rejectionReason: rejectReason.trim() || null } : a))
+      setRejectTarget(null)
+      setRejectReason('')
+      onPendingCountChange(apps.filter((a) => a.status === 'pending' && a.id !== id).length)
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Не вдалося відхилити заявку')
+    } finally {
+      setActionId(null)
+    }
   }
 
   const visibleApps = statusFilter === 'all' ? apps : apps.filter((a) => a.status === statusFilter)
@@ -522,6 +543,11 @@ const ApplicationsTab = ({ onPendingCountChange }: { onPendingCountChange: (coun
 
   return (
     <div>
+      {actionError && (
+        <div className="auth-feedback auth-feedback-error" role="alert" style={{ marginBottom: 16 }}>
+          {actionError}
+        </div>
+      )}
       {/* Filter bar */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
         {(['pending', 'approved', 'rejected', 'all'] as const).map((s) => (

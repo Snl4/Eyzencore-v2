@@ -36,7 +36,7 @@ export function LoginForm() {
       setStatus({ type: 'success', message: 'Успішний вхід. Переходимо в кабінет...' })
       router.push('/settings')
       router.refresh()
-    } catch (_error) {
+    } catch {
       setStatus({ type: 'error', message: 'Помилка мережі. Спробуйте ще раз.' })
       setIsLoading(false)
     }

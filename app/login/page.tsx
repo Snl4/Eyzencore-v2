@@ -10,8 +10,8 @@ export const metadata: Metadata = {
   description: 'Увійдіть в акаунт Eyzencore',
 }
 
-export default function LoginPage() {
-  if (getCurrentUser()) {
+export default async function LoginPage() {
+  if (await getCurrentUser()) {
     redirect('/settings')
   }
   return (

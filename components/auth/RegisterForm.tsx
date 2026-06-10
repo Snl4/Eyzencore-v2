@@ -27,81 +27,34 @@ export function RegisterForm() {
   const [password, setPassword] = useState<string>('')
   const [terms, setTerms] = useState<boolean>(false)
   const [news, setNews] = useState<boolean>(true)
-  const [verificationCode, setVerificationCode] = useState<string>('')
-  const [isCodeSent, setIsCodeSent] = useState<boolean>(false)
   const [isLoading, setIsLoading] = useState<boolean>(false)
-  const [resendSeconds, setResendSeconds] = useState<number>(0)
   const [status, setStatus] = useState<RegisterStatus>({ type: null, message: '' })
   const strength = useMemo(() => getPasswordStrength(password), [password])
   const strengthLabel = useMemo(() => ['Слабкий', 'Середній', 'Сильний'][Math.max(0, strength - 1)] || '', [strength])
-  const startResendTimer = (seconds: number): void => {
-    setResendSeconds(seconds)
-    const intervalId = window.setInterval(() => {
-      setResendSeconds((currentSeconds) => {
-        if (currentSeconds <= 1) {
-          window.clearInterval(intervalId)
-          return 0
-        }
-        return currentSeconds - 1
-      })
-    }, 1000)
-  }
-  const handleSendCode = async (): Promise<void> => {
-    setStatus({ type: 'loading', message: 'Надсилаємо код підтвердження...' })
-    setIsLoading(true)
-    try {
-      const response = await fetch('/api/auth/send-verification-code', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, name }),
-      })
-      const data = (await response.json()) as { error?: string; resendIn?: number }
-      if (!response.ok) {
-        setStatus({ type: 'error', message: data.error || 'Не вдалося відправити код' })
-        setIsLoading(false)
-        return
-      }
-      setIsCodeSent(true)
-      startResendTimer(Number(data.resendIn || 60))
-      setStatus({ type: 'success', message: 'Код відправлено на вашу пошту' })
-      setIsLoading(false)
-    } catch (_error) {
-      setStatus({ type: 'error', message: 'Помилка мережі. Спробуйте ще раз.' })
-      setIsLoading(false)
-    }
-  }
   const handleSubmitRegister = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault()
     if (!terms) {
       setStatus({ type: 'error', message: 'Потрібно прийняти умови використання' })
       return
     }
-    if (!isCodeSent) {
-      await handleSendCode()
-      return
-    }
-    if (!verificationCode) {
-      setStatus({ type: 'error', message: 'Введіть код підтвердження з email' })
-      return
-    }
-    setStatus({ type: 'loading', message: 'Підтверджуємо код і створюємо акаунт...' })
+    setStatus({ type: 'loading', message: 'Створюємо акаунт...' })
     setIsLoading(true)
     try {
-      const response = await fetch('/api/auth/verify-code', {
+      const response = await fetch('/api/auth/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: name || username, email, password, code: verificationCode }),
+        body: JSON.stringify({ name: name || username, email, password }),
       })
       const data = (await response.json()) as { error?: string }
       if (!response.ok) {
-        setStatus({ type: 'error', message: data.error || 'Невірний код або помилка реєстрації' })
+        setStatus({ type: 'error', message: data.error || 'Не вдалося створити акаунт' })
         setIsLoading(false)
         return
       }
-      setStatus({ type: 'success', message: 'Акаунт підтверджено. Переходимо в кабінет...' })
+      setStatus({ type: 'success', message: 'Акаунт створено. Переходимо в кабінет...' })
       router.push('/settings')
       router.refresh()
-    } catch (_error) {
+    } catch {
       setStatus({ type: 'error', message: 'Помилка мережі. Спробуйте ще раз.' })
       setIsLoading(false)
     }
@@ -153,17 +106,6 @@ export function RegisterForm() {
           </div>
         )}
       </div>
-      {isCodeSent && (
-        <div className="field">
-          <label>
-            Код підтвердження
-            <button type="button" style={{ border: 'none', background: 'transparent', color: 'var(--accent)', padding: 0, cursor: resendSeconds > 0 ? 'not-allowed' : 'pointer', opacity: resendSeconds > 0 ? 0.5 : 1 }} onClick={() => { if (resendSeconds === 0) void handleSendCode() }}>
-              {resendSeconds > 0 ? `Повторно через ${resendSeconds}с` : 'Надіслати повторно'}
-            </button>
-          </label>
-          <input className="input" type="text" inputMode="numeric" placeholder="6-значний код" value={verificationCode} onChange={(event) => setVerificationCode(event.target.value.replace(/\D/g, '').slice(0, 6))} required />
-        </div>
-      )}
       <label className="checkbox-row">
         <input type="checkbox" checked={terms} onChange={(event) => setTerms(event.target.checked)} />
         <span>Я приймаю <a href="#">Умови використання</a> та <a href="#">Політику конфіденційності</a></span>
@@ -179,7 +121,7 @@ export function RegisterForm() {
         </div>
       )}
       <button type="submit" className="btn btn-primary btn-block" disabled={!terms || isLoading}>
-        {!isCodeSent ? (isLoading ? 'Надсилаємо код...' : <>Отримати код підтвердження <span style={{ opacity: 0.6 }}>→</span></>) : isLoading ? 'Створюємо акаунт...' : <>Підтвердити і створити акаунт <span style={{ opacity: 0.6 }}>→</span></>}
+        {isLoading ? 'Створюємо акаунт...' : <>Створити акаунт <span style={{ opacity: 0.6 }}>→</span></>}
       </button>
     </form>
   )

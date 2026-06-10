@@ -44,11 +44,11 @@ export function Nav() {
 
         <div className="nav-links" style={{ display: 'flex', gap: 4, marginLeft: 8 }}>
           {[
-            { href: '/servers', label: 'Сервери' },
-            { href: '/#blog', label: 'Новини' },
-            { href: '/#demo', label: 'Дашборд' },
-            { href: '/#features', label: 'Можливості' },
-            { href: '/#faq', label: 'Питання' },
+            { href: '/servers/minecraft', label: 'Minecraft' },
+            { href: '/servers/discord', label: 'Discord' },
+            { href: '/news', label: 'Новини' },
+            { href: '/dashboard', label: 'Кабінет' },
+            { href: '/add-server', label: 'Додати сервер' },
           ].map(({ href, label }) => (
             <Link
               key={href}

@@ -8,9 +8,9 @@ export const metadata: Metadata = {
   description: 'Каталог українських Minecraft-серверів з live-моніторингом онлайну.',
 }
 
-export default function MinecraftServersPage() {
-  const initialServers = listServers()
-  const initialUser = getCurrentUser()
+export default async function MinecraftServersPage() {
+  const initialServers = await listServers()
+  const initialUser = await getCurrentUser()
   return (
     <>
       <div className="bg-aurora" />

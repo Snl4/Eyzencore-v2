@@ -25,24 +25,24 @@ function resolveSelectedServerId(input: { availableIds: number[]; queryValue?: s
   return input.availableIds[0] || null
 }
 
-export default function DevelopersPage({ searchParams }: DevelopersPageProps) {
-  const user = getCurrentUser()
+export default async function DevelopersPage({ searchParams }: DevelopersPageProps) {
+  const user = await getCurrentUser()
   if (!user) {
     redirect('/auth/login')
   }
-  const role = resolveUserRole({
+  const role = await resolveUserRole({
     userId: user.id,
     role: user.user_metadata.role,
   })
   if (role !== 'OWNER' && role !== 'ADMIN') {
     redirect('/dashboard')
   }
-  const servers = role === 'ADMIN' ? listServers() : listServersByOwner(user.id)
+  const servers = role === 'ADMIN' ? await listServers() : await listServersByOwner(user.id)
   const selectedServerId = resolveSelectedServerId({
     availableIds: servers.map((server) => server.seed),
     queryValue: searchParams?.serverId,
   })
-  const initialTokens = listApiTokens(user.id)
+  const initialTokens = await listApiTokens(user.id)
 
   if (!selectedServerId) {
     return (
@@ -60,8 +60,8 @@ export default function DevelopersPage({ searchParams }: DevelopersPageProps) {
       </>
     )
   }
-  const serverPayload = getIntegrationServerResponse(String(selectedServerId))
-  const eventsPayload = getIntegrationEventsResponse({
+  const serverPayload = await getIntegrationServerResponse(String(selectedServerId))
+  const eventsPayload = await getIntegrationEventsResponse({
     serverIdentifier: String(selectedServerId),
     limit: 20,
   })

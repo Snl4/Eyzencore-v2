@@ -8,9 +8,9 @@ export const metadata: Metadata = {
   description: 'Моніторинг українських Discord-спільнот: онлайн, учасники, категорії.',
 }
 
-export default function DiscordServersPage() {
-  const initialServers = listServers()
-  const initialUser = getCurrentUser()
+export default async function DiscordServersPage() {
+  const initialServers = await listServers()
+  const initialUser = await getCurrentUser()
   return (
     <>
       <div className="bg-aurora" />

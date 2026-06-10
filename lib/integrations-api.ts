@@ -57,19 +57,6 @@ export type IntegrationServerResponse = {
   created_at: string
 }
 
-type IntegrationEvent = {
-  id: string
-  type: string
-  created_at: string
-  payload: Record<string, string | number>
-}
-
-type IntegrationEventsResponse = {
-  server_id: string
-  total: number
-  events: IntegrationEvent[]
-}
-
 type IntegrationTestResponse = {
   success: boolean
   channel: 'discord' | 'telegram' | 'plugin' | 'webhook'
@@ -81,16 +68,16 @@ type IntegrationTestResponse = {
   }
 }
 
-function resolveServerByIdentifier(identifier: string): Server | null {
+async function resolveServerByIdentifier(identifier: string) {
   const trimmedIdentifier = String(identifier || '').trim()
   if (!trimmedIdentifier) {
     return null
   }
   const numericIdentifier = Number(trimmedIdentifier)
   if (Number.isFinite(numericIdentifier)) {
-    return getServerById(numericIdentifier)
+    return await getServerById(numericIdentifier)
   }
-  const allServers = listServers()
+  const allServers = await listServers()
   const normalizedIdentifier = trimmedIdentifier.toLowerCase()
   return allServers.find((server) => {
     const slug = buildServerDashboardSlug(server.name)
@@ -125,13 +112,13 @@ function getMidnightResetIso(): string {
   return date.toISOString()
 }
 
-export function getIntegrationServerResponse(serverIdentifier: string): IntegrationServerResponse | null {
-  const server = resolveServerByIdentifier(serverIdentifier)
+export async function getIntegrationServerResponse(serverIdentifier: string) {
+  const server = await resolveServerByIdentifier(serverIdentifier)
   if (!server) {
     return null
   }
-  const engagement = getServerEngagementSummary(server.seed)
-  const monthActivity = countServerActivityInDays({ serverId: server.seed, days: 30 })
+  const engagement = await getServerEngagementSummary(server.seed)
+  const monthActivity = await countServerActivityInDays({ serverId: server.seed, days: 30 })
   const monthlyEvents = monthActivity.views + monthActivity.votes + monthActivity.reviews
   const score = buildServerScore({
     monthlyVotes: monthActivity.votes,
@@ -192,16 +179,16 @@ export function getIntegrationServerResponse(serverIdentifier: string): Integrat
   }
 }
 
-export function getIntegrationEventsResponse(input: { serverIdentifier: string; limit?: number }): IntegrationEventsResponse | null {
-  const server = resolveServerByIdentifier(input.serverIdentifier)
+export async function getIntegrationEventsResponse(input: { serverIdentifier: string; limit?: number }) {
+  const server = await resolveServerByIdentifier(input.serverIdentifier)
   if (!server) {
     return null
   }
   const limit = Math.max(1, Math.min(Number(input.limit || 20), 100))
-  const events = listServerActivityEvents({
+  const events = (await listServerActivityEvents({
     serverId: server.seed,
     limit,
-  }).map((event) => ({
+  })).map((event) => ({
     id: event.id,
     type: event.type,
     created_at: event.createdAt,
@@ -214,8 +201,8 @@ export function getIntegrationEventsResponse(input: { serverIdentifier: string; 
   }
 }
 
-export function getIntegrationTestResponse(input: { serverIdentifier: string; channel: string }): IntegrationTestResponse | null {
-  const server = resolveServerByIdentifier(input.serverIdentifier)
+export async function getIntegrationTestResponse(input: { serverIdentifier: string; channel: string }): Promise<IntegrationTestResponse | null> {
+  const server = await resolveServerByIdentifier(input.serverIdentifier)
   if (!server) {
     return null
   }

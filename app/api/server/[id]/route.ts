@@ -9,7 +9,7 @@ import {
 } from '@/lib/auth-db'
 
 export async function PUT(request: NextRequest, context: { params: { id: string } }) {
-  const auth = getAuthSessionFromToken(request.cookies.get(AUTH_COOKIE_NAME)?.value)
+  const auth = await getAuthSessionFromToken(request.cookies.get(AUTH_COOKIE_NAME)?.value)
   if (!auth) {
     return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
   }
@@ -17,11 +17,11 @@ export async function PUT(request: NextRequest, context: { params: { id: string 
   if (!Number.isFinite(serverId)) {
     return NextResponse.json({ error: 'Invalid server id' }, { status: 400 })
   }
-  const currentServer = getServerById(serverId)
+  const currentServer = await getServerById(serverId)
   if (!currentServer) {
     return NextResponse.json({ error: 'Server not found' }, { status: 404 })
   }
-  const role = resolveUserRole({ userId: auth.user.id, role: auth.user.user_metadata.role })
+  const role = await resolveUserRole({ userId: auth.user.id, role: auth.user.user_metadata.role })
   const ownerId = role === 'ADMIN' ? String(currentServer.ownerId || auth.user.id) : auth.user.id
   try {
     const body = (await request.json()) as {
@@ -57,7 +57,7 @@ export async function PUT(request: NextRequest, context: { params: { id: string 
     const platform = body.platform === 'discord' || body.core === 'discord' || currentServer.platform === 'discord'
       ? 'discord'
       : 'minecraft';
-    const server = updateServerById({
+    const server = await updateServerById({
       serverId,
       ownerId,
       name,
@@ -91,7 +91,7 @@ export async function PUT(request: NextRequest, context: { params: { id: string 
 }
 
 export async function DELETE(request: NextRequest, context: { params: { id: string } }) {
-  const auth = getAuthSessionFromToken(request.cookies.get(AUTH_COOKIE_NAME)?.value)
+  const auth = await getAuthSessionFromToken(request.cookies.get(AUTH_COOKIE_NAME)?.value)
   if (!auth) {
     return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
   }
@@ -99,9 +99,9 @@ export async function DELETE(request: NextRequest, context: { params: { id: stri
   if (!Number.isFinite(serverId)) {
     return NextResponse.json({ error: 'Invalid server id' }, { status: 400 })
   }
-  const role = resolveUserRole({ userId: auth.user.id, role: auth.user.user_metadata.role })
+  const role = await resolveUserRole({ userId: auth.user.id, role: auth.user.user_metadata.role })
   try {
-    const result = deleteServerById({
+    const result = await deleteServerById({
       serverId,
       userId: auth.user.id,
       isAdmin: role === 'ADMIN',

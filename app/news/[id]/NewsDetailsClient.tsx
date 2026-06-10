@@ -2,10 +2,9 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { useState, type ReactNode } from 'react'
 import { PageShell } from '@/components/layout/PageShell'
 import type { AuthUser, NewsContentBlock, NewsPost } from '@/lib/auth-db'
-import React from 'react'
-import type { ReactNode } from 'react'
 
 type NewsDetailsClientProps = {
   initialUser: AuthUser | null
@@ -26,54 +25,70 @@ function toYoutubeEmbedUrl(url: string): string | null {
   return null
 }
 
-function parseInline(raw: string): React.ReactNode {
-  const nodes: React.ReactNode[] = []
+function parseInline(raw: string): ReactNode {
+  const nodes: ReactNode[] = []
   const re = /\*\*(.+?)\*\*|\*(.+?)\*|~~(.+?)~~|`(.+?)`|\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g
   let last = 0
-  let m: RegExpExecArray | null
+  let match: RegExpExecArray | null
   let key = 0
-  while ((m = re.exec(raw)) !== null) {
-    if (m.index > last) nodes.push(raw.slice(last, m.index))
-    if (m[1] != null) nodes.push(<strong key={key++}>{m[1]}</strong>)
-    else if (m[2] != null) nodes.push(<em key={key++}>{m[2]}</em>)
-    else if (m[3] != null) nodes.push(<s key={key++}>{m[3]}</s>)
-    else if (m[4] != null) nodes.push(<code key={key++} className="na-code">{m[4]}</code>)
-    else nodes.push(<a key={key++} href={m[6]} target="_blank" rel="noreferrer" className="na-link">{m[5]}</a>)
+
+  while ((match = re.exec(raw)) !== null) {
+    if (match.index > last) nodes.push(raw.slice(last, match.index))
+    if (match[1] != null) nodes.push(<strong key={key++}>{match[1]}</strong>)
+    else if (match[2] != null) nodes.push(<em key={key++}>{match[2]}</em>)
+    else if (match[3] != null) nodes.push(<s key={key++}>{match[3]}</s>)
+    else if (match[4] != null) nodes.push(<code key={key++} className="na-code">{match[4]}</code>)
+    else {
+      nodes.push(
+        <a key={key++} href={match[6]} target="_blank" rel="noreferrer" className="na-link">
+          {match[5]}
+          <span aria-hidden="true"> ↗</span>
+        </a>
+      )
+    }
     last = re.lastIndex
   }
+
   if (last < raw.length) nodes.push(raw.slice(last))
   return nodes.length === 0 ? raw : nodes
 }
 
-function estimateReadTime(content: string): string {
+function estimateReadTime(content: string): number {
   const words = String(content || '').trim().split(/\s+/).filter(Boolean).length
-  return `${Math.max(1, Math.ceil(words / 180))} хв`
+  return Math.max(1, Math.ceil(words / 180))
+}
+
+function formatDate(isoDate: string): string {
+  return new Date(isoDate).toLocaleDateString('uk-UA', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  })
 }
 
 function renderNewsBlock(block: NewsContentBlock): ReactNode {
   if (block.type === 'heading') {
-    return (
-      <h3 className="na-heading">{block.text}</h3>
-    )
+    return <h2 className="na-heading">{block.text}</h2>
   }
   if (block.type === 'paragraph') {
-    return (
-      <p className="na-paragraph">{parseInline(block.text ?? '')}</p>
-    )
+    return <p className="na-paragraph">{parseInline(block.text ?? '')}</p>
   }
   if (block.type === 'quote') {
-    return (
-      <blockquote className="na-quote">{parseInline(block.text ?? '')}</blockquote>
-    )
+    return <blockquote className="na-quote">{parseInline(block.text ?? '')}</blockquote>
   }
   if (block.type === 'image' && block.url) {
     return (
       <figure className="na-figure">
-        <div
-          aria-hidden="true"
-          className="news-media-content"
-          style={{ backgroundImage: `url(${JSON.stringify(block.url).slice(1, -1)})` }}
-        />
+        <a
+          href={block.url}
+          target="_blank"
+          rel="noreferrer"
+          className="na-media-link"
+          aria-label={block.caption ? `Відкрити зображення: ${block.caption}` : 'Відкрити зображення'}
+        >
+          <img src={block.url} alt={block.caption || ''} className="news-media-content" loading="lazy" />
+          <span className="na-media-hint">Відкрити у повному розмірі ↗</span>
+        </a>
         {block.caption && <figcaption className="na-caption">{block.caption}</figcaption>}
       </figure>
     )
@@ -83,17 +98,17 @@ function renderNewsBlock(block: NewsContentBlock): ReactNode {
     return (
       <figure className="na-figure">
         {isVideoFileUrl(block.url) ? (
-          <video src={block.url} controls className="news-media-content" />
+          <video src={block.url} controls preload="metadata" className="news-media-content" />
         ) : youtubeEmbed ? (
           <iframe
             src={youtubeEmbed}
-            title={block.caption || 'news-video'}
+            title={block.caption || 'Відео до новини'}
             className="news-media-content"
             allowFullScreen
           />
         ) : (
-          <a href={block.url} target="_blank" rel="noreferrer" className="btn btn-secondary">
-            Відкрити відео
+          <a href={block.url} target="_blank" rel="noreferrer" className="na-external-media">
+            Відкрити відео <span aria-hidden="true">↗</span>
           </a>
         )}
         {block.caption && <figcaption className="na-caption">{block.caption}</figcaption>}
@@ -105,123 +120,142 @@ function renderNewsBlock(block: NewsContentBlock): ReactNode {
 
 export function NewsDetailsClient({ initialUser, post, canManage }: NewsDetailsClientProps) {
   const router = useRouter()
+  const [isCopied, setIsCopied] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const readTime = estimateReadTime(post.content)
 
-  const handleDelete = async () => {
+  const handleCopyLink = async (): Promise<void> => {
+    try {
+      await navigator.clipboard.writeText(window.location.href)
+      setIsCopied(true)
+      window.setTimeout(() => setIsCopied(false), 1800)
+    } catch {
+      setIsCopied(false)
+    }
+  }
+
+  const handleDelete = async (): Promise<void> => {
     if (!window.confirm('Видалити цю новину? Дію неможливо скасувати.')) return
+    setIsDeleting(true)
     try {
       const response = await fetch(`/api/news/${post.id}`, { method: 'DELETE' })
-      if (!response.ok) return
+      if (!response.ok) {
+        setIsDeleting(false)
+        return
+      }
       router.push('/news')
       router.refresh()
-    } catch {}
+    } catch {
+      setIsDeleting(false)
+    }
   }
 
   return (
     <PageShell active="news" initialUser={initialUser}>
-      <div className="page-main">
-
-        {/* ── Topbar ── */}
-        <div className="page-topbar" style={{ flexWrap: 'wrap', gap: 10 }}>
-          <div>
-            <div className="page-crumb">простір / новини / {post.id}</div>
-          </div>
-          <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <Link href="/news" className="btn btn-secondary">
-              ← До новин
-            </Link>
+      <main className="page-main na-page">
+        <div className="na-topline">
+          <nav className="na-breadcrumbs" aria-label="Навігація">
+            <Link href="/">Головна</Link>
+            <span aria-hidden="true">/</span>
+            <Link href="/news">Новини</Link>
+            <span aria-hidden="true">/</span>
+            <span aria-current="page">{post.category}</span>
+          </nav>
+          <div className="na-top-actions" aria-label="Дії з новиною">
+            <button type="button" className="na-action" onClick={() => void handleCopyLink()}>
+              <span aria-hidden="true">{isCopied ? '✓' : '⧉'}</span>
+              <span>{isCopied ? 'Скопійовано' : 'Копіювати'}</span>
+            </button>
             {canManage && (
               <>
-                <Link href={`/news/${post.id}/edit`} className="btn btn-secondary">
-                  Редагувати
+                <Link href={`/news/${post.id}/edit`} className="na-action">
+                  <span aria-hidden="true">✎</span>
+                  <span>Редагувати</span>
                 </Link>
                 <button
                   type="button"
-                  className="btn btn-secondary"
+                  className="na-action na-action-danger"
                   onClick={() => void handleDelete()}
+                  disabled={isDeleting}
                 >
-                  Видалити
+                  <span aria-hidden="true">×</span>
+                  <span>{isDeleting ? 'Видалення…' : 'Видалити'}</span>
                 </button>
               </>
             )}
+            <Link href="/news" className="na-back-link">
+              <span aria-hidden="true">←</span>
+              До новин
+            </Link>
           </div>
         </div>
 
-        {/* ── Article ── */}
         <article className="na-article">
-
-          {/* Hero cover */}
-          {post.coverUrl && (
-            <div className="na-cover">
-              <img
-                src={post.coverUrl}
-                alt={post.title}
-                className="na-cover-img"
-                loading="eager"
-              />
-            </div>
-          )}
-
-          {/* Content column */}
-          <div className="na-body">
-
-            {/* Meta row */}
+          <header className="na-header">
             <div className="na-meta">
               <span className="na-category">{post.category}</span>
-              <span className="na-meta-sep" />
-              <time>
-                {new Date(post.createdAt).toLocaleDateString('uk-UA', {
-                  day: 'numeric',
-                  month: 'long',
-                  year: 'numeric',
-                })}
-              </time>
-              <span className="na-meta-sep" />
-              <span>{estimateReadTime(post.content)} читання</span>
+              <time dateTime={post.createdAt}>{formatDate(post.createdAt)}</time>
+              <span className="na-meta-item">{readTime} хв читання</span>
             </div>
 
-            {/* Title */}
             <h1 className="na-title">{post.title}</h1>
+            {post.excerpt && <p className="na-lead">{post.excerpt}</p>}
 
-            {/* Excerpt / lead */}
-            {post.excerpt && (
-              <p className="na-lead">{post.excerpt}</p>
-            )}
-
-            {/* Divider */}
-            <div className="na-divider" />
-
-            {/* Content blocks */}
-            <div className="na-blocks">
-              {post.blocks.map((block) => (
-                <div key={block.id}>{renderNewsBlock(block)}</div>
-              ))}
-            </div>
-
-            {/* Author footer */}
-            <div className="na-author">
-              {post.authorAvatarUrl && (
-                <img
-                  src={post.authorAvatarUrl}
-                  alt={post.authorName}
-                  className="na-author-avatar"
-                />
+            <div className="na-author-row">
+              {post.authorAvatarUrl ? (
+                <img src={post.authorAvatarUrl} alt="" className="na-author-avatar" />
+              ) : (
+                <span className="na-author-avatar na-author-avatar-fallback" aria-hidden="true">
+                  {post.authorName.slice(0, 1).toUpperCase()}
+                </span>
               )}
-              <div>
-                <div className="na-author-label">Автор</div>
-                <div className="na-author-name">
-                  {post.authorSlug ? (
-                    <Link href={`/profile/${post.authorSlug}`}>{post.authorName}</Link>
-                  ) : (
-                    post.authorName
-                  )}
-                </div>
+              <div className="na-author-copy">
+                <span>Автор</span>
+                {post.authorSlug ? (
+                  <Link href={`/profile/${post.authorSlug}`}>{post.authorName}</Link>
+                ) : (
+                  <strong>{post.authorName}</strong>
+                )}
               </div>
             </div>
+          </header>
 
+          {post.coverUrl && (
+            <a
+              href={post.coverUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="na-cover"
+              aria-label="Відкрити обкладинку у повному розмірі"
+            >
+              <img src={post.coverUrl} alt={post.title} className="na-cover-img" loading="eager" />
+              <span className="na-cover-hint">Переглянути повністю ↗</span>
+            </a>
+          )}
+
+          <div className="na-reading-layout">
+            <div className="na-body">
+              <div className="na-blocks">
+                {post.blocks.map((block) => (
+                  <section key={block.id} className={`na-block na-block-${block.type}`}>
+                    {renderNewsBlock(block)}
+                  </section>
+                ))}
+              </div>
+
+              <footer className="na-footer">
+                <div>
+                  <span>Опубліковано</span>
+                  <strong>{formatDate(post.createdAt)}</strong>
+                </div>
+                <button type="button" className="na-footer-share" onClick={() => void handleCopyLink()}>
+                  {isCopied ? 'Посилання скопійовано ✓' : 'Поділитися новиною'}
+                </button>
+              </footer>
+            </div>
           </div>
         </article>
-
-      </div>
+      </main>
     </PageShell>
   )
 }

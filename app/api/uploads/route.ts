@@ -41,7 +41,7 @@ function safeKind(value: string | null): 'news' | 'avatar' | 'banner' | 'misc' {
 }
 
 export async function POST(request: NextRequest) {
-  const auth = getAuthSessionFromToken(request.cookies.get(AUTH_COOKIE_NAME)?.value)
+  const auth = await getAuthSessionFromToken(request.cookies.get(AUTH_COOKIE_NAME)?.value)
   if (!auth) {
     return NextResponse.json({ error: 'Потрібна авторизація' }, { status: 401 })
   }
@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
 
   // Editor blocks for video are reserved for OWNER/ADMIN
   if (isVideo) {
-    const role = resolveUserRole({ userId: auth.user.id, role: auth.user.user_metadata.role })
+    const role = await resolveUserRole({ userId: auth.user.id, role: auth.user.user_metadata.role })
     if (role !== 'OWNER' && role !== 'ADMIN') {
       return NextResponse.json({ error: 'Завантажувати відео можуть лише автори новин' }, { status: 403 })
     }

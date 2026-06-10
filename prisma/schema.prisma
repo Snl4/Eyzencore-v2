@@ -1,0 +1,318 @@
+generator client {
+  provider        = "prisma-client"
+  output          = "../lib/generated/prisma"
+  previewFeatures = ["partialIndexes"]
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model app_api_tokens {
+  id           String    @id
+  user_id      String
+  name         String
+  token_hash   String    @unique(map: "sqlite_autoindex_app_api_tokens_2")
+  scopes       String    @default("[\"servers:read\"]")
+  last_used_at String?
+  created_at   String
+  revoked_at   String?
+  app_users    app_users @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([token_hash], map: "idx_api_tokens_token_hash")
+  @@index([user_id], map: "idx_api_tokens_user_id")
+}
+
+model app_news_posts {
+  id             Int       @id @default(autoincrement())
+  author_user_id String
+  title          String
+  excerpt        String    @default("")
+  content        String
+  content_json   String    @default("[]")
+  category       String    @default("Новини")
+  cover_url      String?
+  created_at     String
+  updated_at     String
+  app_users      app_users @relation(fields: [author_user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([author_user_id], map: "idx_news_posts_author")
+  @@index([created_at], map: "idx_news_posts_created_at")
+}
+
+model app_notifications {
+  id          Int          @id @default(autoincrement())
+  user_id     String
+  server_id   Int?
+  type        String
+  title       String
+  body        String
+  is_read     Int          @default(0)
+  created_at  String
+  app_servers app_servers? @relation(fields: [server_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  app_users   app_users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([created_at], map: "idx_notifications_created_at")
+  @@index([user_id], map: "idx_notifications_user_id")
+}
+
+model app_projects {
+  id                      Int                       @id @default(autoincrement())
+  owner_id                String
+  name                    String
+  description             String?                   @default("")
+  logo_url                String?
+  website                 String?
+  discord                 String?
+  created_at              String
+  updated_at              String
+  app_users               app_users                 @relation(fields: [owner_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  app_server_applications app_server_applications[]
+  app_servers             app_servers[]
+
+  @@index([owner_id], map: "idx_projects_owner")
+}
+
+model app_server_applications {
+  id               Int           @id @default(autoincrement())
+  owner_id         String
+  status           String        @default("pending")
+  rejection_reason String?
+  name             String
+  addr             String
+  platform         String        @default("minecraft")
+  mode             String
+  ver              String
+  core             String        @default("java")
+  country          String?
+  motd             String?
+  short_desc       String?       @default("")
+  full_desc        String?       @default("")
+  desc             String?       @default("")
+  website          String?
+  discord          String?
+  telegram         String?
+  donate           String?
+  tiktok           String?
+  launcher_url     String?
+  avatar_url       String?
+  banner_url       String?
+  gallery_json     String        @default("[]")
+  videos_json      String        @default("[]")
+  tags             String        @default("[]")
+  owner_name       String?
+  owner_avatar     String?
+  created_at       String
+  reviewed_at      String?
+  project_id       Int?
+  app_projects     app_projects? @relation(fields: [project_id], references: [id], onUpdate: NoAction)
+  app_users        app_users     @relation(fields: [owner_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([status], map: "idx_server_apps_status")
+  @@index([owner_id], map: "idx_server_apps_owner_id")
+}
+
+model app_server_nickname_votes {
+  id          Int         @id @default(autoincrement())
+  server_id   Int
+  nickname    String
+  ip_address  String
+  created_at  String
+  app_servers app_servers @relation(fields: [server_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([created_at], map: "idx_server_nickname_votes_created_at")
+  @@index([ip_address], map: "idx_server_nickname_votes_ip")
+  @@index([nickname], map: "idx_server_nickname_votes_nickname")
+  @@index([server_id], map: "idx_server_nickname_votes_server_id")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model app_server_online_samples {
+  server_id   Int
+  online      Int         @default(0)
+  players     Int         @default(0)
+  max         Int         @default(0)
+  votes       Int         @default(0)
+  views       Int         @default(0)
+  recorded_at String
+  app_servers app_servers @relation(fields: [server_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([server_id, recorded_at])
+  @@index([recorded_at], map: "idx_server_online_samples_recorded_at")
+  @@index([server_id], map: "idx_server_online_samples_server_id")
+}
+
+model app_server_reviews {
+  id          Int         @id @default(autoincrement())
+  server_id   Int
+  user_id     String?
+  fingerprint String
+  author_name String?
+  text        String
+  rating      Int
+  created_at  String
+  updated_at  String
+  app_users   app_users?  @relation(fields: [user_id], references: [id], onUpdate: NoAction)
+  app_servers app_servers @relation(fields: [server_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([server_id, fingerprint], map: "idx_server_reviews_unique_fingerprint")
+  @@unique([server_id, user_id], map: "idx_server_reviews_unique_user", where: raw("ON app_server_reviews(server_id, user_id) WHERE user_id IS NOT NULL"))
+  @@index([fingerprint], map: "idx_server_reviews_fingerprint")
+  @@index([user_id], map: "idx_server_reviews_user_id")
+  @@index([server_id], map: "idx_server_reviews_server_id")
+}
+
+model app_server_verifications {
+  id          Int         @id @default(autoincrement())
+  server_id   Int         @unique(map: "sqlite_autoindex_app_server_verifications_1")
+  owner_id    String
+  token       String      @unique(map: "sqlite_autoindex_app_server_verifications_2")
+  created_at  String
+  verified_at String?
+  app_users   app_users   @relation(fields: [owner_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  app_servers app_servers @relation(fields: [server_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([owner_id], map: "idx_server_verifications_owner_id")
+  @@index([server_id], map: "idx_server_verifications_server_id")
+}
+
+model app_server_views {
+  id           Int         @id @default(autoincrement())
+  server_id    Int
+  user_id      String?
+  fingerprint  String
+  ip_address   String?
+  country_code String?
+  created_at   String
+  app_users    app_users?  @relation(fields: [user_id], references: [id], onUpdate: NoAction)
+  app_servers  app_servers @relation(fields: [server_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([fingerprint], map: "idx_server_views_fingerprint")
+  @@index([created_at], map: "idx_server_views_created_at")
+  @@index([server_id], map: "idx_server_views_server_id")
+}
+
+model app_server_votes {
+  id          Int         @id @default(autoincrement())
+  server_id   Int
+  user_id     String?
+  fingerprint String
+  author_name String?
+  value       Int         @default(1)
+  created_at  String
+  updated_at  String
+  app_users   app_users?  @relation(fields: [user_id], references: [id], onUpdate: NoAction)
+  app_servers app_servers @relation(fields: [server_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([server_id, fingerprint], map: "idx_server_votes_unique_fingerprint")
+  @@unique([server_id, user_id], map: "idx_server_votes_unique_user", where: raw("ON app_server_votes(server_id, user_id) WHERE user_id IS NOT NULL"))
+  @@index([fingerprint], map: "idx_server_votes_fingerprint")
+  @@index([user_id], map: "idx_server_votes_user_id")
+  @@index([server_id], map: "idx_server_votes_server_id")
+}
+
+model app_servers {
+  id                        Int                         @id @default(autoincrement())
+  owner_id                  String
+  name                      String
+  addr                      String                      @unique(map: "sqlite_autoindex_app_servers_1")
+  platform                  String                      @default("minecraft")
+  mode                      String
+  ver                       String
+  core                      String                      @default("java")
+  country                   String?
+  motd                      String?
+  short_desc                String?                     @default("")
+  full_desc                 String?                     @default("")
+  desc                      String?                     @default("")
+  website                   String?
+  discord                   String?
+  telegram                  String?
+  donate                    String?
+  tiktok                    String?
+  launcher_url              String?
+  avatar_url                String?
+  banner_url                String?
+  gallery_json              String                      @default("[]")
+  videos_json               String                      @default("[]")
+  tags                      String                      @default("[]")
+  online                    Int                         @default(0)
+  players                   Int                         @default(0)
+  max                       Int                         @default(0)
+  uptime                    String                      @default("new")
+  verified                  Int                         @default(0)
+  cluster                   Int?
+  created_at                String
+  updated_at                String
+  project_id                Int?
+  discord_guild_id          String?
+  discord_bot_verified      Int                         @default(0)
+  discord_verify_code       String?
+  app_notifications         app_notifications[]
+  app_server_nickname_votes app_server_nickname_votes[]
+  app_server_online_samples app_server_online_samples[] @ignore
+  app_server_reviews        app_server_reviews[]
+  app_server_verifications  app_server_verifications?
+  app_server_views          app_server_views[]
+  app_server_votes          app_server_votes[]
+  app_projects              app_projects?               @relation(fields: [project_id], references: [id], onUpdate: NoAction)
+  app_users                 app_users                   @relation(fields: [owner_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([owner_id], map: "idx_app_servers_owner_id")
+  @@index([addr], map: "idx_app_servers_addr")
+}
+
+model app_users {
+  id                       String                     @id
+  email                    String                     @unique(map: "sqlite_autoindex_app_users_2")
+  password_hash            String
+  full_name                String
+  profile_slug             String?                    @unique(map: "sqlite_autoindex_app_users_3")
+  bio                      String?                    @default("")
+  location                 String?                    @default("")
+  website                  String?
+  telegram                 String?
+  discord                  String?
+  avatar_url               String?
+  banner_url               String?
+  role                     String                     @default("USER")
+  created_at               String
+  updated_at               String
+  discord_user_id          String?                    @unique(map: "idx_app_users_discord_user_id", where: raw("discord_user_id IS NOT NULL"))
+  app_api_tokens           app_api_tokens[]
+  app_news_posts           app_news_posts[]
+  app_notifications        app_notifications[]
+  app_projects             app_projects[]
+  app_server_applications  app_server_applications[]
+  app_server_reviews       app_server_reviews[]
+  app_server_verifications app_server_verifications[]
+  app_server_views         app_server_views[]
+  app_server_votes         app_server_votes[]
+  app_servers              app_servers[]
+  user_login_sessions      user_login_sessions[]
+
+  @@index([email], map: "idx_app_users_email")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model email_verification_codes {
+  email      String  @id
+  code_hash  String
+  expires_at String
+  sent_at    String
+  attempts   Int     @default(0)
+
+}
+
+model user_login_sessions {
+  id         String    @id
+  user_id    String
+  token_hash String    @unique(map: "sqlite_autoindex_user_login_sessions_2")
+  user_agent String?
+  created_at String
+  revoked_at String?
+  app_users  app_users @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([token_hash], map: "idx_sessions_token_hash")
+  @@index([user_id], map: "idx_sessions_user_id")
+}

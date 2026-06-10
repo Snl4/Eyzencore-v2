@@ -406,7 +406,7 @@ function OwnerServersCard(input: {
         onProjectsChange(projects.map((p) => (p.id === data.project!.id ? data.project! : p)))
       } else {
         onProjectsChange([data.project, ...projects])
-        setExpandedProjects((prev) => new Set([...prev, data.project!.id]))
+        setExpandedProjects((prev) => new Set([...Array.from(prev), data.project!.id]))
       }
     }
     setShowProjectModal(false)

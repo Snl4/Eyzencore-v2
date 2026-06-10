@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { AUTH_COOKIE_NAME, createProject, getAuthSessionFromToken, listProjectsByOwner } from '@/lib/auth-db'
 
-export async function GET(request: NextRequest): Promise<NextResponse> {
-  const auth = getAuthSessionFromToken(request.cookies.get(AUTH_COOKIE_NAME)?.value)
+export async function GET(request: NextRequest) {
+  const auth = await getAuthSessionFromToken(request.cookies.get(AUTH_COOKIE_NAME)?.value)
   if (!auth) return NextResponse.json({ error: 'Потрібна авторизація' }, { status: 401 })
-  const projects = listProjectsByOwner(auth.user.id)
+  const projects = await listProjectsByOwner(auth.user.id)
   return NextResponse.json({ projects })
 }
 
-export async function POST(request: NextRequest): Promise<NextResponse> {
-  const auth = getAuthSessionFromToken(request.cookies.get(AUTH_COOKIE_NAME)?.value)
+export async function POST(request: NextRequest) {
+  const auth = await getAuthSessionFromToken(request.cookies.get(AUTH_COOKIE_NAME)?.value)
   if (!auth) return NextResponse.json({ error: 'Потрібна авторизація' }, { status: 401 })
   try {
     const body = (await request.json()) as {
@@ -21,7 +21,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
     const name = String(body.name || '').trim()
     if (!name) return NextResponse.json({ error: 'Назва проекту є обовʼязковою' }, { status: 400 })
-    const project = createProject({
+    const project = await createProject({
       ownerId: auth.user.id,
       name,
       description: body.description,

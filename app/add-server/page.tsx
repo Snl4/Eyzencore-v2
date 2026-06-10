@@ -8,12 +8,12 @@ export const metadata: Metadata = {
   description: 'Submit your Minecraft server to Eyzencore',
 };
 
-export default function AddServerPage({
+export default async function AddServerPage({
   searchParams,
 }: {
   searchParams?: { platform?: string };
 }) {
-  const user = getCurrentUser();
+  const user = await getCurrentUser();
   if (!user) {
     redirect('/auth/login');
   }

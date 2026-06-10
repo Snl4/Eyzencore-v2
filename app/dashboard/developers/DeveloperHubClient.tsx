@@ -222,7 +222,7 @@ const DocsTab = ({ serverId }: { serverId: string }) => {
     { key: 'auth', label: 'Авторизація', group: 'Auth' },
   ]
 
-  const groups = [...new Set(nav.map((n) => n.group))]
+  const groups = Array.from(new Set(nav.map((n) => n.group)))
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr', gap: 20 }}>
@@ -665,7 +665,6 @@ const TABS: { key: Tab; label: string }[] = [
 
 export function DeveloperHubClient({
   initialUser,
-  role,
   serverOptions,
   selectedServerId,
   serverPayload,

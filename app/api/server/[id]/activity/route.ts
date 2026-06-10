@@ -8,7 +8,7 @@ import {
 } from '@/lib/auth-db'
 
 export async function GET(request: NextRequest, context: { params: { id: string } }) {
-  const auth = getAuthSessionFromToken(request.cookies.get(AUTH_COOKIE_NAME)?.value)
+  const auth = await getAuthSessionFromToken(request.cookies.get(AUTH_COOKIE_NAME)?.value)
   if (!auth) {
     return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
   }
@@ -16,10 +16,10 @@ export async function GET(request: NextRequest, context: { params: { id: string 
   if (!Number.isFinite(serverId)) {
     return NextResponse.json({ error: 'Invalid server id' }, { status: 400 })
   }
-  const role = resolveUserRole({ userId: auth.user.id, role: auth.user.user_metadata.role })
+  const role = await resolveUserRole({ userId: auth.user.id, role: auth.user.user_metadata.role })
   try {
     const limit = Number(request.nextUrl.searchParams.get('limit') || 20)
-    const data = getOwnerServerActivity({
+    const data = await getOwnerServerActivity({
       serverId,
       userId: auth.user.id,
       isAdmin: role === 'ADMIN',
@@ -33,7 +33,7 @@ export async function GET(request: NextRequest, context: { params: { id: string 
 }
 
 export async function DELETE(request: NextRequest, context: { params: { id: string } }) {
-  const auth = getAuthSessionFromToken(request.cookies.get(AUTH_COOKIE_NAME)?.value)
+  const auth = await getAuthSessionFromToken(request.cookies.get(AUTH_COOKIE_NAME)?.value)
   if (!auth) {
     return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
   }
@@ -42,9 +42,9 @@ export async function DELETE(request: NextRequest, context: { params: { id: stri
   if (!Number.isFinite(serverId) || !Number.isFinite(reviewId)) {
     return NextResponse.json({ error: 'Invalid identifier' }, { status: 400 })
   }
-  const role = resolveUserRole({ userId: auth.user.id, role: auth.user.user_metadata.role })
+  const role = await resolveUserRole({ userId: auth.user.id, role: auth.user.user_metadata.role })
   try {
-    const result = deleteServerReviewById({
+    const result = await deleteServerReviewById({
       serverId,
       reviewId,
       userId: auth.user.id,
