@@ -5,8 +5,8 @@ import type { UserRole } from '@/lib/auth-db'
 
 type Params = { params: { id: string } }
 
-export async function PATCH(request: NextRequest, { params }: Params): Promise<NextResponse> {
-  const user = getCurrentUser()
+export async function PATCH(request: NextRequest, { params }: Params) {
+  const user = await getCurrentUser()
   if (!user || user.email !== ADMIN_EMAIL) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
@@ -15,18 +15,18 @@ export async function PATCH(request: NextRequest, { params }: Params): Promise<N
   if (!body.role || !validRoles.includes(body.role as UserRole)) {
     return NextResponse.json({ error: 'Invalid role' }, { status: 400 })
   }
-  const result = updateUserRoleById(params.id, body.role as UserRole)
+  const result = await updateUserRoleById(params.id, body.role as UserRole)
   return NextResponse.json(result)
 }
 
-export function DELETE(_request: NextRequest, { params }: Params): NextResponse {
-  const user = getCurrentUser()
+export async function DELETE(_request: NextRequest, { params }: Params) {
+  const user = await getCurrentUser()
   if (!user || user.email !== ADMIN_EMAIL) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
   if (params.id === user.id) {
     return NextResponse.json({ error: 'Cannot delete your own account' }, { status: 400 })
   }
-  const result = deleteUserById(params.id)
+  const result = await deleteUserById(params.id)
   return NextResponse.json(result)
 }

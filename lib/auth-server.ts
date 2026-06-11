@@ -7,22 +7,22 @@ import {
   type AuthUser,
 } from '@/lib/auth-db';
 
-export function getCurrentAuth() {
+export async function getCurrentAuth() {
   const token = cookies().get(AUTH_COOKIE_NAME)?.value;
-  return getAuthSessionFromToken(token);
+  return await getAuthSessionFromToken(token);
 }
 
-export function getCurrentUser(): AuthUser | null {
-  return getCurrentAuth()?.user ?? null;
+export async function getCurrentUser(): Promise<AuthUser | null> {
+  return (await getCurrentAuth())?.user ?? null;
 }
 
-export function setSessionCookie(response: NextResponse, token: string) {
+export async function setSessionCookie(response: NextResponse, token: string) {
   response.cookies.set(AUTH_COOKIE_NAME, token, {
     httpOnly: true,
     sameSite: 'lax',
     secure: process.env.NODE_ENV === 'production',
     path: '/',
-    maxAge: getSessionMaxAgeSeconds(),
+    maxAge: await getSessionMaxAgeSeconds(),
   });
 }
 

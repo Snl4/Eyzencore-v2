@@ -10,7 +10,7 @@ export async function GET(_request: NextRequest, context: Context) {
   if (!Number.isFinite(serverId)) {
     return NextResponse.json({ error: 'Некоректний ідентифікатор сервера' }, { status: 400 })
   }
-  const server = getServerById(serverId)
+  const server = await getServerById(serverId)
   if (!server) {
     return NextResponse.json({ error: 'Сервер не знайдено' }, { status: 404 })
   }
@@ -29,8 +29,8 @@ export async function GET(_request: NextRequest, context: Context) {
     if (probeResponse.ok) {
       const payload = await probeResponse.json() as { probe?: { online?: boolean; players?: number; max?: number } }
       const probe = payload.probe || {}
-      const summary = getServerEngagementSummary(server.seed)
-      recordServerOnlineSample({
+      const summary = await getServerEngagementSummary(server.seed)
+      await recordServerOnlineSample({
         serverId: server.seed,
         online: Boolean(probe.online),
         players: Number(probe.players || 0),
@@ -53,7 +53,7 @@ export async function GET(_request: NextRequest, context: Context) {
     all: { hours: 24 * 365 * 3, bucketMinutes: 24 * 60 * 7 },
   }
   const selected = periodMap[period] || periodMap.day
-  const samples = listServerOnlineSamples(server.seed, selected.hours)
+  const samples = await listServerOnlineSamples(server.seed, selected.hours)
   const now = new Date()
   const bucketSizeMs = selected.bucketMinutes * 60 * 1000
   const rangeStart = new Date(now.getTime() - selected.hours * 60 * 60 * 1000)

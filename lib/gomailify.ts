@@ -46,7 +46,7 @@ export async function sendMailWithGomailify(payload: GomailifyPayload): Promise<
       }
     }
     return { isSent: true }
-  } catch (_error) {
+  } catch {
     return {
       isSent: false,
       error: 'Failed to send email',

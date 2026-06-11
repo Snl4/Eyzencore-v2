@@ -17,6 +17,7 @@ import type { Server } from '@/lib/types';
 import { formatPlural } from '@/lib/format-plural';
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import type { AuthUser } from '@/lib/auth-db';
+import type { Cluster } from '@/lib/cluster-db';
 
 type Tab = 'about' | 'stats' | 'cluster';
 type MetricKey = 'online' | 'votes' | 'views';
@@ -24,7 +25,7 @@ type PeriodKey = 'day' | 'week' | 'month' | 'min_month' | 'year' | 'min_year' | 
 type ReviewItem = { id: number; authorName: string; avatarUrl: string | null; text: string; rating: number; createdAt: string; updatedAt: string };
 type VoteEntry = { id: number; nickname: string; ipAddress: string; voteCount: number; createdAt: string };
 
-interface Props { server: Server; canEdit: boolean; initialUser: AuthUser | null }
+interface Props { server: Server; cluster: Cluster | null; canEdit: boolean; initialUser: AuthUser | null }
 type ChartPoint = { time: string; online: number; votes: number; views: number; rawTime: string }
 
 const METRIC_LABELS: Record<MetricKey, string> = { online: 'Онлайн', votes: 'Голоси', views: 'Перегляди' }
@@ -43,7 +44,7 @@ const PERIOD_OPTIONS: { value: PeriodKey; label: string }[] = [
   { value: 'all', label: 'Весь час' },
 ]
 
-export function ServerOverviewClient({ server: s, canEdit, initialUser }: Props) {
+export function ServerOverviewClient({ server: s, cluster, canEdit, initialUser }: Props) {
   const isDiscord = isDiscordServer(s);
   const [tab, setTab] = useState<Tab>('about');
   const [previewImage, setPreviewImage] = useState<string | null>(null);
@@ -78,6 +79,9 @@ export function ServerOverviewClient({ server: s, canEdit, initialUser }: Props)
   const [rating, setRating] = useState<number>(5)
   const [reviewText, setReviewText] = useState<string>('')
   const [reviewMessage, setReviewMessage] = useState<string | null>(null)
+  const [liked, setLiked] = useState(false)
+  const [likes, setLikes] = useState(0)
+  const [likeBusy, setLikeBusy] = useState(false)
   const [botInviteUrl, setBotInviteUrl] = useState<string | null>(null)
   const isValidNickname = (value: string): boolean => /^[A-Za-z0-9_]{3,16}$/.test(String(value || '').trim())
   const catalogHref = isDiscord ? '/servers/discord' : '/servers/minecraft'
@@ -91,6 +95,15 @@ export function ServerOverviewClient({ server: s, canEdit, initialUser }: Props)
         setBotInviteUrl(payload.inviteUrl || null)
       })
   }, [isDiscord, canEdit])
+  useEffect(() => {
+    void fetch(`/api/servers/${s.seed}/like`, { cache: 'no-store' })
+      .then(async (response) => {
+        if (!response.ok) return
+        const payload = await response.json() as { liked?: boolean; likes?: number }
+        setLiked(Boolean(payload.liked))
+        setLikes(Number(payload.likes || 0))
+      })
+  }, [s.seed])
   const loadEngagement = async () => {
     const response = await fetch(`/api/servers/${s.seed}/engagement`, { cache: 'no-store' })
     if (!response.ok) return
@@ -352,6 +365,18 @@ export function ServerOverviewClient({ server: s, canEdit, initialUser }: Props)
       setReviewMessage('Не вдалося зберегти відгук')
     }
   }
+  const handleLike = async () => {
+    setLikeBusy(true)
+    try {
+      const response = await fetch(`/api/servers/${s.seed}/like`, { method: 'POST' })
+      if (!response.ok) return
+      const payload = await response.json() as { liked?: boolean; likes?: number }
+      setLiked(Boolean(payload.liked))
+      setLikes(Number(payload.likes || 0))
+    } finally {
+      setLikeBusy(false)
+    }
+  }
 
   return (
     <PageShell active="servers" initialUser={initialUser}>
@@ -391,6 +416,9 @@ export function ServerOverviewClient({ server: s, canEdit, initialUser }: Props)
               </div>
             </div>
             <div className="so-hero-actions">
+              <button type="button" className={`btn ${liked ? 'btn-primary' : 'btn-secondary'}`} disabled={likeBusy} onClick={() => void handleLike()}>
+                {liked ? '♥ Подобається' : '♡ Вподобати'} · {likes}
+              </button>
               {canEdit && <Link href={`/servers/${s.seed}/edit`} className="btn btn-secondary">{Icons.shield} Редагувати</Link>}
             </div>
           </div>
@@ -401,7 +429,7 @@ export function ServerOverviewClient({ server: s, canEdit, initialUser }: Props)
           {/* Main */}
           <div className="so-main">
             <div className="so-tabs">
-              {(['about','stats','cluster'] as Tab[]).map(t=>(
+              {(['about','stats', ...(cluster ? ['cluster' as const] : [])] as Tab[]).map(t=>(
                 <button key={t} className={`so-tab${tab===t?' active':''}`} onClick={()=>setTab(t)}>
                   {{ about:'Про сервер', stats:'Статистика', cluster:'Кластер' }[t]}
                 </button>
@@ -674,18 +702,20 @@ export function ServerOverviewClient({ server: s, canEdit, initialUser }: Props)
               </>
             )}
 
-            {tab === 'cluster' && s.cluster && (
+            {tab === 'cluster' && cluster && (
               <>
-                <div className="so-block-title">Сервери кластеру</div>
+                <div className="so-block-title">{cluster.name}</div>
                 <div className="so-section">
-                  {Array.from({length: s.cluster}, (_,i) => (
-                    <div key={i} className="project-cluster">
-                      <div className="ic">{s.ic}{i+1}</div>
+                  {cluster.description && <p className="so-text" style={{ marginBottom: 16 }}>{cluster.description}</p>}
+                  {cluster.servers.map((server) => (
+                    <Link key={server.id} href={`/servers/${server.id}`} className="project-cluster">
+                      <div className="ic">{server.platform === 'discord' ? 'DS' : 'MC'}</div>
                       <div style={{flex:1, minWidth: 0}}>
-                        <b>{s.name} #{i+1}</b>
+                        <b>{server.name}</b>
+                        <div style={{ color: 'var(--fg-3)', fontSize: 11 }}>{server.addr}</div>
                       </div>
-                      <span className="pc-on">● онлайн</span>
-                    </div>
+                      <span className={server.online ? 'pc-on' : ''}>{server.online ? '● онлайн' : '○ офлайн'}</span>
+                    </Link>
                   ))}
                 </div>
               </>

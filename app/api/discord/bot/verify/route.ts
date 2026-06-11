@@ -17,7 +17,7 @@ export async function POST(request: Request) {
   }
   try {
     const body = (await request.json()) as { code?: string; guildId?: string; guildName?: string }
-    const result = verifyDiscordServerByBot({
+    const result = await verifyDiscordServerByBot({
       code: String(body.code || ''),
       guildId: String(body.guildId || ''),
       guildName: String(body.guildName || ''),

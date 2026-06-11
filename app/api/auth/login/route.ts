@@ -9,21 +9,21 @@ export async function POST(request: Request) {
       password?: string;
     };
 
-    const normalizedEmail = normalizeEmail(email || '');
+    const normalizedEmail = await normalizeEmail(email || '');
     if (!normalizedEmail || !password) {
       return NextResponse.json({ error: 'Email та пароль є обовʼязковими' }, { status: 400 });
     }
 
-    const user = authenticateUser(normalizedEmail, String(password));
+    const user = await authenticateUser(normalizedEmail, String(password));
     if (!user) {
       return NextResponse.json({ error: 'Невірний email або пароль' }, { status: 401 });
     }
 
-    const { token } = createSession(user.id, request.headers.get('user-agent'));
+    const { token } = await createSession(user.id, request.headers.get('user-agent'));
     const response = NextResponse.json({ success: true, user });
-    setSessionCookie(response, token);
+    await setSessionCookie(response, token);
     return response;
-  } catch (_error) {
+  } catch {
     return NextResponse.json({ error: 'Не вдалося увійти в акаунт' }, { status: 500 });
   }
 }

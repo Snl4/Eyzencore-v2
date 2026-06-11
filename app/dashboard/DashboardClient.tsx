@@ -5,6 +5,7 @@ import { useMemo, useState, useEffect } from 'react'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts'
 import { PageShell } from '@/components/layout/PageShell'
+import { Breadcrumbs } from '@/components/ui/Breadcrumbs'
 import type {
   AuthUser,
   OwnerDashboardPayload,
@@ -142,7 +143,7 @@ export function DashboardClient({ initialUser, initialRole }: DashboardClientPro
       <div className="page-main">
         <div className="page-topbar">
           <div>
-            <div className="page-crumb">dashboard / workspace</div>
+            <Breadcrumbs items={[{ label: 'Dashboard', href: '/' }, { label: 'Огляд' }]} />
             <h1 className="page-title">{isOwner ? 'Owner Dashboard' : 'User Dashboard'}</h1>
           </div>
         </div>
@@ -406,7 +407,7 @@ function OwnerServersCard(input: {
         onProjectsChange(projects.map((p) => (p.id === data.project!.id ? data.project! : p)))
       } else {
         onProjectsChange([data.project, ...projects])
-        setExpandedProjects((prev) => new Set([...prev, data.project!.id]))
+        setExpandedProjects((prev) => new Set([...Array.from(prev), data.project!.id]))
       }
     }
     setShowProjectModal(false)

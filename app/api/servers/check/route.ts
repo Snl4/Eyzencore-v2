@@ -117,18 +117,18 @@ export async function POST(request: Request) {
   if (platform === 'minecraft' && !isValidMinecraftAddress(normalized)) {
     return NextResponse.json({ error: 'Некоректний формат адреси Minecraft-сервера' }, { status: 400 });
   }
-  if (!body.allowExisting && findServerByAddress(normalized, platform)) {
+  if (!body.allowExisting && await findServerByAddress(normalized, platform)) {
     return NextResponse.json({ error: 'Сервер із цією адресою вже існує' }, { status: 400 });
   }
   try {
     if (platform === 'discord') {
       const existingServer = Number.isFinite(Number(body.serverId))
-        ? getServerById(Number(body.serverId))
+        ? await getServerById(Number(body.serverId))
         : null;
       const guildId = existingServer?.discordGuildId || null;
       const discordProbe = await probeDiscordInvite(normalized, guildId);
       if (discordProbe.guildId && existingServer && !existingServer.discordGuildId) {
-        updateServerDiscordGuildId(existingServer.seed, discordProbe.guildId);
+        await updateServerDiscordGuildId(existingServer.seed, discordProbe.guildId);
       }
       return NextResponse.json({
         success: true,

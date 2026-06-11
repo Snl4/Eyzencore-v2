@@ -1,16 +1,21 @@
 import type { Metadata } from 'next'
 import { ServersPageClient } from '../ServersPageClient'
-import { listServers } from '@/lib/auth-db'
 import { getCurrentUser } from '@/lib/auth-server'
+import { getCachedPublicServers } from '@/lib/public-cache'
 
 export const metadata: Metadata = {
   title: 'Discord сервери — Eyzencore',
   description: 'Моніторинг українських Discord-спільнот: онлайн, учасники, категорії.',
 }
 
-export default function DiscordServersPage() {
-  const initialServers = listServers()
-  const initialUser = getCurrentUser()
+export default async function DiscordServersPage() {
+  const [servers, initialUser] = await Promise.all([
+    getCachedPublicServers(),
+    getCurrentUser(),
+  ])
+  const initialServers = servers.filter(
+    (server) => server.platform === 'discord' || server.core === 'discord'
+  )
   return (
     <>
       <div className="bg-aurora" />
@@ -21,7 +26,7 @@ export default function DiscordServersPage() {
         activeKey="servers-discord"
         title="Discord сервери"
         crumb="простір / discord"
-        addHref="/add-server?platform=discord"
+        addHref="/add-server/discord"
       />
     </>
   )

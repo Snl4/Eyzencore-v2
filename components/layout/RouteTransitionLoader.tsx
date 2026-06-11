@@ -3,8 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { usePathname, useSearchParams } from 'next/navigation'
 
-const LOADER_SHOW_DELAY_MS = 110
-const LOADER_MIN_VISIBLE_MS = 260
+const LOADER_SHOW_DELAY_MS = 180
 
 function canStartNavigation(event: MouseEvent): boolean {
   if (event.defaultPrevented) {
@@ -55,10 +54,10 @@ export function RouteTransitionLoader() {
   const progressTimerRef = useRef<number | null>(null)
   const doneTimerRef = useRef<number | null>(null)
   const showTimerRef = useRef<number | null>(null)
-  const becameVisibleAtRef = useRef<number | null>(null)
   const startedFromRouteRef = useRef<string | null>(null)
 
-  const routeKey = `${pathname}?${searchParams.toString()}`
+  const search = searchParams.toString()
+  const routeKey = `${pathname}${search ? `?${search}` : ''}`
 
   const startLoading = () => {
     if (doneTimerRef.current) {
@@ -73,7 +72,6 @@ export function RouteTransitionLoader() {
     setProgress((current) => (current > 3 ? current : 3))
     startedFromRouteRef.current = `${window.location.pathname}${window.location.search}`
     showTimerRef.current = window.setTimeout(() => {
-      becameVisibleAtRef.current = Date.now()
       setIsVisible(true)
       showTimerRef.current = null
     }, LOADER_SHOW_DELAY_MS)
@@ -101,10 +99,9 @@ export function RouteTransitionLoader() {
         setIsVisible(false)
         setIsLoading(false)
         setProgress(0)
-        becameVisibleAtRef.current = null
         startedFromRouteRef.current = null
         doneTimerRef.current = null
-      }, 240)
+      }, 90)
     }
     if (showTimerRef.current) {
       window.clearTimeout(showTimerRef.current)
@@ -116,14 +113,6 @@ export function RouteTransitionLoader() {
       setProgress(0)
       setIsLoading(false)
       startedFromRouteRef.current = null
-      return
-    }
-    const visibleForMs = becameVisibleAtRef.current ? Date.now() - becameVisibleAtRef.current : 0
-    if (visibleForMs < LOADER_MIN_VISIBLE_MS) {
-      const waitForMs = LOADER_MIN_VISIBLE_MS - visibleForMs
-      window.setTimeout(() => {
-        finalize()
-      }, waitForMs)
       return
     }
     finalize()

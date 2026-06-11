@@ -93,7 +93,7 @@ export function ServerCard({ s }: Props) {
     <div className="server-card" onClick={() => router.push(`/servers/${s.seed}`)}>
       {/* Banner */}
       <div className="sc-banner" style={{ background: s.bannerUrl ? `url(${s.bannerUrl}) center/cover` : bannerBg }}>
-        <BannerDecor seed={s.seed}/>
+        {!s.bannerUrl && <BannerDecor seed={s.seed}/>}
         <span className="sc-platform-badge" style={{
           position: 'absolute',
           top: 10,
@@ -120,8 +120,8 @@ export function ServerCard({ s }: Props) {
       <div className="sc-head">
         <div className="sc-icon" style={{ background: s.avatarUrl ? `url(${s.avatarUrl}) center/cover` : iconBg }}>{s.avatarUrl ? '' : s.ic}</div>
         <div className="sc-title">
-          <b>
-            {s.name}
+          <b className="sc-name-line">
+            <span className="sc-name-text">{s.name}</span>
             {s.verified && <CheckBadgeIcon/>}
           </b>
           <span className="sub">

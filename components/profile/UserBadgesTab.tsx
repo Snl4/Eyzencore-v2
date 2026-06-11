@@ -6,6 +6,13 @@ export interface UserBadge {
 }
 
 export function UserBadgesTab({ badges }: { badges: UserBadge[] }) {
+  if (badges.length === 0) {
+    return (
+      <div className="cms-empty" style={{ padding: '40px 20px' }}>
+        Досягнення ще не налаштовані або немає активних бейджів.
+      </div>
+    )
+  }
   return (
     <div className="pbadges">
       {badges.map((b) => (

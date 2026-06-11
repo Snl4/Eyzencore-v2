@@ -14,7 +14,7 @@ import {
 const VALID_RANGES: DashRange[] = ['24h', '7d', '30d', '90d', 'all']
 
 export async function GET(request: NextRequest, context: { params: { id: string } }) {
-  const auth = getAuthSessionFromToken(request.cookies.get(AUTH_COOKIE_NAME)?.value)
+  const auth = await getAuthSessionFromToken(request.cookies.get(AUTH_COOKIE_NAME)?.value)
   if (!auth) {
     return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
   }
@@ -22,11 +22,11 @@ export async function GET(request: NextRequest, context: { params: { id: string 
   if (!Number.isFinite(serverId)) {
     return NextResponse.json({ error: 'Некоректний ідентифікатор сервера' }, { status: 400 })
   }
-  const server = getServerById(serverId)
+  const server = await getServerById(serverId)
   if (!server) {
     return NextResponse.json({ error: 'Сервер не знайдено' }, { status: 404 })
   }
-  const role = resolveUserRole({ userId: auth.user.id, role: auth.user.user_metadata.role })
+  const role = await resolveUserRole({ userId: auth.user.id, role: auth.user.user_metadata.role })
   const isAdmin = role === 'ADMIN'
   if (!isAdmin && server.ownerId !== auth.user.id) {
     return NextResponse.json({ error: 'Доступ заборонено' }, { status: 403 })
@@ -45,8 +45,8 @@ export async function GET(request: NextRequest, context: { params: { id: string 
       if (probeResponse.ok) {
         const payload = await probeResponse.json() as { probe?: { online?: boolean; players?: number; max?: number } }
         const probe = payload.probe || {}
-        const summary = getServerEngagementSummary(server.seed)
-        recordServerOnlineSample({
+        const summary = await getServerEngagementSummary(server.seed)
+        await recordServerOnlineSample({
           serverId: server.seed,
           online: Boolean(probe.online),
           players: Number(probe.players || 0),
@@ -65,7 +65,7 @@ export async function GET(request: NextRequest, context: { params: { id: string 
     } catch {
       // Backfill is best-effort — never block the dashboard response
     }
-    const data = getServerDashboardSnapshot({ serverId, userId: auth.user.id, isAdmin, range })
+    const data = await getServerDashboardSnapshot({ serverId, userId: auth.user.id, isAdmin, range })
     return NextResponse.json({
       ...data,
       server: {

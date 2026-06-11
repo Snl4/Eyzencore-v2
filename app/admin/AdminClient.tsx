@@ -2,6 +2,9 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { PageShell } from '@/components/layout/PageShell'
+import { Breadcrumbs } from '@/components/ui/Breadcrumbs'
+import { Select } from '@/components/ui/Select'
+import { Toggle } from '@/components/ui/Toggle'
 import type { AuthUser } from '@/lib/auth-db'
 import type { AdminStatsRow, AdminUserRow, ServerApplication, ServerApplicationStatus } from '@/lib/auth-db'
 import type { Server } from '@/lib/types'
@@ -167,22 +170,15 @@ const UsersTab = ({ currentUserId }: { currentUserId: string }) => {
                 </td>
                 <td style={{ padding: '10px 16px', fontFamily: 'var(--font-mono)', color: 'var(--fg-2)', fontSize: 12 }}>{u.email}</td>
                 <td style={{ padding: '10px 16px' }}>
-                  <select
+                  <Select
                     value={u.role}
                     disabled={updatingId === u.id}
-                    onChange={(e) => handleRoleChange(u.id, e.target.value)}
-                    aria-label={`Role for ${u.email}`}
-                    style={{
-                      background: 'var(--bg-3)', border: '1px solid var(--line)',
-                      borderRadius: 6, padding: '4px 8px', fontSize: 12,
-                      color: ROLE_COLORS[u.role] ?? 'var(--fg)',
-                      cursor: 'pointer', fontWeight: 600,
-                    }}
-                  >
-                    {ROLE_OPTIONS.map((r) => (
-                      <option key={r} value={r}>{r}</option>
-                    ))}
-                  </select>
+                    onChange={(value) => handleRoleChange(u.id, value)}
+                    ariaLabel={`Роль для ${u.email}`}
+                    options={ROLE_OPTIONS}
+                    size="sm"
+                    fullWidth={false}
+                  />
                 </td>
                 <td style={{ padding: '10px 16px', color: 'var(--fg-3)', fontSize: 12, whiteSpace: 'nowrap' }}>{formatDate(u.createdAt)}</td>
                 <td style={{ padding: '10px 16px' }}>
@@ -245,14 +241,14 @@ const ServersTab = () => {
 
   useEffect(() => { fetchServers() }, [fetchServers])
 
-  const handleToggleVerify = async (serverId: number, current: boolean) => {
+  const handleToggleVerify = async (serverId: number, verified: boolean) => {
     setTogglingId(serverId)
     await fetch(`/api/admin/servers/${serverId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ verified: !current }),
+      body: JSON.stringify({ verified }),
     })
-    setServers((prev) => prev.map((s) => s.seed === serverId ? { ...s, verified: !current } : s))
+    setServers((prev) => prev.map((s) => s.seed === serverId ? { ...s, verified } : s))
     setTogglingId(null)
   }
 
@@ -312,18 +308,19 @@ const ServersTab = () => {
                   </span>
                 </td>
                 <td style={{ padding: '10px 16px' }}>
-                  <button
-                    className="btn btn-secondary"
+                  <Toggle
+                    variant="outline"
+                    pressed={s.verified}
                     style={{
                       fontSize: 11, padding: '3px 10px',
                       color: s.verified ? 'var(--green)' : 'var(--fg-3)',
                       borderColor: s.verified ? 'color-mix(in oklab, var(--green) 30%, transparent)' : undefined,
                     }}
                     disabled={togglingId === s.seed}
-                    onClick={() => handleToggleVerify(s.seed, s.verified)}
+                    onPressedChange={(pressed) => void handleToggleVerify(s.seed, pressed)}
                   >
                     {togglingId === s.seed ? '…' : s.verified ? '✓ Верифіковано' : '○ Верифікувати'}
-                  </button>
+                  </Toggle>
                 </td>
                 <td style={{ padding: '10px 16px' }}>
                   {confirmDelete === s.seed ? (
@@ -480,6 +477,7 @@ const ApplicationsTab = ({ onPendingCountChange }: { onPendingCountChange: (coun
   const [rejectTarget, setRejectTarget] = useState<number | null>(null)
   const [rejectReason, setRejectReason] = useState('')
   const [expandedId, setExpandedId] = useState<number | null>(null)
+  const [actionError, setActionError] = useState('')
 
   const fetchApps = useCallback(async (filter: ServerApplicationStatus | 'all') => {
     setLoading(true)
@@ -496,24 +494,44 @@ const ApplicationsTab = ({ onPendingCountChange }: { onPendingCountChange: (coun
 
   const handleApprove = async (id: number) => {
     setActionId(id)
-    await fetch(`/api/admin/applications/${id}/approve`, { method: 'POST' })
-    setApps((prev) => prev.map((a) => a.id === id ? { ...a, status: 'approved' as ServerApplicationStatus } : a))
-    setActionId(null)
-    onPendingCountChange(apps.filter((a) => a.status === 'pending' && a.id !== id).length)
+    setActionError('')
+    try {
+      const response = await fetch(`/api/admin/applications/${id}/approve`, { method: 'POST' })
+      const payload = await response.json() as { error?: string }
+      if (!response.ok) {
+        throw new Error(payload.error || 'Не вдалося схвалити заявку')
+      }
+      setApps((prev) => prev.map((a) => a.id === id ? { ...a, status: 'approved' as ServerApplicationStatus } : a))
+      onPendingCountChange(apps.filter((a) => a.status === 'pending' && a.id !== id).length)
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Не вдалося схвалити заявку')
+    } finally {
+      setActionId(null)
+    }
   }
 
   const handleReject = async (id: number) => {
     setActionId(id)
-    await fetch(`/api/admin/applications/${id}/reject`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ reason: rejectReason.trim() || undefined }),
-    })
-    setApps((prev) => prev.map((a) => a.id === id ? { ...a, status: 'rejected' as ServerApplicationStatus, rejectionReason: rejectReason.trim() || null } : a))
-    setRejectTarget(null)
-    setRejectReason('')
-    setActionId(null)
-    onPendingCountChange(apps.filter((a) => a.status === 'pending' && a.id !== id).length)
+    setActionError('')
+    try {
+      const response = await fetch(`/api/admin/applications/${id}/reject`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: rejectReason.trim() || undefined }),
+      })
+      const payload = await response.json() as { error?: string }
+      if (!response.ok) {
+        throw new Error(payload.error || 'Не вдалося відхилити заявку')
+      }
+      setApps((prev) => prev.map((a) => a.id === id ? { ...a, status: 'rejected' as ServerApplicationStatus, rejectionReason: rejectReason.trim() || null } : a))
+      setRejectTarget(null)
+      setRejectReason('')
+      onPendingCountChange(apps.filter((a) => a.status === 'pending' && a.id !== id).length)
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Не вдалося відхилити заявку')
+    } finally {
+      setActionId(null)
+    }
   }
 
   const visibleApps = statusFilter === 'all' ? apps : apps.filter((a) => a.status === statusFilter)
@@ -522,6 +540,11 @@ const ApplicationsTab = ({ onPendingCountChange }: { onPendingCountChange: (coun
 
   return (
     <div>
+      {actionError && (
+        <div className="auth-feedback auth-feedback-error" role="alert" style={{ marginBottom: 16 }}>
+          {actionError}
+        </div>
+      )}
       {/* Filter bar */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
         {(['pending', 'approved', 'rejected', 'all'] as const).map((s) => (
@@ -698,7 +721,7 @@ export const AdminClient = ({ initialUser, initialStats }: AdminClientProps) => 
       <div className="page-main">
         <div className="page-topbar">
           <div>
-            <div className="page-crumb">admin / панель керування</div>
+            <Breadcrumbs items={[{ label: 'Адмін', href: '/' }, { label: 'Панель керування' }]} />
             <h1 className="page-title">Адмін панель</h1>
           </div>
           <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>

@@ -128,6 +128,7 @@ export function getDashboardSidebarSections(role: string): SidebarSection[] {
         { ico: 'key', name: 'Для розробників', key: 'developers', href: '/dashboard/developers' },
         ...(isOwnerRole ? [
           { ico: 'chart', name: 'Мої сервери', key: 'my-servers', href: '/dashboard?tab=servers' },
+          { ico: 'cluster', name: 'Кластери', key: 'clusters', href: '/dashboard/clusters' },
         ] : []),
       ],
     },

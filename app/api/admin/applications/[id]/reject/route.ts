@@ -4,8 +4,8 @@ import { ADMIN_EMAIL, rejectServerApplication } from '@/lib/auth-db'
 
 type Params = { params: { id: string } }
 
-export async function POST(request: NextRequest, { params }: Params): Promise<NextResponse> {
-  const user = getCurrentUser()
+export async function POST(request: NextRequest, { params }: Params) {
+  const user = await getCurrentUser()
   if (!user || user.email !== ADMIN_EMAIL) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
@@ -15,7 +15,7 @@ export async function POST(request: NextRequest, { params }: Params): Promise<Ne
   }
   const body = await request.json() as { reason?: string }
   try {
-    const result = rejectServerApplication(id, body.reason)
+    const result = await rejectServerApplication(id, body.reason)
     return NextResponse.json(result)
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Помилка при відхиленні'

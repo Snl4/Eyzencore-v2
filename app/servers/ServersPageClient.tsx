@@ -6,6 +6,7 @@ import { ServerCard } from '@/components/servers/ServerCard'
 import { FilterBar } from '@/components/servers/FilterBar'
 import { useServerFilter } from '@/hooks/useServerFilter'
 import { Icons } from '@/components/ui/Icons'
+import { Breadcrumbs, type BreadcrumbItem } from '@/components/ui/Breadcrumbs'
 import type { Server } from '@/lib/types'
 import type { AuthUser } from '@/lib/auth-db'
 
@@ -18,6 +19,7 @@ type ServersPageClientProps = {
   activeKey?: string
   title?: string
   crumb?: string
+  breadcrumbs?: BreadcrumbItem[]
   addHref?: string
 }
 
@@ -28,6 +30,7 @@ export function ServersPageClient({
   activeKey = 'servers',
   title = 'Каталог серверів',
   crumb = 'простір / сервери',
+  breadcrumbs,
   addHref = '/add-server',
 }: ServersPageClientProps) {
   const {
@@ -51,7 +54,10 @@ export function ServersPageClient({
       <div className="page-main">
         <div className="page-topbar">
           <div>
-            <div className="page-crumb">{crumb}</div>
+            <Breadcrumbs items={breadcrumbs || crumb.split('/').map((part, index, parts) => ({
+              label: part.trim(),
+              href: index === parts.length - 1 ? undefined : '/',
+            }))} />
             <h1 className="page-title">{title}</h1>
           </div>
           <div className="page-search">

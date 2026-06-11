@@ -12,12 +12,12 @@ export const metadata: Metadata = {
   description: 'Role-based dashboard for users and server owners',
 }
 
-export default function DashboardPage({ searchParams }: { searchParams?: Record<string, string | string[] | undefined> }) {
-  const user = getCurrentUser()
+export default async function DashboardPage({ searchParams }: { searchParams?: Record<string, string | string[] | undefined> }) {
+  const user = await getCurrentUser()
   if (!user) {
     redirect('/auth/login')
   }
-  const role = resolveUserRole({
+  const role = await resolveUserRole({
     userId: user.id,
     role: user.user_metadata.role,
   })
@@ -29,7 +29,7 @@ export default function DashboardPage({ searchParams }: { searchParams?: Record<
   if (role === 'OWNER' || role === 'ADMIN') {
     const escape = String(searchParams?.tab || '')
     if (escape !== 'servers') {
-      const owned = listServersByOwner(user.id)
+      const owned = await listServersByOwner(user.id)
       if (owned.length > 0) {
         redirect(`/dashboard/${buildServerDashboardSlug(owned[0].name)}`)
       }

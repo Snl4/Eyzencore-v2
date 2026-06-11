@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { AUTH_COOKIE_NAME, getAuthSessionFromToken, getServerById, updateServerById } from '@/lib/auth-db'
 
 export async function PATCH(request: NextRequest, context: { params: { id: string } }) {
-  const auth = getAuthSessionFromToken(request.cookies.get(AUTH_COOKIE_NAME)?.value)
+  const auth = await getAuthSessionFromToken(request.cookies.get(AUTH_COOKIE_NAME)?.value)
   if (!auth) {
     return NextResponse.json({ error: 'Потрібна авторизація' }, { status: 401 })
   }
@@ -42,7 +42,7 @@ export async function PATCH(request: NextRequest, context: { params: { id: strin
       return NextResponse.json({ error: 'Назва та адреса сервера є обовʼязковими' }, { status: 400 })
     }
     const platform = body.platform === 'discord' || body.core === 'discord' ? 'discord' : 'minecraft';
-    const server = updateServerById({
+    const server = await updateServerById({
       serverId,
       ownerId: auth.user.id,
       name,
@@ -76,7 +76,7 @@ export async function PATCH(request: NextRequest, context: { params: { id: strin
   }
 }
 export async function GET(_request: NextRequest, context: { params: { id: string } }) {
-  const server = getServerById(Number(context.params.id))
+  const server = await getServerById(Number(context.params.id))
   if (!server) {
     return NextResponse.json({ error: 'Сервер не знайдено' }, { status: 404 })
   }

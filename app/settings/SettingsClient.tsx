@@ -3,6 +3,7 @@
 import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { PageShell } from '@/components/layout/PageShell';
+import { Breadcrumbs } from '@/components/ui/Breadcrumbs';
 import { Icons } from '@/components/ui/Icons';
 import type { AuthSession, AuthUser } from '@/lib/auth-db';
 
@@ -128,7 +129,7 @@ export function SettingsClient({ user: initialUser }: { user: AuthUser }) {
       <div className="page-main">
         <div className="page-topbar">
           <div>
-            <div className="page-crumb">простір / налаштування</div>
+            <Breadcrumbs items={[{ label: 'Простір', href: '/' }, { label: 'Налаштування' }]} />
             <h1 className="page-title">Налаштування</h1>
           </div>
         </div>

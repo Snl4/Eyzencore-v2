@@ -11,12 +11,12 @@ interface RouteContext {
   params: { id: string }
 }
 
-export async function PATCH(request: NextRequest, context: RouteContext): Promise<NextResponse> {
-  const auth = getAuthSessionFromToken(request.cookies.get(AUTH_COOKIE_NAME)?.value)
+export async function PATCH(request: NextRequest, context: RouteContext) {
+  const auth = await getAuthSessionFromToken(request.cookies.get(AUTH_COOKIE_NAME)?.value)
   if (!auth) return NextResponse.json({ error: 'Потрібна авторизація' }, { status: 401 })
   const projectId = Number(context.params.id)
   if (!Number.isFinite(projectId)) return NextResponse.json({ error: 'Некоректний ідентифікатор' }, { status: 400 })
-  const existing = getProjectById(projectId)
+  const existing = await getProjectById(projectId)
   if (!existing) return NextResponse.json({ error: 'Проект не знайдено' }, { status: 404 })
   if (existing.ownerId !== auth.user.id) return NextResponse.json({ error: 'Немає доступу' }, { status: 403 })
   try {
@@ -29,7 +29,7 @@ export async function PATCH(request: NextRequest, context: RouteContext): Promis
     }
     const name = String(body.name || existing.name).trim()
     if (!name) return NextResponse.json({ error: 'Назва проекту є обовʼязковою' }, { status: 400 })
-    const project = updateProject({
+    const project = await updateProject({
       projectId,
       ownerId: auth.user.id,
       name,
@@ -45,14 +45,14 @@ export async function PATCH(request: NextRequest, context: RouteContext): Promis
   }
 }
 
-export async function DELETE(request: NextRequest, context: RouteContext): Promise<NextResponse> {
-  const auth = getAuthSessionFromToken(request.cookies.get(AUTH_COOKIE_NAME)?.value)
+export async function DELETE(request: NextRequest, context: RouteContext) {
+  const auth = await getAuthSessionFromToken(request.cookies.get(AUTH_COOKIE_NAME)?.value)
   if (!auth) return NextResponse.json({ error: 'Потрібна авторизація' }, { status: 401 })
   const projectId = Number(context.params.id)
   if (!Number.isFinite(projectId)) return NextResponse.json({ error: 'Некоректний ідентифікатор' }, { status: 400 })
-  const existing = getProjectById(projectId)
+  const existing = await getProjectById(projectId)
   if (!existing) return NextResponse.json({ error: 'Проект не знайдено' }, { status: 404 })
   if (existing.ownerId !== auth.user.id) return NextResponse.json({ error: 'Немає доступу' }, { status: 403 })
-  deleteProject(projectId, auth.user.id)
+  await deleteProject(projectId, auth.user.id)
   return NextResponse.json({ success: true })
 }

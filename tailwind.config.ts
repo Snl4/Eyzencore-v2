@@ -9,6 +9,18 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        card:      'var(--card)',
+        ring:      'var(--ring)',
+        input:     'var(--input)',
+        muted:     'var(--muted)',
+        border:    'var(--border)',
+        popover:   'var(--popover)',
+        primary:   'var(--primary)',
+        sidebar:   'var(--sidebar)',
+        secondary: 'var(--secondary)',
+        background:'var(--background)',
+        foreground:'var(--foreground)',
+        destructive: 'var(--destructive)',
         bg:        'var(--bg)',
         'bg-1':    'var(--bg-1)',
         'bg-2':    'var(--bg-2)',
@@ -28,6 +40,7 @@ const config: Config = {
       fontFamily: {
         sans:    ['var(--font-sans)'],
         mono:    ['var(--font-mono)'],
+        serif:   ['var(--font-serif)'],
         display: ['var(--font-display)'],
       },
       borderRadius: {

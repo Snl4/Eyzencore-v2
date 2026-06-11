@@ -5,12 +5,12 @@ import { resolveUserRole } from '@/lib/auth-db'
 
 export const dynamic = 'force-dynamic'
 
-export default function NewsCreatePage() {
-  const user = getCurrentUser()
+export default async function NewsCreatePage() {
+  const user = await getCurrentUser()
   if (!user) {
     redirect('/auth/login')
   }
-  const role = resolveUserRole({
+  const role = await resolveUserRole({
     userId: user.id,
     role: user.user_metadata.role,
   })

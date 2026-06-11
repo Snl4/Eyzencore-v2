@@ -8,8 +8,8 @@ export const metadata: Metadata = {
   description: 'Керуйте обліковим записом Eyzencore та параметрами безпеки',
 };
 
-export default function SettingsPage() {
-  const user = getCurrentUser();
+export default async function SettingsPage() {
+  const user = await getCurrentUser();
 
   if (!user) {
     redirect('/auth/login');

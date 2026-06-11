@@ -1,8 +1,9 @@
 import { notFound } from 'next/navigation'
-import type { Metadata } from 'next'
 import { ProfileClient } from '@/components/profile/ProfileClient'
+import { listUserBadges } from '@/lib/achievements'
 import { countServersByOwner, getUserByProfileSlug, getUserProfileSummary, listServersByOwner } from '@/lib/auth-db'
 import { getCurrentUser } from '@/lib/auth-server'
+import { listForumThreadsByUser } from '@/lib/forum-db'
 
 export const dynamic = 'force-dynamic'
 
@@ -12,8 +13,8 @@ type PublicProfilePageProps = {
   }
 }
 
-export async function generateMetadata({ params }: PublicProfilePageProps): Promise<Metadata> {
-  const user = getUserByProfileSlug(params.handle)
+export async function generateMetadata({ params }: PublicProfilePageProps) {
+  const user = await getUserByProfileSlug(params.handle)
   if (!user) {
     return {
       title: 'Профіль не знайдено',
@@ -25,16 +26,20 @@ export async function generateMetadata({ params }: PublicProfilePageProps): Prom
   }
 }
 
-export default function PublicProfilePage({ params }: PublicProfilePageProps) {
-  const user = getUserByProfileSlug(params.handle)
+export default async function PublicProfilePage({ params }: PublicProfilePageProps) {
+  const user = await getUserByProfileSlug(params.handle)
   if (!user) {
     notFound()
   }
-  const currentUser = getCurrentUser()
-  const serverCount = countServersByOwner(user.id)
-  const ownedServers = listServersByOwner(user.id)
+  const [currentUser, serverCount, ownedServers, forumThreads, summary, badges] = await Promise.all([
+    getCurrentUser(),
+    countServersByOwner(user.id),
+    listServersByOwner(user.id),
+    listForumThreadsByUser(user.id),
+    getUserProfileSummary(user.id, 30),
+    listUserBadges(user.id),
+  ])
   const totalOnline = ownedServers.reduce((sum, server) => sum + (server.on ? server.players : 0), 0)
-  const summary = getUserProfileSummary(user.id, 30)
   return (
     <>
       <div className="bg-aurora" />
@@ -44,7 +49,9 @@ export default function PublicProfilePage({ params }: PublicProfilePageProps) {
         serverCount={serverCount}
         totalOnline={totalOnline}
         summary={summary}
+        forumThreads={forumThreads}
         isPublicView
+        badges={badges}
         ownedServers={ownedServers.map((server) => ({
           seed: server.seed,
           ic: server.ic,

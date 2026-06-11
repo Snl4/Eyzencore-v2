@@ -4,7 +4,7 @@ import { useMemo, useRef, useState, type ChangeEvent, type DragEvent, type React
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { PageShell } from '@/components/layout/PageShell'
-import { Icons } from '@/components/ui/Icons'
+import { Breadcrumbs } from '@/components/ui/Breadcrumbs'
 import { Select } from '@/components/ui/Select'
 import { uploadFile, formatFileSize } from '@/lib/upload'
 import type { AuthUser, NewsContentBlock, NewsPost } from '@/lib/auth-db'
@@ -271,7 +271,11 @@ export function NewsEditorPage({ mode, initialUser, initialPost }: NewsEditorPag
       <div className="page-main">
         <div className="page-topbar">
           <div>
-            <div className="page-crumb">простір / новини / {isEditMode ? 'редагування' : 'нова'}</div>
+            <Breadcrumbs items={[
+              { label: 'Простір', href: '/' },
+              { label: 'Новини', href: '/news' },
+              { label: isEditMode ? 'Редагування' : 'Нова публікація' },
+            ]} />
             <h1 className="page-title">{pageTitle}</h1>
           </div>
           <div className="news-edit-actions">

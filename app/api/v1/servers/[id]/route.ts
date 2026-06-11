@@ -10,18 +10,18 @@ function buildScore(votes: number, events: number, rating: number, verified: boo
   return Number((votes * 1.2 + events * 0.35 + bonus + ratingBonus).toFixed(4))
 }
 
-export function GET(_request: NextRequest, { params }: Params): NextResponse {
+export async function GET(_request: NextRequest, { params }: Params) {
   const serverId = Number(params.id)
   if (isNaN(serverId)) {
     return NextResponse.json({ error: 'Invalid server id' }, { status: 400 })
   }
-  const server = getServerById(serverId)
+  const server = await getServerById(serverId)
   if (!server) {
     return NextResponse.json({ error: 'Server not found' }, { status: 404 })
   }
 
-  const engagement = getServerEngagementSummary(server.seed)
-  const activity = countServerActivityInDays({ serverId: server.seed, days: 30 })
+  const engagement = await getServerEngagementSummary(server.seed)
+  const activity = await countServerActivityInDays({ serverId: server.seed, days: 30 })
   const eventsMonthly = activity.views + activity.votes + activity.reviews
   const score = buildScore(activity.votes, eventsMonthly, engagement.averageRating, server.verified)
 

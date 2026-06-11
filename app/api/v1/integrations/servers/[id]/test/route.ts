@@ -3,7 +3,7 @@ import { getIntegrationTestResponse } from '@/lib/integrations-api'
 
 export async function POST(request: NextRequest, context: { params: { id: string } }) {
   const body = (await request.json().catch(() => ({}))) as { channel?: string }
-  const payload = getIntegrationTestResponse({
+  const payload = await getIntegrationTestResponse({
     serverIdentifier: context.params.id,
     channel: String(body.channel || ''),
   })

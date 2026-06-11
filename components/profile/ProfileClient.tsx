@@ -4,15 +4,16 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { PageShell } from '@/components/layout/PageShell';
+import { Breadcrumbs } from '@/components/ui/Breadcrumbs';
 import { Icons } from '@/components/ui/Icons';
 import type { AuthUser, UserProfileActivity, UserProfileSummary } from '@/lib/auth-db';
 import { ProfileHeader, type ProfileHeaderData } from './ProfileHeader';
 import { ProfileStats, type ProfileStat } from './ProfileStats';
 import { ProfileTabs, type ProfileTabKey } from './ProfileTabs';
 import { UserServersTab, type UserServerCard } from './UserServersTab';
-import { UserForumTab } from './UserForumTab';
+import { UserForumTab, type UserForumThread } from './UserForumTab';
 import { UserActivityTab, type UserActivityEntry } from './UserActivityTab';
-import { UserBadgesTab } from './UserBadgesTab';
+import { UserBadgesTab, type UserBadge } from './UserBadgesTab';
 import { ProfileEditModal } from './ProfileEditModal';
 import { formatNumberUA } from './format';
 
@@ -22,7 +23,9 @@ interface Props {
   serverCount: number;
   totalOnline: number;
   ownedServers: UserServerCard[];
+  forumThreads?: UserForumThread[];
   summary?: UserProfileSummary;
+  badges?: UserBadge[];
   isPublicView?: boolean;
 }
 
@@ -108,7 +111,7 @@ function buildHeader(user: AuthUser, tags: string[]): ProfileHeaderData {
   };
 }
 
-export function ProfileClient({ user: initialUser, currentUser = null, serverCount, totalOnline, ownedServers, summary, isPublicView = false }: Props) {
+export function ProfileClient({ user: initialUser, currentUser = null, serverCount, totalOnline, ownedServers, forumThreads = [], summary, badges = [], isPublicView = false }: Props) {
   const router = useRouter();
   const [user, setUser] = useState<AuthUser>(initialUser);
   // For public profile views, show the *logged-in viewer* in the sidebar (or null = guest).
@@ -136,7 +139,7 @@ export function ProfileClient({ user: initialUser, currentUser = null, serverCou
 
   const stats: ProfileStat[] = [
     { label: 'Серверів',         value: String(serverCount),         trend: 'у моніторингу' },
-    { label: 'Тем на форумі',    value: '0',                          trend: 'почніть першу тему' },
+    { label: 'Тем на форумі', value: String(forumThreads.length), trend: forumThreads.length ? 'активність спільноти' : 'почніть першу тему' },
     { label: 'Карма',            value: karma > 0 ? formatNumberUA(karma) : '—', trend: karmaTrend },
     { label: 'Загальний онлайн', value: formatNumberUA(totalOnline),  trend: 'на ваших серверах' },
   ];
@@ -152,7 +155,10 @@ export function ProfileClient({ user: initialUser, currentUser = null, serverCou
       <div className="page-main" style={{ padding: '24px 32px 60px' }}>
         <div className="page-topbar">
           <div>
-            <div className="page-crumb">акаунт / профіль</div>
+            <Breadcrumbs items={[
+              { label: 'Акаунт', href: isPublicView ? '/' : '/dashboard' },
+              { label: isPublicView ? headerData.fullName : 'Профіль' },
+            ]} />
             <h1 className="page-title">{isPublicView ? 'Профіль користувача' : 'Мій профіль'}</h1>
           </div>
           <div className="profile-actions" style={{ marginLeft: 'auto' }}>
@@ -191,9 +197,9 @@ export function ProfileClient({ user: initialUser, currentUser = null, serverCou
         <ProfileTabs
           tabs={[
             { key: 'servers',  label: 'Сервери',     count: serverCount },
-            { key: 'forum',    label: 'Форум',       count: 0 },
+            { key: 'forum', label: 'Форум', count: forumThreads.length },
             { key: 'activity', label: 'Активність',  count: summary?.activity.length ?? 0 },
-            { key: 'badges',   label: 'Досягнення',  count: 0 },
+            { key: 'badges',   label: 'Досягнення',  count: badges.filter((badge) => badge.earned).length },
           ]}
           active={tab}
           onChange={setTab}
@@ -210,11 +216,11 @@ export function ProfileClient({ user: initialUser, currentUser = null, serverCou
               />
             ))}
           {tab === 'forum' && (
-            <UserForumTab threads={[]} />
+            <UserForumTab threads={forumThreads} />
           )}
           {tab === 'forum' === false && null}
           {tab === 'activity' && <UserActivityTab entries={activityEntries} />}
-          {tab === 'badges' && <UserBadgesTab badges={[]} />}
+          {tab === 'badges' && <UserBadgesTab badges={badges} />}
         </div>
       </div>
 

@@ -39,11 +39,11 @@ export async function GET(request: NextRequest) {
     const profile = await fetchDiscordUserProfile(accessToken)
     const profileUrl = buildDiscordProfileUrl(profile.id)
     if (state.mode === 'link') {
-      const auth = getAuthSessionFromToken(request.cookies.get(AUTH_COOKIE_NAME)?.value)
+      const auth = await getAuthSessionFromToken(request.cookies.get(AUTH_COOKIE_NAME)?.value)
       if (!auth) {
         return NextResponse.redirect(new URL('/auth/login?error=login_required', appUrl))
       }
-      linkDiscordUserAccount({
+      await linkDiscordUserAccount({
         userId: auth.user.id,
         discordUserId: profile.id,
         discordProfileUrl: profileUrl,
@@ -51,10 +51,10 @@ export async function GET(request: NextRequest) {
       })
       return NextResponse.redirect(new URL('/settings?section=integrations&discord=linked', appUrl))
     }
-    let user = getUserByDiscordId(profile.id)
+    let user = await getUserByDiscordId(profile.id)
     if (!user) {
       const email = profile.email || `discord_${profile.id}@users.eyzencore.local`
-      user = createUserFromDiscordProfile({
+      user = await createUserFromDiscordProfile({
         discordUserId: profile.id,
         email,
         fullName: profile.globalName || profile.username,
@@ -62,9 +62,12 @@ export async function GET(request: NextRequest) {
         discordProfileUrl: profileUrl,
       })
     }
-    const { token } = createSession(user.id, request.headers.get('user-agent'))
+    if (!user) {
+      throw new Error('discord_user_creation_failed')
+    }
+    const { token } = await createSession(user.id, request.headers.get('user-agent'))
     const response = NextResponse.redirect(new URL('/dashboard', appUrl))
-    setSessionCookie(response, token)
+    await setSessionCookie(response, token)
     return response
   } catch (error) {
     const message = error instanceof Error ? error.message : 'discord_auth_failed'

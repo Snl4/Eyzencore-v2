@@ -1,0 +1,581 @@
+'use client'
+
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { CmsAchievementsPanel } from '@/components/cms/CmsAchievementsPanel'
+import { Select } from '@/components/ui/Select'
+import type { CmsEntity } from '@/lib/cms-db'
+
+type CmsRow = Record<string, unknown> & { id: string | number }
+type CmsStats = Record<CmsEntity, number>
+type Field = {
+  key: string
+  label: string
+  type?: 'text' | 'textarea' | 'number' | 'select' | 'toggle'
+  options?: string[]
+}
+type EntityConfig = {
+  label: string
+  singular: string
+  description: string
+  columns: Array<{ key: string; label: string }>
+  fields: Field[]
+}
+
+const configs: Record<CmsEntity, EntityConfig> = {
+  users: {
+    label: 'Користувачі',
+    singular: 'користувача',
+    description: 'Облікові записи, ролі та профілі.',
+    columns: [
+      { key: 'full_name', label: 'Ім’я' },
+      { key: 'email', label: 'Email' },
+      { key: 'role', label: 'Роль' },
+      { key: 'created_at', label: 'Створено' },
+    ],
+    fields: [
+      { key: 'full_name', label: 'Ім’я' },
+      { key: 'email', label: 'Email' },
+      { key: 'profile_slug', label: 'Slug профілю' },
+      {
+        key: 'role',
+        label: 'Роль',
+        type: 'select',
+        options: ['USER', 'OWNER', 'ADMIN'],
+      },
+      { key: 'bio', label: 'Про користувача', type: 'textarea' },
+      { key: 'location', label: 'Локація' },
+      { key: 'website', label: 'Сайт' },
+      { key: 'telegram', label: 'Telegram' },
+      { key: 'discord', label: 'Discord' },
+    ],
+  },
+  servers: {
+    label: 'Сервери',
+    singular: 'сервер',
+    description: 'Картки серверів, адреси, статус і верифікація.',
+    columns: [
+      { key: 'name', label: 'Назва' },
+      { key: 'addr', label: 'Адреса' },
+      { key: 'platform', label: 'Платформа' },
+      { key: 'players', label: 'Гравці' },
+      { key: 'verified', label: 'Перевірено' },
+    ],
+    fields: [
+      { key: 'name', label: 'Назва' },
+      { key: 'addr', label: 'Адреса' },
+      {
+        key: 'platform',
+        label: 'Платформа',
+        type: 'select',
+        options: ['minecraft', 'discord'],
+      },
+      { key: 'mode', label: 'Режим' },
+      { key: 'ver', label: 'Версія' },
+      { key: 'core', label: 'Ядро' },
+      { key: 'country', label: 'Країна' },
+      { key: 'short_desc', label: 'Короткий опис', type: 'textarea' },
+      { key: 'full_desc', label: 'Повний опис', type: 'textarea' },
+      { key: 'website', label: 'Сайт' },
+      { key: 'discord', label: 'Discord' },
+      { key: 'telegram', label: 'Telegram' },
+      { key: 'tags', label: 'Теги JSON', type: 'textarea' },
+      { key: 'online', label: 'Онлайн', type: 'toggle' },
+      { key: 'players', label: 'Гравців', type: 'number' },
+      { key: 'max', label: 'Максимум', type: 'number' },
+      { key: 'verified', label: 'Верифікований', type: 'toggle' },
+      { key: 'project_id', label: 'ID проєкту', type: 'number' },
+    ],
+  },
+  news: {
+    label: 'Новини',
+    singular: 'новину',
+    description: 'Публікації, категорії та обкладинки.',
+    columns: [
+      { key: 'title', label: 'Заголовок' },
+      { key: 'category', label: 'Категорія' },
+      { key: 'app_users.full_name', label: 'Автор' },
+      { key: 'updated_at', label: 'Оновлено' },
+    ],
+    fields: [
+      { key: 'title', label: 'Заголовок' },
+      { key: 'category', label: 'Категорія' },
+      { key: 'excerpt', label: 'Анонс', type: 'textarea' },
+      { key: 'content', label: 'Текст новини', type: 'textarea' },
+      { key: 'cover_url', label: 'URL обкладинки' },
+    ],
+  },
+  projects: {
+    label: 'Проєкти',
+    singular: 'проєкт',
+    description: 'Групи серверів та їхні власники.',
+    columns: [
+      { key: 'name', label: 'Назва' },
+      { key: 'app_users.full_name', label: 'Власник' },
+      { key: '_count.app_servers', label: 'Серверів' },
+      { key: 'created_at', label: 'Створено' },
+    ],
+    fields: [
+      { key: 'name', label: 'Назва' },
+      { key: 'description', label: 'Опис', type: 'textarea' },
+      { key: 'logo_url', label: 'URL логотипа' },
+      { key: 'website', label: 'Сайт' },
+      { key: 'discord', label: 'Discord' },
+    ],
+  },
+  reviews: {
+    label: 'Відгуки',
+    singular: 'відгук',
+    description: 'Оцінки та коментарі користувачів.',
+    columns: [
+      { key: 'app_servers.name', label: 'Сервер' },
+      { key: 'author_name', label: 'Автор' },
+      { key: 'rating', label: 'Оцінка' },
+      { key: 'text', label: 'Текст' },
+    ],
+    fields: [
+      { key: 'author_name', label: 'Автор' },
+      { key: 'rating', label: 'Оцінка 1–5', type: 'number' },
+      { key: 'text', label: 'Текст', type: 'textarea' },
+    ],
+  },
+  achievements: {
+    label: 'Досягнення',
+    singular: 'досягнення',
+    description: 'Генератор бейджів для профілів.',
+    columns: [],
+    fields: [],
+  },
+  applications: {
+    label: 'Заявки',
+    singular: 'заявку',
+    description: 'Модерація заявок на додавання серверів.',
+    columns: [
+      { key: 'name', label: 'Сервер' },
+      { key: 'addr', label: 'Адреса' },
+      { key: 'app_users.full_name', label: 'Власник' },
+      { key: 'status', label: 'Статус' },
+    ],
+    fields: [
+      { key: 'name', label: 'Назва' },
+      { key: 'addr', label: 'Адреса' },
+      { key: 'platform', label: 'Платформа' },
+      { key: 'mode', label: 'Режим' },
+      { key: 'ver', label: 'Версія' },
+      { key: 'core', label: 'Ядро' },
+      { key: 'country', label: 'Країна' },
+      { key: 'short_desc', label: 'Короткий опис', type: 'textarea' },
+      { key: 'full_desc', label: 'Повний опис', type: 'textarea' },
+      { key: 'website', label: 'Сайт' },
+      { key: 'discord', label: 'Discord' },
+      { key: 'telegram', label: 'Telegram' },
+      { key: 'project_id', label: 'ID проєкту', type: 'number' },
+    ],
+  },
+}
+
+const entityOrder: CmsEntity[] = [
+  'users',
+  'servers',
+  'news',
+  'projects',
+  'reviews',
+  'applications',
+  'achievements',
+]
+
+function readPath(row: CmsRow, path: string) {
+  let value: unknown = row
+  for (const key of path.split('.')) {
+    if (!value || typeof value !== 'object') return undefined
+    value = (value as Record<string, unknown>)[key]
+  }
+  return value
+}
+
+function renderValue(value: unknown, key: string) {
+  if (key.includes('_at') && value) {
+    return new Date(String(value)).toLocaleDateString('uk-UA')
+  }
+  if (key === 'verified' || key === 'online') {
+    return Number(value) ? 'Так' : 'Ні'
+  }
+  const result = String(value ?? '—')
+  return result.length > 70 ? `${result.slice(0, 70)}…` : result
+}
+
+export function CmsClient({
+  admin,
+  initialStats,
+}: {
+  admin: { email: string; name: string }
+  initialStats: CmsStats
+}) {
+  const router = useRouter()
+  const [entity, setEntity] = useState<CmsEntity>('users')
+  const [rows, setRows] = useState<CmsRow[]>([])
+  const [stats, setStats] = useState(initialStats)
+  const [query, setQuery] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [editing, setEditing] = useState<CmsRow | null>(null)
+  const [saving, setSaving] = useState(false)
+
+  const config = configs[entity]
+
+  const loadRows = useCallback(async (currentEntity: CmsEntity = entity) => {
+    setLoading(true)
+    setError('')
+    const response = await fetch(`/api/cms/data/${currentEntity}`, {
+      cache: 'no-store',
+    })
+    if (response.status === 401) {
+      router.replace('/cms/login')
+      return
+    }
+    const result = await response.json().catch(() => [])
+    if (!response.ok) {
+      setError(result.error || 'Не вдалося завантажити дані')
+      setLoading(false)
+      return
+    }
+    setRows(result as CmsRow[])
+    setLoading(false)
+  }, [entity, router])
+
+  async function refreshStats() {
+    const response = await fetch('/api/cms/stats', { cache: 'no-store' })
+    if (response.ok) setStats(await response.json())
+  }
+
+  useEffect(() => {
+    void loadRows(entity)
+  }, [entity, loadRows])
+
+  const filteredRows = useMemo(() => {
+    const needle = query.trim().toLowerCase()
+    if (!needle) return rows
+    return rows.filter((row) =>
+      JSON.stringify(row).toLowerCase().includes(needle)
+    )
+  }, [query, rows])
+
+  function selectEntity(next: CmsEntity) {
+    setEntity(next)
+    setQuery('')
+    setEditing(null)
+  }
+
+  async function save() {
+    if (!editing) return
+    setSaving(true)
+    setError('')
+    const response = await fetch(`/api/cms/data/${entity}/${editing.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(editing),
+    })
+    const result = await response.json().catch(() => ({}))
+    if (!response.ok) {
+      setError(result.error || 'Не вдалося зберегти')
+      setSaving(false)
+      return
+    }
+    setEditing(null)
+    await Promise.all([loadRows(), refreshStats()])
+    setSaving(false)
+  }
+
+  async function remove(row: CmsRow) {
+    if (!confirm(`Видалити ${config.singular} без можливості відновлення?`)) {
+      return
+    }
+    const response = await fetch(`/api/cms/data/${entity}/${row.id}`, {
+      method: 'DELETE',
+    })
+    const result = await response.json().catch(() => ({}))
+    if (!response.ok) {
+      setError(result.error || 'Не вдалося видалити')
+      return
+    }
+    await Promise.all([loadRows(), refreshStats()])
+  }
+
+  async function moderate(action: 'approve' | 'reject', row: CmsRow) {
+    const reason =
+      action === 'reject'
+        ? prompt(
+            'Причина відхилення:',
+            String(row.rejection_reason || '')
+          ) || ''
+        : ''
+    if (action === 'reject' && !reason) return
+
+    const response = await fetch(`/api/cms/applications/${row.id}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action, reason }),
+    })
+    const result = await response.json().catch(() => ({}))
+    if (!response.ok) {
+      setError(result.error || 'Не вдалося виконати дію')
+      return
+    }
+    await Promise.all([loadRows(), refreshStats()])
+  }
+
+  async function logout() {
+    await fetch('/api/cms/auth/logout', { method: 'POST' })
+    router.replace('/cms/login')
+    router.refresh()
+  }
+
+  return (
+    <main className="cms-shell">
+      <aside className="cms-sidebar">
+        <a className="cms-brand" href="/cms">
+          <span>EC</span>
+          <div>
+            <strong>Eyzencore</strong>
+            <small>CMS</small>
+          </div>
+        </a>
+        <nav className="cms-nav">
+          {entityOrder.map((item) => (
+            <button
+              className={item === entity ? 'active' : ''}
+              key={item}
+              onClick={() => selectEntity(item)}
+              type="button"
+            >
+              <span>{configs[item].label}</span>
+              <b>{stats[item]}</b>
+            </button>
+          ))}
+        </nav>
+        <div className="cms-sidebar-footer">
+          <a href="/" target="_blank" rel="noreferrer">
+            Відкрити сайт ↗
+          </a>
+          <button onClick={logout} type="button">
+            Вийти з CMS
+          </button>
+        </div>
+      </aside>
+
+      <section className="cms-workspace">
+        <header className="cms-topbar">
+          <div>
+            <p>Панель керування</p>
+            <strong>{admin.name}</strong>
+          </div>
+          <span>{admin.email}</span>
+        </header>
+
+        <div className="cms-content">
+          {error ? <div className="cms-alert">{error}</div> : null}
+          {entity === 'achievements' ? (
+            <CmsAchievementsPanel
+              onError={setError}
+              onStatsRefresh={refreshStats}
+            />
+          ) : null}
+          {entity !== 'achievements' ? (
+          <>
+          <div className="cms-heading">
+            <div>
+              <p className="cms-eyebrow">Контент сайту</p>
+              <h1>{config.label}</h1>
+              <p>{config.description}</p>
+            </div>
+            <div className="cms-heading-actions">
+              <input
+                aria-label="Пошук"
+                placeholder={`Пошук: ${config.label.toLowerCase()}`}
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+              />
+              <button onClick={() => loadRows()} type="button">
+                Оновити
+              </button>
+            </div>
+          </div>
+
+          <div className="cms-table-card">
+            <div className="cms-table-meta">
+              <span>{filteredRows.length} записів</span>
+              <small>Дані напряму з Prisma</small>
+            </div>
+            <div className="cms-table-scroll">
+              <table className="cms-table">
+                <thead>
+                  <tr>
+                    {config.columns.map((column) => (
+                      <th key={column.key}>{column.label}</th>
+                    ))}
+                    <th className="cms-actions-column">Дії</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {!loading &&
+                    filteredRows.map((row) => (
+                      <tr key={row.id}>
+                        {config.columns.map((column) => (
+                          <td key={column.key}>
+                            {renderValue(
+                              readPath(row, column.key),
+                              column.key
+                            )}
+                          </td>
+                        ))}
+                        <td>
+                          <div className="cms-row-actions">
+                            {entity === 'applications' &&
+                            row.status === 'pending' ? (
+                              <>
+                                <button
+                                  className="success"
+                                  onClick={() => moderate('approve', row)}
+                                  type="button"
+                                >
+                                  Схвалити
+                                </button>
+                                <button
+                                  onClick={() => moderate('reject', row)}
+                                  type="button"
+                                >
+                                  Відхилити
+                                </button>
+                              </>
+                            ) : null}
+                            <button
+                              onClick={() => setEditing({ ...row })}
+                              type="button"
+                            >
+                              Редагувати
+                            </button>
+                            <button
+                              className="danger"
+                              onClick={() => remove(row)}
+                              type="button"
+                            >
+                              Видалити
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  {loading ? (
+                    <tr>
+                      <td colSpan={config.columns.length + 1}>
+                        <div className="cms-empty">Завантаження даних...</div>
+                      </td>
+                    </tr>
+                  ) : null}
+                  {!loading && filteredRows.length === 0 ? (
+                    <tr>
+                      <td colSpan={config.columns.length + 1}>
+                        <div className="cms-empty">Записів не знайдено</div>
+                      </td>
+                    </tr>
+                  ) : null}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          </>
+          ) : null}
+        </div>
+      </section>
+
+      {editing ? (
+        <div className="cms-modal-backdrop" onMouseDown={() => setEditing(null)}>
+          <section
+            className="cms-editor"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <header>
+              <div>
+                <p className="cms-eyebrow">Редактор</p>
+                <h2>Редагувати {config.singular}</h2>
+              </div>
+              <div className="cms-editor-actions">
+                <button onClick={() => setEditing(null)} type="button">
+                  Скасувати
+                </button>
+                <button
+                  className="cms-primary-button"
+                  disabled={saving}
+                  onClick={save}
+                  type="button"
+                >
+                  {saving ? 'Збереження...' : 'Зберегти'}
+                </button>
+              </div>
+            </header>
+            <div className="cms-editor-grid">
+              {config.fields.map((field) => (
+                <label
+                  className={field.type === 'textarea' ? 'wide' : ''}
+                  key={field.key}
+                >
+                  <span>{field.label}</span>
+                  {field.type === 'textarea' ? (
+                    <textarea
+                      rows={field.key === 'content' ? 14 : 5}
+                      value={String(editing[field.key] ?? '')}
+                      onChange={(event) =>
+                        setEditing({
+                          ...editing,
+                          [field.key]: event.target.value,
+                        })
+                      }
+                    />
+                  ) : field.type === 'select' ? (
+                    <Select
+                      value={String(editing[field.key] ?? '')}
+                      onChange={(value) =>
+                        setEditing({
+                          ...editing,
+                          [field.key]: value,
+                        })
+                      }
+                      options={field.options || []}
+                      ariaLabel={field.label}
+                    />
+                  ) : field.type === 'toggle' ? (
+                    <button
+                      className={`cms-toggle ${
+                        Number(editing[field.key]) ? 'on' : ''
+                      }`}
+                      onClick={() =>
+                        setEditing({
+                          ...editing,
+                          [field.key]: Number(editing[field.key]) ? 0 : 1,
+                        })
+                      }
+                      type="button"
+                    >
+                      {Number(editing[field.key]) ? 'Увімкнено' : 'Вимкнено'}
+                    </button>
+                  ) : (
+                    <input
+                      type={field.type === 'number' ? 'number' : 'text'}
+                      value={String(editing[field.key] ?? '')}
+                      onChange={(event) =>
+                        setEditing({
+                          ...editing,
+                          [field.key]: event.target.value,
+                        })
+                      }
+                    />
+                  )}
+                </label>
+              ))}
+            </div>
+          </section>
+        </div>
+      ) : null}
+    </main>
+  )
+}

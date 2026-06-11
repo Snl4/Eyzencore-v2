@@ -10,21 +10,21 @@ export async function POST(request: Request) {
       name?: string;
     };
 
-    const normalizedEmail = normalizeEmail(email || '');
+    const normalizedEmail = await normalizeEmail(email || '');
     if (!normalizedEmail || !password) {
       return NextResponse.json({ error: 'Email та пароль є обовʼязковими' }, { status: 400 });
     }
-    if (!isValidEmail(normalizedEmail)) {
+    if (!await isValidEmail(normalizedEmail)) {
       return NextResponse.json({ error: 'Некоректна email-адреса' }, { status: 400 });
     }
-    if (String(password).length < 6) {
-      return NextResponse.json({ error: 'Пароль має містити щонайменше 6 символів' }, { status: 400 });
+    if (String(password).length < 8) {
+      return NextResponse.json({ error: 'Пароль має містити щонайменше 8 символів' }, { status: 400 });
     }
 
-    const user = createUser({ email: normalizedEmail, password: String(password), name });
-    const { token } = createSession(user.id, request.headers.get('user-agent'));
+    const user = await createUser({ email: normalizedEmail, password: String(password), name });
+    const { token } = await createSession(user.id, request.headers.get('user-agent'));
     const response = NextResponse.json({ success: true, user });
-    setSessionCookie(response, token);
+    await setSessionCookie(response, token);
     return response;
   } catch (error) {
     const rawMessage = error instanceof Error ? error.message : 'Не вдалося створити акаунт';

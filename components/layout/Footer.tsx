@@ -2,9 +2,9 @@ import Link from 'next/link';
 import { BrandMark } from '@/components/ui/BrandMark';
 
 const LINKS = {
-  platform:  [{ href:'/servers', label:'Каталог серверів' }, { href:'#', label:'Топ онлайну' }, { href:'#', label:'Аналітика' }, { href:'#', label:'Публічне API' }],
-  community: [{ href:'/forum',   label:'Форум' }, { href:'#', label:'Новини' }, { href:'#', label:'Гайди' }, { href:'#', label:'Discord' }],
-  company:   [{ href:'#', label:'Про нас' }, { href:'#', label:'Контакти' }, { href:'#', label:'Правила' }, { href:'#', label:'Конфіденційність' }],
+  platform:  [{ href:'/servers/minecraft', label:'Minecraft сервери' }, { href:'/servers/discord', label:'Discord сервери' }, { href:'/add-server', label:'Додати сервер' }, { href:'/dashboard/developers', label:'API та інтеграції' }],
+  community: [{ href:'/news', label:'Новини' }, { href:'/forum', label:'Форум' }, { href:'/dashboard', label:'Особистий кабінет' }, { href:'/auth/register', label:'Реєстрація' }],
+  company:   [{ href:'/settings', label:'Налаштування' }, { href:'/dashboard/projects', label:'Проєкти' }, { href:'/profile', label:'Профіль' }, { href:'/auth/login', label:'Увійти' }],
 };
 
 const SOCIALS = ['Discord', 'Telegram', 'GitHub', 'X'] as const;
@@ -19,7 +19,7 @@ export function Footer() {
               <BrandMark />
               <span>Eyzencore</span>
             </Link>
-            <p>Платформа моніторингу Minecraft-серверів для української спільноти. Відстежуйте сервери та розвивайте спільноту.</p>
+            <p>Моніторинг Minecraft і Discord серверів, новини спільноти та інструменти для власників проєктів.</p>
             <div style={{ display:'flex', gap:8 }}>
               {SOCIALS.map(s => (
                 <a key={s} href="#" style={{ width:32, height:32, display:'grid', placeItems:'center', background:'var(--bg-2)', border:'1px solid var(--line)', borderRadius:8, color:'var(--fg-2)', fontSize:11, fontFamily:'var(--font-mono)' }}>
