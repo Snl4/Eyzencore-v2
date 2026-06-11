@@ -4,6 +4,8 @@ import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { PageShell } from '@/components/layout/PageShell'
 import { Icons } from '@/components/ui/Icons'
+import { Toggle } from '@/components/ui/Toggle'
+import { Breadcrumbs } from '@/components/ui/Breadcrumbs'
 import type { AuthUser, NewsPost } from '@/lib/auth-db'
 
 type NewsPageClientProps = {
@@ -87,7 +89,7 @@ export function NewsPageClient({ initialUser, initialPosts, canCreateNews }: New
         {/* ── Topbar ── */}
         <div className="page-topbar" style={{ flexWrap: 'wrap', gap: 10 }}>
           <div>
-            <div className="page-crumb">простір / новини</div>
+            <Breadcrumbs items={[{ label: 'Простір', href: '/' }, { label: 'Новини' }]} />
             <h1 className="page-title">Новини</h1>
           </div>
           <div className="page-search">
@@ -109,14 +111,17 @@ export function NewsPageClient({ initialUser, initialPosts, canCreateNews }: New
         {/* ── Category tabs ── */}
         <div className="nc-tabs">
           {categories.map((cat) => (
-            <button
+            <Toggle
               key={cat}
               type="button"
-              className={`nc-tab${activeCategory === cat ? ' active' : ''}`}
-              onClick={() => setActiveCategory(cat)}
+              variant="outline"
+              size="sm"
+              className="nc-tab"
+              pressed={activeCategory === cat}
+              onPressedChange={() => setActiveCategory(cat)}
             >
               {cat}
-            </button>
+            </Toggle>
           ))}
         </div>
 

@@ -32,9 +32,9 @@ function safeExtension(filename: string, mime: string): string {
   return mime.startsWith('image/') ? '.bin' : '.bin'
 }
 
-function safeKind(value: string | null): 'news' | 'avatar' | 'banner' | 'misc' {
+function safeKind(value: string | null): 'news' | 'forum' | 'avatar' | 'banner' | 'misc' {
   const normalized = String(value || '').toLowerCase()
-  if (normalized === 'news' || normalized === 'avatar' || normalized === 'banner' || normalized === 'misc') {
+  if (normalized === 'news' || normalized === 'forum' || normalized === 'avatar' || normalized === 'banner' || normalized === 'misc') {
     return normalized
   }
   return 'misc'
@@ -70,8 +70,8 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  // Editor blocks for video are reserved for OWNER/ADMIN
-  if (isVideo) {
+  // News video publishing is reserved for OWNER/ADMIN. Forum members may attach video.
+  if (isVideo && kind !== 'forum') {
     const role = await resolveUserRole({ userId: auth.user.id, role: auth.user.user_metadata.role })
     if (role !== 'OWNER' && role !== 'ADMIN') {
       return NextResponse.json({ error: 'Завантажувати відео можуть лише автори новин' }, { status: 403 })

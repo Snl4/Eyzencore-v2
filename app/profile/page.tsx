@@ -1,8 +1,10 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { ProfileClient } from '@/components/profile/ProfileClient';
+import { listUserBadges } from '@/lib/achievements';
 import { countServersByOwner, getUserProfileSummary, listServersByOwner } from '@/lib/auth-db';
 import { getCurrentUser } from '@/lib/auth-server';
+import { listForumThreadsByUser } from '@/lib/forum-db';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,10 +19,14 @@ export default async function ProfilePage() {
     redirect('/auth/login');
   }
 
-  const serverCount = await countServersByOwner(user.id);
-  const ownedServers = await listServersByOwner(user.id);
+  const [serverCount, ownedServers, forumThreads, summary, badges] = await Promise.all([
+    countServersByOwner(user.id),
+    listServersByOwner(user.id),
+    listForumThreadsByUser(user.id),
+    getUserProfileSummary(user.id, 30),
+    listUserBadges(user.id),
+  ]);
   const totalOnline = ownedServers.reduce((sum, s) => sum + (s.on ? s.players : 0), 0);
-  const summary = await getUserProfileSummary(user.id, 30);
 
   return (
     <>
@@ -30,6 +36,8 @@ export default async function ProfilePage() {
         serverCount={serverCount}
         totalOnline={totalOnline}
         summary={summary}
+        forumThreads={forumThreads}
+        badges={badges}
         ownedServers={ownedServers.map((s) => ({
           seed: s.seed,
           ic: s.ic,

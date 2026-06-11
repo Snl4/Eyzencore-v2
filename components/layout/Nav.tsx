@@ -4,8 +4,10 @@ import { useEffect, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useTheme } from '@/hooks/useTheme';
-import { SunIcon, MoonIcon } from '@/components/ui/Icons';
 import { BrandMark } from '@/components/ui/BrandMark';
+import { UserProfileDropdown } from '@/components/ui/UserProfileDropdown';
+import { Toggle } from '@/components/ui/Toggle';
+import { MoonIcon, SunIcon } from '@/components/ui/Icons';
 import type { AuthUser } from '@/lib/auth-db';
 
 export function Nav() {
@@ -71,26 +73,25 @@ export function Nav() {
         <div style={{ flex: 1 }} />
 
         <div className="nav-cta" style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-          <button
-            className="btn btn-ghost"
-            onClick={toggle}
-            aria-label="Перемкнути тему"
-            style={{ padding: '0 10px', height: 32 }}
-          >
-            {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
-          </button>
-
           {user ? (
-            <>
-              <Link className="btn btn-secondary" href="/settings">
-                {user.user_metadata.full_name}
-              </Link>
-              <button className="btn btn-primary" onClick={() => void handleLogout()} disabled={isPending}>
-                Вийти
-              </button>
-            </>
+            <UserProfileDropdown
+              user={user}
+              theme={theme}
+              onToggleTheme={toggle}
+              onLogout={() => void handleLogout()}
+            />
           ) : (
             <>
+              <Toggle
+                variant="outline"
+                size="sm"
+                pressed={theme === 'light'}
+                onPressedChange={toggle}
+                aria-label="Перемкнути тему"
+                className="nav-theme-toggle"
+              >
+                {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
+              </Toggle>
               <Link className="btn btn-secondary" href="/auth/login">Увійти</Link>
               <Link className="btn btn-primary" href="/auth/register">
                 Реєстрація <span style={{ opacity: 0.6 }}>→</span>

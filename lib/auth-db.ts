@@ -2,6 +2,7 @@ import { createHash, randomBytes, randomUUID, scryptSync, timingSafeEqual } from
 import { normalizeServerAddress, type ServerPlatform } from '@/lib/discord';
 import { prisma } from '@/lib/prisma';
 import type { Server } from '@/lib/types';
+import { ADMIN_EMAIL } from '@/lib/constants';
 
 export const AUTH_COOKIE_NAME = 'eyzencore_session';
 const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 30;
@@ -71,6 +72,9 @@ type DbServerRow = {
   uptime: string;
   verified: number;
   cluster: number | null;
+  cluster_id: number | null;
+  cluster_name: string | null;
+  cluster_slug: string | null;
   project_id: number | null;
   discord_guild_id?: string | null;
   discord_bot_verified?: number | null;
@@ -285,7 +289,9 @@ const SERVER_SELECT_COLUMNS = `
   s.id, s.owner_id, u.full_name AS owner_name, u.avatar_url AS owner_avatar, u.profile_slug AS owner_slug,
   s.name, s.addr, s.platform, s.mode, s.ver, s.core, s.country, s.motd, s.short_desc, s.full_desc, s.desc,
   s.website, s.discord, s.telegram, s.donate, s.tiktok, s.launcher_url, s.avatar_url, s.banner_url,
-  s.gallery_json, s.videos_json, s.tags, s.online, s.players, s.max, s.uptime, s.verified, s.cluster,
+  s.gallery_json, s.videos_json, s.tags, s.online, s.players, s.max, s.uptime, s.verified,
+  s.cluster_id, c.name AS cluster_name, c.slug AS cluster_slug,
+  CASE WHEN s.cluster_id IS NULL THEN NULL ELSE (SELECT COUNT(*) FROM app_servers cs WHERE cs.cluster_id = s.cluster_id) END AS cluster,
   s.project_id, s.discord_guild_id, s.discord_bot_verified, s.discord_verify_code, s.created_at, s.updated_at
 `;
 
@@ -407,6 +413,9 @@ function mapServerRow(row: DbServerRow): Server {
     rank: Number(row.id),
     verified: Boolean(row.verified),
     cluster: row.cluster ?? undefined,
+    clusterId: row.cluster_id ?? null,
+    clusterName: row.cluster_name || null,
+    clusterSlug: row.cluster_slug || null,
     tags,
     website: row.website || undefined,
     discord: row.discord || undefined,
@@ -507,6 +516,99 @@ export async function authenticateUser(emailInput: string, password: string) {
   }
 
   return mapUserRow(row);
+}
+
+export async function authenticateCmsAdmin(emailInput: string, password: string) {
+  const user = await authenticateUser(emailInput, password);
+  if (!user) return null;
+
+  const role = user.user_metadata.role;
+  if (role !== 'ADMIN' && normalizeEmail(user.email) !== normalizeEmail(ADMIN_EMAIL)) {
+    return null;
+  }
+
+  return user;
+}
+
+export async function createCmsSession(
+  userId: string,
+  maxAgeSeconds: number,
+  userAgent?: string | null
+) {
+  const db = getDb();
+  const sessionId = randomUUID();
+  const token = randomBytes(32).toString('base64url');
+  const createdAt = nowIso();
+  const expiresAt = new Date(Date.now() + maxAgeSeconds * 1000).toISOString();
+
+  await db.prepare(
+    `INSERT INTO cms_sessions (
+      id, user_id, token_hash, user_agent, created_at, expires_at, revoked_at
+    ) VALUES (?, ?, ?, ?, ?, ?, NULL)`
+  ).run(
+    sessionId,
+    userId,
+    hashSessionToken(token),
+    String(userAgent || '').slice(0, 400) || null,
+    createdAt,
+    expiresAt
+  );
+
+  return { sessionId, token, expiresAt };
+}
+
+export async function getCmsSessionFromToken(
+  token: string | undefined | null
+): Promise<{ user: AuthUser; sessionId: string } | null> {
+  if (!token) return null;
+
+  const db = getDb();
+  const row = await db.prepare(
+    `SELECT
+       s.id AS session_id,
+       u.id,
+       u.email,
+       u.password_hash,
+       u.full_name,
+       u.profile_slug,
+       u.bio,
+       u.location,
+       u.website,
+       u.telegram,
+       u.discord,
+       u.discord_user_id,
+       u.avatar_url,
+       u.banner_url,
+       u.role,
+       u.created_at,
+       u.updated_at
+     FROM cms_sessions s
+     JOIN app_users u ON u.id = s.user_id
+     WHERE s.token_hash = ?
+       AND s.revoked_at IS NULL
+       AND datetime(s.expires_at) > datetime('now')
+     LIMIT 1`
+  ).get(hashSessionToken(token)) as (DbUserRow & { session_id: string }) | undefined;
+
+  if (!row) return null;
+
+  const user = mapUserRow(row);
+  if (
+    user.user_metadata.role !== 'ADMIN' &&
+    normalizeEmail(user.email) !== normalizeEmail(ADMIN_EMAIL)
+  ) {
+    return null;
+  }
+
+  return { user, sessionId: row.session_id };
+}
+
+export async function revokeCmsSessionByToken(token: string | undefined | null) {
+  if (!token) return;
+  const db = getDb();
+  await db.prepare(
+    'UPDATE cms_sessions SET revoked_at = ? WHERE token_hash = ? AND revoked_at IS NULL'
+  ).run(nowIso(), hashSessionToken(token));
 }
 
 export async function createSession(userId: string, userAgent?: string | null) {
@@ -791,6 +893,7 @@ export async function listServersByOwner(userId: string) {
       `SELECT ${SERVER_SELECT_COLUMNS}
        FROM app_servers s
        JOIN app_users u ON u.id = s.owner_id
+       LEFT JOIN app_clusters c ON c.id = s.cluster_id
        WHERE s.owner_id = ?
        ORDER BY s.id ASC`
     )
@@ -804,6 +907,7 @@ export async function listServers() {
     `SELECT ${SERVER_SELECT_COLUMNS}
      FROM app_servers s
      JOIN app_users u ON u.id = s.owner_id
+     LEFT JOIN app_clusters c ON c.id = s.cluster_id
      ORDER BY s.id ASC`
   ).all() as DbServerRow[];
 
@@ -888,6 +992,7 @@ export async function getServerById(id: number) {
     `SELECT ${SERVER_SELECT_COLUMNS}
      FROM app_servers s
      JOIN app_users u ON u.id = s.owner_id
+     LEFT JOIN app_clusters c ON c.id = s.cluster_id
      WHERE s.id = ?
      LIMIT 1`
   ).get(id) as DbServerRow | undefined;
@@ -902,6 +1007,7 @@ export async function findServerByAddress(addr: string, platform: ServerPlatform
     `SELECT ${SERVER_SELECT_COLUMNS}
      FROM app_servers s
      JOIN app_users u ON u.id = s.owner_id
+     LEFT JOIN app_clusters c ON c.id = s.cluster_id
      WHERE lower(s.addr) = lower(?)
      LIMIT 1`
   ).get(normalizedAddr) as DbServerRow | undefined;
@@ -3025,7 +3131,7 @@ export async function listServerActivityEvents(input: { serverId: number; limit?
 // Admin-only helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
-export { ADMIN_EMAIL } from '@/lib/constants';
+export { ADMIN_EMAIL };
 
 export type AdminUserRow = {
   id: string;
@@ -3416,6 +3522,7 @@ export type ApiTokenScope = 'servers:read' | 'events:read';
 export type ApiToken = {
   id: string;
   userId: string;
+  serverId: number | null;
   name: string;
   scopes: ApiTokenScope[];
   lastUsedAt: string | null;
@@ -3426,6 +3533,7 @@ export type ApiToken = {
 type DbApiTokenRow = {
   id: string;
   user_id: string;
+  server_id: number | null;
   name: string;
   token_hash: string;
   scopes: string;
@@ -3438,6 +3546,7 @@ function mapApiTokenRow(row: DbApiTokenRow): ApiToken {
   return {
     id: row.id,
     userId: row.user_id,
+    serverId: row.server_id === null ? null : Number(row.server_id),
     name: row.name,
     scopes: JSON.parse(row.scopes || '["servers:read"]') as ApiTokenScope[],
     lastUsedAt: row.last_used_at,
@@ -3448,6 +3557,7 @@ function mapApiTokenRow(row: DbApiTokenRow): ApiToken {
 
 export async function createApiToken(input: {
   userId: string;
+  serverId: number;
   name: string;
   scopes: ApiTokenScope[];
 }) {
@@ -3457,12 +3567,13 @@ export async function createApiToken(input: {
   const tokenHash = createHash('sha256').update(plaintext).digest('hex');
   const timestamp = nowIso();
   await db.prepare(
-    `INSERT INTO app_api_tokens (id, user_id, name, token_hash, scopes, created_at)
-     VALUES (?, ?, ?, ?, ?, ?)`
-  ).run(id, input.userId, input.name.trim(), tokenHash, JSON.stringify(input.scopes), timestamp);
+    `INSERT INTO app_api_tokens (id, user_id, server_id, name, token_hash, scopes, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`
+  ).run(id, input.userId, input.serverId, input.name.trim(), tokenHash, JSON.stringify(input.scopes), timestamp);
   const token = mapApiTokenRow({
     id,
     user_id: input.userId,
+    server_id: input.serverId,
     name: input.name.trim(),
     token_hash: tokenHash,
     scopes: JSON.stringify(input.scopes),
@@ -3473,11 +3584,15 @@ export async function createApiToken(input: {
   return { token, plaintext };
 }
 
-export async function listApiTokens(userId: string) {
+export async function listApiTokens(userId: string, serverId?: number) {
   const db = getDb();
-  const rows = await db
-    .prepare('SELECT * FROM app_api_tokens WHERE user_id = ? AND revoked_at IS NULL ORDER BY datetime(created_at) DESC')
-    .all(userId) as DbApiTokenRow[];
+  const rows = serverId
+    ? await db
+      .prepare('SELECT * FROM app_api_tokens WHERE user_id = ? AND server_id = ? AND revoked_at IS NULL ORDER BY datetime(created_at) DESC')
+      .all(userId, serverId) as DbApiTokenRow[]
+    : await db
+      .prepare('SELECT * FROM app_api_tokens WHERE user_id = ? AND revoked_at IS NULL ORDER BY datetime(created_at) DESC')
+      .all(userId) as DbApiTokenRow[];
   return rows.map(mapApiTokenRow);
 }
 

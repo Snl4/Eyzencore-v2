@@ -23,6 +23,9 @@ export interface Server {
   rank: number;
   verified: boolean;
   cluster?: number;
+  clusterId?: number | null;
+  clusterName?: string | null;
+  clusterSlug?: string | null;
   tags: string[];
   website?: string;
   discord?: string;

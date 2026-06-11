@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import { getServerById } from '@/lib/auth-db';
 import { getCurrentUser } from '@/lib/auth-server';
+import { getClusterForServer } from '@/lib/cluster-db';
 import { ServerOverviewClient } from './ServerOverviewClient';
 
 interface Props {
@@ -21,13 +22,16 @@ export async function generateMetadata({ params }: Props) {
 
 export default async function ServerPage({ params }: Props) {
   const server = await getServerById(Number(params.id));
-  const user = await getCurrentUser();
   if (!server) notFound();
+  const [user, cluster] = await Promise.all([
+    getCurrentUser(),
+    getClusterForServer(server.seed),
+  ]);
 
   return (
     <>
       <div className="bg-aurora" />
-      <ServerOverviewClient server={server} canEdit={user?.id === server.ownerId} initialUser={user} />
+      <ServerOverviewClient server={server} cluster={cluster} canEdit={user?.id === server.ownerId} initialUser={user} />
     </>
   );
 }

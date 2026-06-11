@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { ForumPageClient } from './ForumPageClient';
 import { getCurrentUser } from '@/lib/auth-server';
+import { getForumHome } from '@/lib/forum-db';
 
 export const metadata: Metadata = {
   title: 'Форум — Eyzencore',
@@ -8,11 +9,14 @@ export const metadata: Metadata = {
 };
 
 export default async function ForumPage() {
-  const initialUser = await getCurrentUser();
+  const [initialUser, initialData] = await Promise.all([
+    getCurrentUser(),
+    getForumHome(),
+  ]);
   return (
     <>
       <div className="bg-aurora"/>
-      <ForumPageClient initialUser={initialUser} />
+      <ForumPageClient initialUser={initialUser} initialData={initialData} />
     </>
   );
 }

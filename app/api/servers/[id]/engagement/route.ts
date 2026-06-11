@@ -14,6 +14,7 @@ import {
   upsertServerReview,
 } from '@/lib/auth-db'
 import { lookupCountry } from '@/lib/geoip'
+import { dispatchServerCallback } from '@/lib/callback-api'
 
 async function getActorContext(request: NextRequest) {
   const auth = await getAuthSessionFromToken(request.cookies.get(AUTH_COOKIE_NAME)?.value)
@@ -116,6 +117,13 @@ export async function POST(request: NextRequest, context: { params: { id: string
       actorName: actor.user?.user_metadata.full_name || nickname || 'Guest',
       text: normalizedText,
       rating: normalizedRating,
+    })
+    await dispatchServerCallback({
+      serverId,
+      action: 'comment',
+      userId: actor.user?.id,
+      userNickname: actor.user?.user_metadata.full_name || nickname || 'Guest',
+      ipAddress: actor.ip,
     })
     return NextResponse.json({
       success: true,

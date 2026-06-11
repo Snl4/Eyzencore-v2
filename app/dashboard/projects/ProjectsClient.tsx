@@ -3,6 +3,7 @@
 import Image from 'next/image'
 import { useState } from 'react'
 import { PageShell } from '@/components/layout/PageShell'
+import { Breadcrumbs } from '@/components/ui/Breadcrumbs'
 import type { AuthUser, Project, UserRole } from '@/lib/auth-db'
 
 interface ProjectsClientProps {
@@ -116,7 +117,7 @@ export function ProjectsClient({ initialUser, role, initialProjects }: ProjectsC
       <div className="page-main">
         <div className="page-topbar">
           <div>
-            <div className="page-crumb">dashboard / проекти</div>
+            <Breadcrumbs items={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Проєкти' }]} />
             <h1 className="page-title">Мої проекти</h1>
           </div>
           <button type="button" className="btn btn-primary" style={{ marginLeft: 'auto' }} onClick={handleOpenCreate}>

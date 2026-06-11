@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { AUTH_COOKIE_NAME, createServerApplication, getAuthSessionFromToken, listServers } from '@/lib/auth-db';
+import { AUTH_COOKIE_NAME, createServerApplication, getAuthSessionFromToken } from '@/lib/auth-db';
+import { getCachedPublicServers } from '@/lib/public-cache';
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -9,7 +10,7 @@ export async function GET(req: NextRequest) {
   const page = Number(searchParams.get('page') ?? 1);
   const limit = Math.min(Number(searchParams.get('limit') ?? 20), 100);
 
-  let results = await listServers();
+  let results = await getCachedPublicServers();
 
   const platform = searchParams.get('platform');
   if (platform === 'minecraft') results = results.filter((server) => server.platform !== 'discord');

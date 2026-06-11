@@ -4,6 +4,8 @@ import { useRouter } from 'next/navigation'
 import { PageShell } from '@/components/layout/PageShell'
 import { Icons } from '@/components/ui/Icons'
 import { Select } from '@/components/ui/Select'
+import { Toggle } from '@/components/ui/Toggle'
+import { Breadcrumbs } from '@/components/ui/Breadcrumbs'
 import { DISCORD_CATEGORIES, GAME_MODES, VERSIONS } from '@/lib/data'
 import type { Server, ServerPlatform } from '@/lib/types'
 import type { AuthUser, Project } from '@/lib/auth-db'
@@ -130,8 +132,9 @@ export function AddServerClient(input: {
   sidebarRole?: string
   activeSection?: string
   defaultPlatform?: ServerPlatform
+  lockPlatform?: boolean
 }) {
-  const { initialServer, initialUser, sidebarRole, activeSection, defaultPlatform } = input
+  const { initialServer, initialUser, sidebarRole, activeSection, defaultPlatform, lockPlatform = false } = input
   const router = useRouter()
   const [step, setStep] = useState<Step>(1)
   const [form, setForm] = useState<ServerForm>(() => {
@@ -326,7 +329,11 @@ export function AddServerClient(input: {
       <div className="page-main">
         <div className="page-topbar">
           <div>
-            <div className="page-crumb">простір / сервери / {isEditMode ? 'редагування' : 'додавання'}</div>
+            <Breadcrumbs items={[
+              { label: 'Простір', href: '/' },
+              { label: 'Сервери', href: isDiscordForm ? '/servers/discord' : '/servers/minecraft' },
+              { label: isEditMode ? 'Редагування' : 'Додавання' },
+            ]} />
             <h1 className="page-title">{isEditMode ? 'Редагування серверу' : 'Додавання нового серверу'}</h1>
           </div>
         </div>
@@ -399,33 +406,48 @@ export function AddServerClient(input: {
 
               {step === 1 && (
                 <div className="add-form-section">
-                  <div className="auth-field">
-                    <span>Платформа *</span>
-                    <div className="filter-bar-chips" style={{ marginTop: 8 }}>
-                      {PLATFORM_OPTIONS.map((option) => (
-                        <button
-                          key={option.value}
-                          type="button"
-                          className={`filter-chip${form.platform === option.value ? ' active' : ''}`}
-                          onClick={() => {
-                            setForm((current) => ({
-                              ...current,
-                              platform: option.value,
-                              mode: option.value === 'discord' ? DISCORD_MODES[0] : MODES[0],
-                              minVer: option.value === 'discord' ? 'Discord' : VERS[0],
-                              maxVer: option.value === 'discord' ? 'Discord' : VERS[0],
-                              ver: option.value === 'discord' ? 'Discord' : VERS[0],
-                              core: option.value === 'discord' ? 'discord' : 'java',
-                            }))
-                            setChecked(false)
-                            setSuccessMessage(null)
-                          }}
-                        >
-                          {option.label}
-                        </button>
-                      ))}
+                  {lockPlatform ? (
+                    <div className="auth-field">
+                      <span>Платформа</span>
+                      <div className="set-card" style={{ marginTop: 8, padding: 14 }}>
+                        <b>{isDiscordForm ? 'Discord-сервер' : 'Minecraft-сервер'}</b>
+                        <div style={{ color: 'var(--fg-3)', fontSize: 12, marginTop: 4 }}>
+                          Тип зафіксовано для цього сценарію додавання.
+                        </div>
+                      </div>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="auth-field">
+                      <span>Платформа *</span>
+                      <div className="filter-bar-chips" style={{ marginTop: 8 }}>
+                        {PLATFORM_OPTIONS.map((option) => (
+                          <Toggle
+                            key={option.value}
+                            type="button"
+                            variant="outline"
+                            size="lg"
+                            className="filter-chip"
+                            pressed={form.platform === option.value}
+                            onPressedChange={() => {
+                              setForm((current) => ({
+                                ...current,
+                                platform: option.value,
+                                mode: option.value === 'discord' ? DISCORD_MODES[0] : MODES[0],
+                                minVer: option.value === 'discord' ? 'Discord' : VERS[0],
+                                maxVer: option.value === 'discord' ? 'Discord' : VERS[0],
+                                ver: option.value === 'discord' ? 'Discord' : VERS[0],
+                                core: option.value === 'discord' ? 'discord' : 'java',
+                              }))
+                              setChecked(false)
+                              setSuccessMessage(null)
+                            }}
+                          >
+                            {option.label}
+                          </Toggle>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   <div className="add-grid-2">
                     <label className="auth-field">
                       <span>{isDiscordForm ? 'Посилання на Discord *' : 'Адреса серверу *'}</span>
@@ -493,17 +515,15 @@ export function AddServerClient(input: {
                   {projects.length > 0 && (
                     <div className="auth-field">
                       <span>Проект <span style={{ color: 'var(--fg-3)', fontWeight: 400 }}>(необов&apos;язково)</span></span>
-                      <select
-                        className="input"
-                        value={form.projectId ?? ''}
-                        onChange={(event) => setField('projectId', event.target.value ? Number(event.target.value) : null)}
-                        style={{ height: 42 }}
-                      >
-                        <option value="">— Без проекту —</option>
-                        {projects.map((project) => (
-                          <option key={project.id} value={project.id}>{project.name}</option>
-                        ))}
-                      </select>
+                      <Select
+                        value={form.projectId === null ? '' : String(form.projectId)}
+                        onChange={(value) => setField('projectId', value ? Number(value) : null)}
+                        options={[
+                          { value: '', label: 'Без проєкту' },
+                          ...projects.map((project) => ({ value: String(project.id), label: project.name })),
+                        ]}
+                        ariaLabel="Проєкт"
+                      />
                       <small style={{ color: 'var(--fg-3)', fontSize: 12 }}>
                         Згрупуйте кілька серверів в один проект (мережу).{' '}
                         <a href="/dashboard/projects" target="_blank" rel="noreferrer" style={{ color: 'var(--accent)' }}>Керувати проектами →</a>
@@ -684,14 +704,17 @@ export function AddServerClient(input: {
                   </div>
                   <div className="add-tags-grid">
                     {TAG_OPTIONS.map((tag) => (
-                      <button
+                      <Toggle
                         key={tag}
-                        className={`filter-chip${form.tags.includes(tag) ? ' active' : ''}`}
-                        onClick={() => toggleTag(tag)}
+                        type="button"
+                        variant="outline"
+                        className="filter-chip"
+                        pressed={form.tags.includes(tag)}
+                        onPressedChange={() => toggleTag(tag)}
                         disabled={!form.tags.includes(tag) && form.tags.length >= MAX_TAGS}
                       >
                         {form.tags.includes(tag) ? '✓ ' : ''}{tag}
-                      </button>
+                      </Toggle>
                     ))}
                   </div>
                   <div className="add-actions">

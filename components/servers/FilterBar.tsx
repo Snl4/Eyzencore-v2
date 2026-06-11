@@ -1,6 +1,7 @@
 'use client';
 
 import { Select } from '@/components/ui/Select';
+import { Toggle } from '@/components/ui/Toggle';
 
 interface FilterBarProps {
   platforms?: string[];
@@ -34,7 +35,16 @@ export function FilterBar({
           <span className="filter-bar-label">Платформа</span>
           <div className="filter-bar-chips">
             {platforms.map((item) => (
-              <button key={item} className={`filter-chip${platform === item ? ' active' : ''}`} onClick={() => onPlatform(item)}>{item}</button>
+              <Toggle
+                key={item}
+                variant="outline"
+                size="sm"
+                className="filter-chip"
+                pressed={platform === item}
+                onPressedChange={() => onPlatform(item)}
+              >
+                {item}
+              </Toggle>
             ))}
           </div>
           <span className="filter-bar-divider" />
@@ -43,7 +53,15 @@ export function FilterBar({
       <span className="filter-bar-label">Режим</span>
       <div className="filter-bar-chips">
         {modes.map(m => (
-          <button key={m} className={`filter-chip${mode === m ? ' active' : ''}`} onClick={() => onMode(m)}>{m}</button>
+          <Toggle
+            key={m}
+            size="sm"
+            className="filter-chip"
+            pressed={mode === m}
+            onPressedChange={() => onMode(m)}
+          >
+            {m}
+          </Toggle>
         ))}
       </div>
       {!hideVersions && (

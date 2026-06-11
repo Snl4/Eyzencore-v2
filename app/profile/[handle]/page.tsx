@@ -1,7 +1,9 @@
 import { notFound } from 'next/navigation'
 import { ProfileClient } from '@/components/profile/ProfileClient'
+import { listUserBadges } from '@/lib/achievements'
 import { countServersByOwner, getUserByProfileSlug, getUserProfileSummary, listServersByOwner } from '@/lib/auth-db'
 import { getCurrentUser } from '@/lib/auth-server'
+import { listForumThreadsByUser } from '@/lib/forum-db'
 
 export const dynamic = 'force-dynamic'
 
@@ -29,11 +31,15 @@ export default async function PublicProfilePage({ params }: PublicProfilePagePro
   if (!user) {
     notFound()
   }
-  const currentUser = await getCurrentUser()
-  const serverCount = await countServersByOwner(user.id)
-  const ownedServers = await listServersByOwner(user.id)
+  const [currentUser, serverCount, ownedServers, forumThreads, summary, badges] = await Promise.all([
+    getCurrentUser(),
+    countServersByOwner(user.id),
+    listServersByOwner(user.id),
+    listForumThreadsByUser(user.id),
+    getUserProfileSummary(user.id, 30),
+    listUserBadges(user.id),
+  ])
   const totalOnline = ownedServers.reduce((sum, server) => sum + (server.on ? server.players : 0), 0)
-  const summary = await getUserProfileSummary(user.id, 30)
   return (
     <>
       <div className="bg-aurora" />
@@ -43,7 +49,9 @@ export default async function PublicProfilePage({ params }: PublicProfilePagePro
         serverCount={serverCount}
         totalOnline={totalOnline}
         summary={summary}
+        forumThreads={forumThreads}
         isPublicView
+        badges={badges}
         ownedServers={ownedServers.map((server) => ({
           seed: server.seed,
           ic: server.ic,

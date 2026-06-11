@@ -2,8 +2,12 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { Nav } from '@/components/layout/Nav'
 import { Footer } from '@/components/layout/Footer'
-import { getAdminStats, listNewsPosts, listServers } from '@/lib/auth-db'
 import type { Server } from '@/lib/types'
+import {
+  getCachedPublicNews,
+  getCachedPublicServers,
+  getCachedPublicStats,
+} from '@/lib/public-cache'
 
 export const dynamic = 'force-dynamic'
 
@@ -56,9 +60,9 @@ function ServerSpotlight({ server }: { server: Server }) {
 
 export default async function LandingPage() {
   const [servers, news, siteStats] = await Promise.all([
-    listServers(),
-    listNewsPosts(4),
-    getAdminStats(),
+    getCachedPublicServers(),
+    getCachedPublicNews(4),
+    getCachedPublicStats(),
   ])
 
   const onlineServers = servers.filter((server) => server.on)

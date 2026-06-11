@@ -11,6 +11,7 @@ datasource db {
 model app_api_tokens {
   id           String    @id
   user_id      String
+  server_id    Int?
   name         String
   token_hash   String    @unique(map: "sqlite_autoindex_app_api_tokens_2")
   scopes       String    @default("[\"servers:read\"]")
@@ -18,9 +19,11 @@ model app_api_tokens {
   created_at   String
   revoked_at   String?
   app_users    app_users @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  app_servers  app_servers? @relation(fields: [server_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([token_hash], map: "idx_api_tokens_token_hash")
   @@index([user_id], map: "idx_api_tokens_user_id")
+  @@index([server_id], map: "idx_api_tokens_server_id")
 }
 
 model app_news_posts {
@@ -71,6 +74,24 @@ model app_projects {
   app_servers             app_servers[]
 
   @@index([owner_id], map: "idx_projects_owner")
+}
+
+model app_clusters {
+  id          Int           @id @default(autoincrement())
+  owner_id    String
+  name        String
+  slug        String        @unique
+  description String        @default("")
+  logo_url    String?
+  banner_url  String?
+  website     String?
+  discord     String?
+  created_at  String
+  updated_at  String
+  app_users   app_users     @relation(fields: [owner_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  app_servers app_servers[]
+
+  @@index([owner_id], map: "idx_clusters_owner")
 }
 
 model app_server_applications {
@@ -211,6 +232,22 @@ model app_server_votes {
   @@index([server_id], map: "idx_server_votes_server_id")
 }
 
+model app_server_likes {
+  id          Int         @id @default(autoincrement())
+  server_id   Int
+  user_id     String?
+  fingerprint String
+  author_name String?
+  created_at  String
+  app_users   app_users?  @relation(fields: [user_id], references: [id], onUpdate: NoAction)
+  app_servers app_servers @relation(fields: [server_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([server_id, fingerprint], map: "idx_server_likes_unique_fingerprint")
+  @@unique([server_id, user_id], map: "idx_server_likes_unique_user", where: raw("ON app_server_likes(server_id, user_id) WHERE user_id IS NOT NULL"))
+  @@index([server_id], map: "idx_server_likes_server_id")
+  @@index([user_id], map: "idx_server_likes_user_id")
+}
+
 model app_servers {
   id                        Int                         @id @default(autoincrement())
   owner_id                  String
@@ -241,7 +278,7 @@ model app_servers {
   max                       Int                         @default(0)
   uptime                    String                      @default("new")
   verified                  Int                         @default(0)
-  cluster                   Int?
+  cluster_id                Int?
   created_at                String
   updated_at                String
   project_id                Int?
@@ -249,17 +286,109 @@ model app_servers {
   discord_bot_verified      Int                         @default(0)
   discord_verify_code       String?
   app_notifications         app_notifications[]
+  app_api_tokens            app_api_tokens[]
+  app_server_callback       app_server_callbacks?
+  app_callback_events       app_callback_events[]
+  app_callback_deliveries   app_callback_deliveries[]
   app_server_nickname_votes app_server_nickname_votes[]
   app_server_online_samples app_server_online_samples[] @ignore
   app_server_reviews        app_server_reviews[]
+  app_server_likes          app_server_likes[]
   app_server_verifications  app_server_verifications?
   app_server_views          app_server_views[]
   app_server_votes          app_server_votes[]
   app_projects              app_projects?               @relation(fields: [project_id], references: [id], onUpdate: NoAction)
+  app_clusters              app_clusters?               @relation(fields: [cluster_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
   app_users                 app_users                   @relation(fields: [owner_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([owner_id], map: "idx_app_servers_owner_id")
   @@index([addr], map: "idx_app_servers_addr")
+  @@index([cluster_id], map: "idx_app_servers_cluster_id")
+}
+
+model app_server_callbacks {
+  id                  Int                       @id @default(autoincrement())
+  server_id           Int                       @unique
+  callback_url        String                    @default("")
+  auth_header         String                    @default("Authorization")
+  auth_token          String                    @default("")
+  events_json         String                    @default("[\"vote\",\"comment\",\"like\"]")
+  is_active           Int                       @default(0)
+  nuvotifier_enabled  Int                       @default(0)
+  nuvotifier_host     String                    @default("")
+  nuvotifier_port     Int                       @default(8192)
+  nuvotifier_token    String                    @default("")
+  created_at          String
+  updated_at          String
+  app_servers         app_servers               @relation(fields: [server_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  callback_deliveries app_callback_deliveries[]
+
+  @@index([server_id], map: "idx_server_callbacks_server_id")
+}
+
+model app_callback_events {
+  id                  Int                       @id @default(autoincrement())
+  server_id           Int
+  action              String
+  payload_json        String
+  created_at          String
+  app_servers         app_servers               @relation(fields: [server_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  callback_deliveries app_callback_deliveries[]
+
+  @@index([server_id, created_at], map: "idx_callback_events_server")
+}
+
+model app_callback_deliveries {
+  id               Int                  @id @default(autoincrement())
+  event_id         Int
+  callback_id      Int
+  server_id        Int
+  action           String
+  destination      String
+  payload_json     String
+  status           String               @default("pending")
+  status_code      Int?
+  response_excerpt String?
+  error_message    String?
+  created_at       String
+  delivered_at     String?
+  app_server_callbacks app_server_callbacks @relation(fields: [callback_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  app_callback_events   app_callback_events   @relation(fields: [event_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  app_servers          app_servers          @relation(fields: [server_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([callback_id, created_at], map: "idx_callback_deliveries_callback")
+  @@index([event_id], map: "idx_callback_deliveries_event")
+  @@index([server_id, created_at], map: "idx_callback_deliveries_server")
+}
+
+model app_achievements {
+  id                    Int                     @id @default(autoincrement())
+  slug                  String                  @unique(map: "idx_app_achievements_slug")
+  name                  String
+  description           String                  @default("")
+  emblem                String                  @default("★")
+  trigger_type          String                  @default("manual")
+  trigger_value         Int                     @default(0)
+  is_active             Int                     @default(1)
+  sort_order            Int                     @default(0)
+  created_at            String
+  updated_at            String
+  app_user_achievements app_user_achievements[]
+
+  @@index([is_active, sort_order], map: "idx_achievements_active_sort")
+}
+
+model app_user_achievements {
+  id             Int              @id @default(autoincrement())
+  achievement_id Int
+  user_id        String
+  granted_by     String           @default("auto")
+  earned_at      String
+  app_achievements app_achievements @relation(fields: [achievement_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  app_users        app_users        @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([achievement_id, user_id], map: "idx_user_achievements_unique")
+  @@index([user_id], map: "idx_user_achievements_user")
 }
 
 model app_users {
@@ -280,18 +409,118 @@ model app_users {
   updated_at               String
   discord_user_id          String?                    @unique(map: "idx_app_users_discord_user_id", where: raw("discord_user_id IS NOT NULL"))
   app_api_tokens           app_api_tokens[]
+  app_user_achievements    app_user_achievements[]
   app_news_posts           app_news_posts[]
   app_notifications        app_notifications[]
   app_projects             app_projects[]
+  app_clusters             app_clusters[]
   app_server_applications  app_server_applications[]
   app_server_reviews       app_server_reviews[]
+  app_server_likes         app_server_likes[]
   app_server_verifications app_server_verifications[]
   app_server_views         app_server_views[]
   app_server_votes         app_server_votes[]
   app_servers              app_servers[]
+  cms_sessions             cms_sessions[]
+  forum_post_likes         forum_post_likes[]
+  forum_posts              forum_posts[]
+  forum_thread_likes       forum_thread_likes[]
+  forum_threads            forum_threads[]
   user_login_sessions      user_login_sessions[]
 
   @@index([email], map: "idx_app_users_email")
+}
+
+model forum_categories {
+  id            Int             @id @default(autoincrement())
+  slug          String          @unique
+  name          String
+  description   String          @default("")
+  icon          String          @default("comments")
+  color         String          @default("#7b8cff")
+  position      Int             @default(0)
+  created_at    String
+  forum_threads forum_threads[]
+
+  @@index([position], map: "idx_forum_categories_position")
+}
+
+model forum_threads {
+  id                 Int                  @id @default(autoincrement())
+  category_id        Int
+  author_user_id     String
+  title              String
+  content            String
+  attachments_json   String                @default("[]")
+  is_pinned          Int                  @default(0)
+  is_locked          Int                  @default(0)
+  is_solved          Int                  @default(0)
+  views              Int                  @default(0)
+  created_at         String
+  updated_at         String
+  last_activity_at   String
+  app_users          app_users            @relation(fields: [author_user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  forum_categories   forum_categories     @relation(fields: [category_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  forum_posts        forum_posts[]
+  forum_thread_likes forum_thread_likes[]
+
+  @@index([author_user_id], map: "idx_forum_threads_author")
+  @@index([category_id], map: "idx_forum_threads_category")
+  @@index([last_activity_at], map: "idx_forum_threads_activity")
+}
+
+model forum_posts {
+  id               Int                @id @default(autoincrement())
+  thread_id        Int
+  author_user_id   String
+  content          String
+  attachments_json String             @default("[]")
+  created_at       String
+  updated_at       String
+  app_users        app_users          @relation(fields: [author_user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  forum_threads    forum_threads      @relation(fields: [thread_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  forum_post_likes forum_post_likes[]
+
+  @@index([author_user_id], map: "idx_forum_posts_author")
+  @@index([thread_id, created_at], map: "idx_forum_posts_thread")
+}
+
+model forum_thread_likes {
+  id             Int           @id @default(autoincrement())
+  thread_id      Int
+  user_id        String
+  created_at     String
+  app_users      app_users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  forum_threads  forum_threads @relation(fields: [thread_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([thread_id, user_id], map: "idx_forum_thread_likes_unique")
+  @@index([thread_id], map: "idx_forum_thread_likes_thread")
+}
+
+model forum_post_likes {
+  id          Int         @id @default(autoincrement())
+  post_id     Int
+  user_id     String
+  created_at  String
+  app_users   app_users   @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  forum_posts forum_posts @relation(fields: [post_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([post_id, user_id], map: "idx_forum_post_likes_unique")
+  @@index([post_id], map: "idx_forum_post_likes_post")
+}
+
+model cms_sessions {
+  id         String    @id
+  user_id    String
+  token_hash String    @unique
+  user_agent String?
+  created_at String
+  expires_at String
+  revoked_at String?
+  app_users  app_users @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([token_hash], map: "idx_cms_sessions_token_hash")
+  @@index([user_id], map: "idx_cms_sessions_user_id")
 }
 
 /// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.

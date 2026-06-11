@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import type { AuthUser } from '@/lib/auth-db';
+import { Toggle } from '@/components/ui/Toggle';
 
 const MAX_AVATAR_BYTES = 800 * 1024;
 const MAX_BANNER_BYTES = 1_400 * 1024;
@@ -217,9 +218,16 @@ export function ProfileEditModal({ user, initialTags, open, onClose, onSaved, on
               <label>Теги профілю (максимум 3)</label>
               <div className="add-tags-grid">
                 {PROFILE_TAG_OPTIONS.map((tag) => (
-                  <button key={tag} type="button" className={`filter-chip${selectedTags.includes(tag) ? ' active' : ''}`} onClick={() => toggleProfileTag(tag)}>
+                  <Toggle
+                    key={tag}
+                    type="button"
+                    variant="outline"
+                    className="filter-chip"
+                    pressed={selectedTags.includes(tag)}
+                    onPressedChange={() => toggleProfileTag(tag)}
+                  >
                     {tag}
-                  </button>
+                  </Toggle>
                 ))}
               </div>
             </div>

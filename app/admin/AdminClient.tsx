@@ -2,6 +2,9 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { PageShell } from '@/components/layout/PageShell'
+import { Breadcrumbs } from '@/components/ui/Breadcrumbs'
+import { Select } from '@/components/ui/Select'
+import { Toggle } from '@/components/ui/Toggle'
 import type { AuthUser } from '@/lib/auth-db'
 import type { AdminStatsRow, AdminUserRow, ServerApplication, ServerApplicationStatus } from '@/lib/auth-db'
 import type { Server } from '@/lib/types'
@@ -167,22 +170,15 @@ const UsersTab = ({ currentUserId }: { currentUserId: string }) => {
                 </td>
                 <td style={{ padding: '10px 16px', fontFamily: 'var(--font-mono)', color: 'var(--fg-2)', fontSize: 12 }}>{u.email}</td>
                 <td style={{ padding: '10px 16px' }}>
-                  <select
+                  <Select
                     value={u.role}
                     disabled={updatingId === u.id}
-                    onChange={(e) => handleRoleChange(u.id, e.target.value)}
-                    aria-label={`Role for ${u.email}`}
-                    style={{
-                      background: 'var(--bg-3)', border: '1px solid var(--line)',
-                      borderRadius: 6, padding: '4px 8px', fontSize: 12,
-                      color: ROLE_COLORS[u.role] ?? 'var(--fg)',
-                      cursor: 'pointer', fontWeight: 600,
-                    }}
-                  >
-                    {ROLE_OPTIONS.map((r) => (
-                      <option key={r} value={r}>{r}</option>
-                    ))}
-                  </select>
+                    onChange={(value) => handleRoleChange(u.id, value)}
+                    ariaLabel={`Роль для ${u.email}`}
+                    options={ROLE_OPTIONS}
+                    size="sm"
+                    fullWidth={false}
+                  />
                 </td>
                 <td style={{ padding: '10px 16px', color: 'var(--fg-3)', fontSize: 12, whiteSpace: 'nowrap' }}>{formatDate(u.createdAt)}</td>
                 <td style={{ padding: '10px 16px' }}>
@@ -245,14 +241,14 @@ const ServersTab = () => {
 
   useEffect(() => { fetchServers() }, [fetchServers])
 
-  const handleToggleVerify = async (serverId: number, current: boolean) => {
+  const handleToggleVerify = async (serverId: number, verified: boolean) => {
     setTogglingId(serverId)
     await fetch(`/api/admin/servers/${serverId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ verified: !current }),
+      body: JSON.stringify({ verified }),
     })
-    setServers((prev) => prev.map((s) => s.seed === serverId ? { ...s, verified: !current } : s))
+    setServers((prev) => prev.map((s) => s.seed === serverId ? { ...s, verified } : s))
     setTogglingId(null)
   }
 
@@ -312,18 +308,19 @@ const ServersTab = () => {
                   </span>
                 </td>
                 <td style={{ padding: '10px 16px' }}>
-                  <button
-                    className="btn btn-secondary"
+                  <Toggle
+                    variant="outline"
+                    pressed={s.verified}
                     style={{
                       fontSize: 11, padding: '3px 10px',
                       color: s.verified ? 'var(--green)' : 'var(--fg-3)',
                       borderColor: s.verified ? 'color-mix(in oklab, var(--green) 30%, transparent)' : undefined,
                     }}
                     disabled={togglingId === s.seed}
-                    onClick={() => handleToggleVerify(s.seed, s.verified)}
+                    onPressedChange={(pressed) => void handleToggleVerify(s.seed, pressed)}
                   >
                     {togglingId === s.seed ? '…' : s.verified ? '✓ Верифіковано' : '○ Верифікувати'}
-                  </button>
+                  </Toggle>
                 </td>
                 <td style={{ padding: '10px 16px' }}>
                   {confirmDelete === s.seed ? (
@@ -724,7 +721,7 @@ export const AdminClient = ({ initialUser, initialStats }: AdminClientProps) => 
       <div className="page-main">
         <div className="page-topbar">
           <div>
-            <div className="page-crumb">admin / панель керування</div>
+            <Breadcrumbs items={[{ label: 'Адмін', href: '/' }, { label: 'Панель керування' }]} />
             <h1 className="page-title">Адмін панель</h1>
           </div>
           <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>

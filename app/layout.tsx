@@ -1,10 +1,15 @@
 import type { Metadata } from 'next';
-import { Mulish, JetBrains_Mono } from 'next/font/google';
+import { Inter, JetBrains_Mono, Merriweather } from 'next/font/google';
 import { Suspense } from 'react';
+import { config } from '@fortawesome/fontawesome-svg-core';
+import '@fortawesome/fontawesome-svg-core/styles.css';
 import './globals.css';
+import './external-api.css';
 import { RouteTransitionLoader } from '@/components/layout/RouteTransitionLoader';
 
-const mulish = Mulish({
+config.autoAddCss = false;
+
+const inter = Inter({
   subsets: ['latin', 'cyrillic'],
   weight: ['400', '500', '600', '700', '800'],
   variable: '--font-sans',
@@ -15,6 +20,13 @@ const jetbrainsMono = JetBrains_Mono({
   subsets: ['latin'],
   weight: ['400', '500'],
   variable: '--font-mono',
+  display: 'swap',
+});
+
+const merriweather = Merriweather({
+  subsets: ['latin', 'cyrillic'],
+  weight: ['400', '700'],
+  variable: '--font-serif',
   display: 'swap',
 });
 
@@ -54,7 +66,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           }}
         />
       </head>
-      <body className={`${mulish.variable} ${jetbrainsMono.variable}`}>
+      <body className={`${inter.variable} ${jetbrainsMono.variable} ${merriweather.variable}`}>
         <Suspense fallback={null}>
           <RouteTransitionLoader />
         </Suspense>

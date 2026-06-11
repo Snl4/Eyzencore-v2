@@ -7,18 +7,19 @@ export type SelectOption = { value: string; label: ReactNode } | string
 interface SelectProps {
   value: string
   onChange: (value: string) => void
-  options: SelectOption[]
+  options: readonly SelectOption[]
   placeholder?: string
   disabled?: boolean
   className?: string
   size?: 'md' | 'sm'
   fullWidth?: boolean
+  ariaLabel?: string
 }
 
 const normalize = (option: SelectOption): { value: string; label: ReactNode } =>
   typeof option === 'string' ? { value: option, label: option } : option
 
-export function Select({ value, onChange, options, placeholder = 'Обрати...', disabled, className = '', size = 'md', fullWidth = true }: SelectProps) {
+export function Select({ value, onChange, options, placeholder = 'Обрати...', disabled, className = '', size = 'md', fullWidth = true, ariaLabel }: SelectProps) {
   const [open, setOpen] = useState(false)
   const [active, setActive] = useState<number>(-1)
   const wrapRef = useRef<HTMLDivElement>(null)
@@ -77,6 +78,7 @@ export function Select({ value, onChange, options, placeholder = 'Обрати..
         disabled={disabled}
         aria-haspopup="listbox"
         aria-expanded={open}
+        aria-label={ariaLabel}
       >
         <span className={`cs-value${selected ? '' : ' placeholder'}`}>
           {selected ? selected.label : placeholder}
@@ -86,7 +88,7 @@ export function Select({ value, onChange, options, placeholder = 'Обрати..
         </span>
       </button>
       {open && (
-        <div ref={panelRef} className="cs-panel" role="listbox">
+        <div ref={panelRef} className="cs-panel" role="listbox" aria-label={ariaLabel}>
           {items.map((option, index) => (
             <button
               key={option.value}

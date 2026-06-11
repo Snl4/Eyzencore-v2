@@ -1,7 +1,8 @@
 import type { Metadata } from 'next'
 import { NewsPageClient } from './NewsPageClient'
 import { getCurrentUser } from '@/lib/auth-server'
-import { listNewsPosts, resolveUserRole } from '@/lib/auth-db'
+import { resolveUserRole } from '@/lib/auth-db'
+import { getCachedPublicNews } from '@/lib/public-cache'
 
 export const dynamic = 'force-dynamic'
 
@@ -11,8 +12,10 @@ export const metadata: Metadata = {
 }
 
 export default async function NewsPage() {
-  const initialUser = await getCurrentUser()
-  const initialPosts = await listNewsPosts(50)
+  const [initialUser, initialPosts] = await Promise.all([
+    getCurrentUser(),
+    getCachedPublicNews(50),
+  ])
   const role = initialUser
     ? await resolveUserRole({
         userId: initialUser.id,

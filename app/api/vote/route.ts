@@ -7,6 +7,7 @@ import {
   registerAuthenticatedServerVote,
   registerServerNicknameVote,
 } from '@/lib/auth-db'
+import { dispatchServerCallback } from '@/lib/callback-api'
 
 const NICKNAME_PATTERN = /^[A-Za-z0-9_]{3,16}$/
 const MAX_VOTES_PER_IP_PER_DAY = 5
@@ -75,6 +76,13 @@ export async function POST(request: NextRequest) {
     serverId,
     type: 'vote',
     actorName: normalizedNickname,
+  })
+  await dispatchServerCallback({
+    serverId,
+    action: 'vote',
+    userId: auth?.user.id,
+    userNickname: normalizedNickname,
+    ipAddress,
   })
   return NextResponse.json({ success: true, nickname: normalizedNickname })
 }

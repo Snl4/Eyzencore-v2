@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { PageShell } from '@/components/layout/PageShell'
+import { Breadcrumbs } from '@/components/ui/Breadcrumbs'
 import type { AuthUser } from '@/lib/auth-db'
 import { buildServerDashboardSlug } from '@/lib/server-slug'
 import { Area, CartesianGrid, Line, ComposedChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
@@ -307,7 +308,11 @@ export function DashboardClient({ initialUser, server, initialSnapshot }: Props)
           <div className="dash-head">
             <div className="dash-head-info">
               <Link href={`/servers/${server.seed}`} className="dash-back">← {server.name}</Link>
-              <div className="page-crumb">workspace / dashboard / {server.name.toLowerCase()}</div>
+              <Breadcrumbs items={[
+                { label: 'Простір', href: '/' },
+                { label: 'Dashboard', href: '/dashboard' },
+                { label: server.name },
+              ]} />
               <h1 className="page-title">Дашборд серверу</h1>
             </div>
             <div className="dash-server-pick-wrap" ref={pickerRef}>

@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { PageShell } from '@/components/layout/PageShell'
+import { Breadcrumbs } from '@/components/ui/Breadcrumbs'
 import type { AuthUser, UserRole } from '@/lib/auth-db'
 
 interface VerifyServerClientProps {
@@ -81,12 +82,12 @@ export function VerifyServerClient({
       <div className="page-main">
         <div className="page-topbar">
           <div>
-            <div className="page-crumb">
-              dashboard /{' '}
-              <Link href="/dashboard?tab=servers" className="page-crumb-link">мої сервери</Link>
-              {' '}/ <Link href={`/dashboard/servers/${server.id}`} className="page-crumb-link">{server.name}</Link>
-              {' '}/ верифікація
-            </div>
+            <Breadcrumbs items={[
+              { label: 'Dashboard', href: '/dashboard' },
+              { label: 'Мої сервери', href: '/dashboard?tab=servers' },
+              { label: server.name, href: `/dashboard/servers/${server.id}` },
+              { label: 'Верифікація' },
+            ]} />
             <h1 className="page-title">
               Верифікація сервера
               {isVerified && (

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
 import { ResponsiveContainer, AreaChart, Area, CartesianGrid, XAxis, YAxis, Tooltip } from 'recharts'
 import { PageShell } from '@/components/layout/PageShell'
+import { Breadcrumbs } from '@/components/ui/Breadcrumbs'
 import type { AuthUser, ServerReview, ServerVoteEntry, UserRole } from '@/lib/auth-db'
 
 interface OwnerServerManageClientProps {
@@ -152,7 +153,11 @@ export function OwnerServerManageClient({ initialUser, role, serverId }: OwnerSe
       <div className="page-main">
         <div className="page-topbar">
           <div>
-            <div className="page-crumb">dashboard / my servers / details</div>
+            <Breadcrumbs items={[
+              { label: 'Dashboard', href: '/dashboard' },
+              { label: 'Мої сервери', href: '/dashboard?tab=servers' },
+              { label: server?.name || 'Деталі' },
+            ]} />
             <h1 className="page-title">
               {server ? server.name : 'Server Details'}
               {server && (
