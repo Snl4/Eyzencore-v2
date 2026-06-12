@@ -17,12 +17,6 @@ type AdminClientProps = {
   initialStats: AdminStatsRow
 }
 
-const ROLE_COLORS: Record<string, string> = {
-  ADMIN: 'var(--accent)',
-  OWNER: 'var(--accent-2)',
-  USER: 'var(--fg-3)',
-}
-
 const ROLE_OPTIONS = ['USER', 'OWNER', 'ADMIN'] as const
 
 const formatDate = (iso: string): string => {

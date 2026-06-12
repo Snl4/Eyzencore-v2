@@ -14,7 +14,7 @@ export function Nav() {
   const router = useRouter();
   const { theme, toggle } = useTheme();
   const [user, setUser] = useState<AuthUser | null>(null);
-  const [isPending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
 
   useEffect(() => {
     async function loadUser() {
