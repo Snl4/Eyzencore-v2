@@ -45,7 +45,7 @@ export const VERSIONS = [
 export const FORUM_CATEGORIES: ForumCategory[] = [
   { id: 1, name: 'Гайди та туторіали', description: 'Посібники та інструкції від досвідчених гравців', icon: '📚', color: '#7b8cff', threads: 124, lastActivity: '2 хв тому' },
   { id: 2, name: 'Питання гравців', description: 'Допомога та відповіді на питання спільноти', icon: '💬', color: '#a78bfa', threads: 892, lastActivity: '5 хв тому' },
-  { id: 3, name: 'Анонси серверів', description: 'Новини та оголошення від власників серверів', icon: '📣', color: '#5eead4', threads: 208, lastActivity: '12 хв тому' },
+  { id: 3, name: 'Ресурси', description: 'Корисні матеріали, збірки, плагіни, моди та інструменти для спільноти', icon: '📣', color: '#5eead4', threads: 208, lastActivity: '12 хв тому' },
   { id: 4, name: 'Технічна підтримка', description: 'Вирішення технічних проблем та помилок', icon: '🔧', color: '#fbbf24', threads: 67, lastActivity: '34 хв тому' },
 ];
 
@@ -53,7 +53,7 @@ export const FORUM_THREADS: ForumThread[] = [
   { id: 1, title: 'Як налаштувати Paper 1.21 для максимального TPS', author: 'kovalenko_dev', authorColor: '#7b8cff', category: 'Гайди та туторіали', replies: 24, views: 1847, lastActivity: '2 хв тому', pinned: true },
   { id: 2, title: 'Список безкоштовних хостингів для Minecraft-серверів', author: 'serverhunter', authorColor: '#a78bfa', category: 'Гайди та туторіали', replies: 18, views: 2341, lastActivity: '15 хв тому', hot: true },
   { id: 3, title: 'Survival vs RPG: що обрати для нового проєкту?', author: 'minecraft_ua', authorColor: '#5eead4', category: 'Питання гравців', replies: 12, views: 934, lastActivity: '32 хв тому' },
-  { id: 4, title: 'Шукаю команду для хардкор-виживання на KingdomSMP', author: 'cyberblade', authorColor: '#f59e0b', category: 'Анонси серверів', replies: 9, views: 487, lastActivity: '1 год тому' },
+  { id: 4, title: 'Шукаю команду для хардкор-виживання на KingdomSMP', author: 'cyberblade', authorColor: '#f59e0b', category: 'Ресурси', replies: 9, views: 487, lastActivity: '1 год тому' },
   { id: 5, title: '[ВИРІШЕНО] Чому сервер не відображається в Eyzencore?', author: 'newbie_craft', authorColor: '#34d399', category: 'Технічна підтримка', replies: 5, views: 312, lastActivity: '2 год тому', solved: true },
   { id: 6, title: 'Гайд: запуск сервера на Fabric 1.21 + Lithium + Starlight', author: 'fabrice_ua', authorColor: '#7b8cff', category: 'Гайди та туторіали', replies: 31, views: 3102, lastActivity: '3 год тому', hot: true },
 ];
@@ -105,7 +105,7 @@ export function getSidebarSections(isOwner = false): SidebarSection[] {
       ] : []),
     ] },
     { label: 'Спільнота', items: [
-      { ico: 'forum', name: 'Форум', key: 'forum', href: '/forum', badge: '1.2k' },
+        { ico: 'forum', name: 'Форум', key: 'forum', href: '/forum' },
     ] },
     { label: 'Акаунт', items: [
       { ico: 'users', name: 'Профіль', key: 'profile', href: '/profile' },

@@ -90,10 +90,16 @@ export function ServerCard({ s }: Props) {
   };
 
   return (
-    <div className="server-card" onClick={() => router.push(`/servers/${s.seed}`)}>
+    <div className={`server-card${s.boosted ? ' is-boosted' : ''}`} onClick={() => router.push(`/servers/${s.seed}`)}>
       {/* Banner */}
       <div className="sc-banner" style={{ background: s.bannerUrl ? `url(${s.bannerUrl}) center/cover` : bannerBg }}>
         {!s.bannerUrl && <BannerDecor seed={s.seed}/>}
+        {s.boosted && (
+          <span className="sc-sponsored">
+            <span className="sc-sponsored-star">★</span>
+            Спонсоровано
+          </span>
+        )}
         <span className="sc-platform-badge" style={{
           position: 'absolute',
           top: 10,
@@ -111,7 +117,7 @@ export function ServerCard({ s }: Props) {
           <span className="dot"/>
           {s.on ? 'Онлайн' : 'Офлайн'}
         </span>
-        {s.cluster && (
+        {s.cluster && !s.boosted && (
           <span className="sc-cluster">⊞ {s.cluster} серв.</span>
         )}
       </div>

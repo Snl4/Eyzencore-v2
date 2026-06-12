@@ -22,6 +22,7 @@ export interface Server {
   uptime: string;
   rank: number;
   verified: boolean;
+  boosted?: boolean;
   cluster?: number;
   clusterId?: number | null;
   clusterName?: string | null;

@@ -35,6 +35,7 @@ type ReviewItem = {
 }
 type OwnedServer = { seed: number; name: string; ic: string; addr: string; avatarUrl: string | null }
 type CountryEntry = { code: string; visitors: number; percent: number }
+type TrafficSourceEntry = { source: string; visitors: number; percent: number }
 
 const COUNTRY_DICT: Record<string, string> = {
   UA: 'Україна', PL: 'Польща', DE: 'Німеччина', CZ: 'Чехія', SK: 'Словаччина',
@@ -52,6 +53,22 @@ function describeCountry(code: string): { name: string; flag: string } {
   const normalized = String(code || '').trim().toUpperCase()
   if (!normalized || normalized === 'UN') return { name: 'Невідомо', flag: '🌍' }
   return { name: COUNTRY_DICT[normalized] || normalized, flag: codeToFlag(normalized) }
+}
+
+const TRAFFIC_SOURCE_META: Record<string, { label: string; icon: string }> = {
+  direct: { label: 'Прямі переходи', icon: '↗' },
+  internal: { label: 'Eyzencore', icon: '◆' },
+  search: { label: 'Пошукові системи', icon: '⌕' },
+  discord: { label: 'Discord', icon: '◉' },
+  youtube: { label: 'YouTube', icon: '▶' },
+  tiktok: { label: 'TikTok', icon: '♪' },
+  social: { label: 'Соціальні мережі', icon: '◎' },
+  referral: { label: 'Інші сайти', icon: '↪' },
+}
+
+function describeTrafficSource(source: string) {
+  const normalized = String(source || 'direct').toLowerCase()
+  return TRAFFIC_SOURCE_META[normalized] || { label: normalized, icon: '↪' }
 }
 
 interface DashSnapshot {
@@ -80,6 +97,7 @@ interface DashSnapshot {
   heatMax: number
   ownedServers: OwnedServer[]
   byCountry: CountryEntry[]
+  trafficSources: TrafficSourceEntry[]
 }
 
 interface Props {
@@ -563,17 +581,37 @@ export function DashboardClient({ initialUser, server, initialSnapshot }: Props)
             </div>
           </div>
 
-          {/* Two-col: traffic sources + countries (empty state — not yet tracked) */}
+          {/* Two-col: traffic sources + countries */}
           <div className="dash-col-2">
             <div className="dash-card">
               <div className="head">
                 <h3>Джерела трафіку</h3>
                 <span className="more">7 днів</span>
               </div>
-              <div className="dash-empty small with-icon">
-                <span className="emoji">📊</span>
-                Ми ще не збираємо дані про реферери — увімкнемо у наступному оновленні.
-              </div>
+              {snapshot.trafficSources.length === 0 ? (
+                <div className="dash-empty small with-icon">
+                  <span className="emoji">📊</span>
+                  За цей період переходів ще не було.
+                </div>
+              ) : (
+                <div className="bar-list">
+                  {snapshot.trafficSources.map((entry) => {
+                    const source = describeTrafficSource(entry.source)
+                    return (
+                      <div key={entry.source} className="bar-row" style={{ gridTemplateColumns: '160px 1fr 60px' }}>
+                        <span className="lbl country-row">
+                          <span className="flag">{source.icon}</span>
+                          {source.label}
+                        </span>
+                        <span className="bar">
+                          <span className="fill" style={{ width: `${Math.max(2, entry.percent).toFixed(1)}%` }} />
+                        </span>
+                        <span className="v">{entry.visitors.toLocaleString('uk-UA')}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
             </div>
 
             <div className="dash-card">

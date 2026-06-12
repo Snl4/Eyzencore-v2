@@ -6,6 +6,7 @@ import '@fortawesome/fontawesome-svg-core/styles.css';
 import './globals.css';
 import './external-api.css';
 import { RouteTransitionLoader } from '@/components/layout/RouteTransitionLoader';
+import { NotificationToasts } from '@/components/layout/NotificationToasts';
 
 config.autoAddCss = false;
 
@@ -70,6 +71,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Suspense fallback={null}>
           <RouteTransitionLoader />
         </Suspense>
+        <NotificationToasts />
         {children}
       </body>
     </html>

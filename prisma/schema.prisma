@@ -204,6 +204,8 @@ model app_server_views {
   fingerprint  String
   ip_address   String?
   country_code String?
+  referrer     String?
+  traffic_source String?
   created_at   String
   app_users    app_users?  @relation(fields: [user_id], references: [id], onUpdate: NoAction)
   app_servers  app_servers @relation(fields: [server_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
@@ -211,6 +213,17 @@ model app_server_views {
   @@index([fingerprint], map: "idx_server_views_fingerprint")
   @@index([created_at], map: "idx_server_views_created_at")
   @@index([server_id], map: "idx_server_views_server_id")
+  @@index([traffic_source], map: "idx_server_views_traffic_source")
+}
+
+model app_notification_preferences {
+  user_id         String    @id
+  enabled         Int       @default(1)
+  votes_enabled   Int       @default(1)
+  reviews_enabled Int       @default(1)
+  system_enabled  Int       @default(1)
+  updated_at      String
+  app_users       app_users @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 }
 
 model app_server_votes {
@@ -276,9 +289,10 @@ model app_servers {
   online                    Int                         @default(0)
   players                   Int                         @default(0)
   max                       Int                         @default(0)
-  uptime                    String                      @default("new")
-  verified                  Int                         @default(0)
-  cluster_id                Int?
+    uptime                    String                      @default("new")
+    verified                  Int                         @default(0)
+    boosted                   Int                         @default(0)
+    cluster_id                Int?
   created_at                String
   updated_at                String
   project_id                Int?
@@ -303,8 +317,9 @@ model app_servers {
 
   @@index([owner_id], map: "idx_app_servers_owner_id")
   @@index([addr], map: "idx_app_servers_addr")
-  @@index([cluster_id], map: "idx_app_servers_cluster_id")
-}
+    @@index([cluster_id], map: "idx_app_servers_cluster_id")
+    @@index([boosted], map: "idx_app_servers_boosted")
+  }
 
 model app_server_callbacks {
   id                  Int                       @id @default(autoincrement())
@@ -411,7 +426,8 @@ model app_users {
   app_api_tokens           app_api_tokens[]
   app_user_achievements    app_user_achievements[]
   app_news_posts           app_news_posts[]
-  app_notifications        app_notifications[]
+    app_notifications        app_notifications[]
+    notification_preferences app_notification_preferences?
   app_projects             app_projects[]
   app_clusters             app_clusters[]
   app_server_applications  app_server_applications[]

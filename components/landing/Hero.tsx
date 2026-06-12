@@ -15,7 +15,7 @@ const SIDEBAR_SECTIONS = [
     { ico:Icons.chart,     name:'Аналітика',active:false, badge:'' },
   ]},
   { label:'Спільнота', items:[
-    { ico:Icons.forum,  name:'Форум',       active:false, badge:'1.2k' },
+    { ico:Icons.forum,  name:'Форум',       active:false, badge:'' },
     { ico:Icons.news,   name:'Новини',      active:false, badge:'' },
     { ico:Icons.pulse,  name:'Активність', active:false, badge:'' },
   ]},

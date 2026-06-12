@@ -60,6 +60,7 @@ const configs: Record<CmsEntity, EntityConfig> = {
       { key: 'platform', label: 'Платформа' },
       { key: 'players', label: 'Гравці' },
       { key: 'verified', label: 'Перевірено' },
+      { key: 'boosted', label: 'Буст' },
     ],
     fields: [
       { key: 'name', label: 'Назва' },
@@ -84,6 +85,7 @@ const configs: Record<CmsEntity, EntityConfig> = {
       { key: 'players', label: 'Гравців', type: 'number' },
       { key: 'max', label: 'Максимум', type: 'number' },
       { key: 'verified', label: 'Верифікований', type: 'toggle' },
+      { key: 'boosted', label: 'Буст / спонсоровано', type: 'toggle' },
       { key: 'project_id', label: 'ID проєкту', type: 'number' },
     ],
   },
@@ -197,7 +199,7 @@ function renderValue(value: unknown, key: string) {
   if (key.includes('_at') && value) {
     return new Date(String(value)).toLocaleDateString('uk-UA')
   }
-  if (key === 'verified' || key === 'online') {
+  if (key === 'verified' || key === 'online' || key === 'boosted') {
     return Number(value) ? 'Так' : 'Ні'
   }
   const result = String(value ?? '—')

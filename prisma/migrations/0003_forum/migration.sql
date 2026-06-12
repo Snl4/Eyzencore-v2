@@ -90,5 +90,5 @@ CREATE INDEX "idx_forum_post_likes_post" ON "forum_post_likes"("post_id");
 INSERT INTO "forum_categories" ("slug", "name", "description", "icon", "color", "position", "created_at") VALUES
   ('guides', 'Гайди та туторіали', 'Корисні інструкції для гравців і власників серверів.', 'book-open', '#7b8cff', 10, datetime('now')),
   ('questions', 'Питання гравців', 'Допомога, поради та відповіді від спільноти.', 'circle-question', '#a78bfa', 20, datetime('now')),
-  ('announcements', 'Анонси серверів', 'Презентації, оновлення та пошук команди.', 'bullhorn', '#5eead4', 30, datetime('now')),
+  ('announcements', 'Ресурси', 'Корисні матеріали, збірки, плагіни, моди та інструменти для спільноти.', 'bullhorn', '#5eead4', 30, datetime('now')),
   ('support', 'Технічна підтримка', 'Проблеми із серверами, клієнтом або платформою.', 'screwdriver-wrench', '#fbbf24', 40, datetime('now'));

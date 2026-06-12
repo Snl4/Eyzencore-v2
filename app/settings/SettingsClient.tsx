@@ -8,6 +8,12 @@ import { Icons } from '@/components/ui/Icons';
 import type { AuthSession, AuthUser } from '@/lib/auth-db';
 
 type Section = 'security' | 'notifications' | 'integrations' | 'sessions' | 'danger';
+type NotificationPreferences = {
+  enabled: boolean;
+  votesEnabled: boolean;
+  reviewsEnabled: boolean;
+  systemEnabled: boolean;
+};
 
 const NAV: { key: Section; label: string; icon: keyof typeof Icons }[] = [
   { key: 'security', label: 'Безпека', icon: 'shield' },
@@ -36,6 +42,15 @@ export function SettingsClient({ user: initialUser }: { user: AuthUser }) {
   const [error, setError] = useState<string | null>(null);
   const [passwordMessage, setPasswordMessage] = useState<string | null>(null);
   const [sessionMessage, setSessionMessage] = useState<string | null>(null);
+  const [notificationPreferences, setNotificationPreferences] = useState<NotificationPreferences>({
+    enabled: true,
+    votesEnabled: true,
+    reviewsEnabled: true,
+    systemEnabled: true,
+  });
+  const [notificationsLoading, setNotificationsLoading] = useState(true);
+  const [notificationsSaving, setNotificationsSaving] = useState(false);
+  const [notificationMessage, setNotificationMessage] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
   useEffect(() => {
@@ -43,7 +58,22 @@ export function SettingsClient({ user: initialUser }: { user: AuthUser }) {
     if (params.get('discord') === 'linked') {
       setSection('integrations');
       setIntegrationMessage('Discord успішно привʼязано');
+    } else if (window.location.hash === '#notifications') {
+      setSection('notifications');
     }
+  }, []);
+
+  useEffect(() => {
+    async function loadNotificationPreferences() {
+      const response = await fetch('/api/auth/notification-preferences', { cache: 'no-store' });
+      const data = await response.json().catch(() => null);
+      if (response.ok && data) {
+        setNotificationPreferences(data);
+      }
+      setNotificationsLoading(false);
+    }
+
+    void loadNotificationPreferences();
   }, []);
 
   useEffect(() => {
@@ -124,6 +154,40 @@ export function SettingsClient({ user: initialUser }: { user: AuthUser }) {
     setSessionMessage('Інші сеанси завершено');
   }
 
+  async function updateNotificationPreference(
+    key: keyof NotificationPreferences,
+    value: boolean
+  ) {
+    const previous = notificationPreferences;
+    const next = { ...previous, [key]: value };
+    setNotificationPreferences(next);
+    setNotificationsSaving(true);
+    setNotificationMessage(null);
+    setError(null);
+
+    const response = await fetch('/api/auth/notification-preferences', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(next),
+    });
+    const data = await response.json().catch(() => null);
+    if (!response.ok) {
+      setNotificationPreferences(previous);
+      setError(data?.error || 'Не вдалося зберегти налаштування сповіщень');
+      setNotificationsSaving(false);
+      return;
+    }
+
+    setNotificationPreferences({
+      enabled: Boolean(data.enabled),
+      votesEnabled: Boolean(data.votesEnabled),
+      reviewsEnabled: Boolean(data.reviewsEnabled),
+      systemEnabled: Boolean(data.systemEnabled),
+    });
+    setNotificationsSaving(false);
+    setNotificationMessage('Налаштування збережено');
+  }
+
   return (
     <PageShell active="settings" initialUser={initialUser}>
       <div className="page-main">
@@ -185,9 +249,53 @@ export function SettingsClient({ user: initialUser }: { user: AuthUser }) {
               <div>
                 <h2 className="set-heading">Сповіщення</h2>
                 <div className="set-card">
-                  <div className="set-toggle-row">
-                    <span>Налаштування сповіщень поки недоступні в цій тестовій збірці.</span>
+                  <div className="set-notification-intro">
+                    <div>
+                      <h3>Сповіщення в кабінеті</h3>
+                      <p>Оберіть, які події зберігати у вашій стрічці сповіщень.</p>
+                    </div>
+                    {notificationsSaving && <span>Збереження…</span>}
                   </div>
+
+                  {notificationsLoading ? (
+                    <div className="set-notification-loading">Завантаження налаштувань…</div>
+                  ) : (
+                    <>
+                      <NotificationToggle
+                        title="Усі сповіщення"
+                        description="Головний перемикач для нових сповіщень у кабінеті."
+                        checked={notificationPreferences.enabled}
+                        onChange={(value) => void updateNotificationPreference('enabled', value)}
+                      />
+                      <NotificationToggle
+                        title="Голоси за сервер"
+                        description="Новий голос користувача за один із ваших серверів."
+                        checked={notificationPreferences.votesEnabled}
+                        disabled={!notificationPreferences.enabled}
+                        onChange={(value) => void updateNotificationPreference('votesEnabled', value)}
+                      />
+                      <NotificationToggle
+                        title="Нові відгуки"
+                        description="Оцінка або коментар, залишений на сторінці вашого сервера."
+                        checked={notificationPreferences.reviewsEnabled}
+                        disabled={!notificationPreferences.enabled}
+                        onChange={(value) => void updateNotificationPreference('reviewsEnabled', value)}
+                      />
+                      <NotificationToggle
+                        title="Системні події"
+                        description="Схвалення або відхилення заявки та важливі повідомлення платформи."
+                        checked={notificationPreferences.systemEnabled}
+                        disabled={!notificationPreferences.enabled}
+                        onChange={(value) => void updateNotificationPreference('systemEnabled', value)}
+                      />
+                    </>
+                  )}
+
+                  {notificationMessage && (
+                    <div className="auth-feedback auth-feedback-success set-notification-message">
+                      {notificationMessage}
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -320,5 +428,37 @@ export function SettingsClient({ user: initialUser }: { user: AuthUser }) {
         </div>
       </div>
     </PageShell>
+  );
+}
+
+function NotificationToggle({
+  title,
+  description,
+  checked,
+  disabled = false,
+  onChange,
+}: {
+  title: string;
+  description: string;
+  checked: boolean;
+  disabled?: boolean;
+  onChange: (value: boolean) => void;
+}) {
+  return (
+    <div className={`set-toggle-row set-notification-row${disabled ? ' disabled' : ''}`}>
+      <span>
+        <b>{title}</b>
+        <small>{description}</small>
+      </span>
+      <label className="set-toggle">
+        <input
+          type="checkbox"
+          checked={checked}
+          disabled={disabled}
+          onChange={(event) => onChange(event.target.checked)}
+        />
+        <span className="set-toggle-slider" />
+      </label>
+    </div>
   );
 }

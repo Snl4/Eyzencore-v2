@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { AuthIcons } from '@/components/auth/AuthIcons'
 
 type RegisterStatus = {
@@ -108,7 +109,10 @@ export function RegisterForm() {
       </div>
       <label className="checkbox-row">
         <input type="checkbox" checked={terms} onChange={(event) => setTerms(event.target.checked)} />
-        <span>Я приймаю <a href="#">Умови використання</a> та <a href="#">Політику конфіденційності</a></span>
+        <span>
+          Я приймаю <Link href="/terms" target="_blank">Умови використання</Link> та{' '}
+          <Link href="/privacy" target="_blank">Політику конфіденційності</Link>
+        </span>
       </label>
       <label className="checkbox-row" style={{ marginBottom: 24 }}>
         <input type="checkbox" checked={news} onChange={(event) => setNews(event.target.checked)} />

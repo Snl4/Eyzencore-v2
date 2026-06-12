@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTheme } from '@/hooks/useTheme';
 import { BrandMark } from '@/components/ui/BrandMark';
@@ -22,6 +22,8 @@ interface PageShellProps {
 export function PageShell({ children, active, initialUser = null, sidebarRole, hiddenKeys = [] }: PageShellProps) {
   const router = useRouter();
   const { theme, toggle } = useTheme();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [forumThreadCount, setForumThreadCount] = useState<number | null>(null);
   const user = initialUser;
   const resolvedRole = sidebarRole ?? String(user?.user_metadata.role || 'USER').toUpperCase();
   const isOwner = resolvedRole === 'OWNER' || resolvedRole === 'ADMIN';
@@ -42,6 +44,21 @@ export function PageShell({ children, active, initialUser = null, sidebarRole, h
     sidebarPrefetchKey.split('|').filter(Boolean).forEach((href) => router.prefetch(href));
   }, [router, sidebarPrefetchKey]);
 
+  useEffect(() => {
+    let activeRequest = true;
+    fetch('/api/forum/stats', { cache: 'no-store' })
+      .then((response) => response.ok ? response.json() : null)
+      .then((result: { activeThreads?: number } | null) => {
+        if (activeRequest && typeof result?.activeThreads === 'number') {
+          setForumThreadCount(result.activeThreads);
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      activeRequest = false;
+    };
+  }, []);
+
   const handleLogout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' });
     router.push('/');
@@ -50,7 +67,26 @@ export function PageShell({ children, active, initialUser = null, sidebarRole, h
 
   return (
     <div className="page-shell">
-      <aside className="page-side">
+      <button
+        type="button"
+        className="mobile-menu-toggle"
+        aria-label={mobileMenuOpen ? 'Закрити меню' : 'Відкрити меню'}
+        aria-expanded={mobileMenuOpen}
+        onClick={() => setMobileMenuOpen((open) => !open)}
+      >
+        <span />
+        <span />
+        <span />
+      </button>
+      {mobileMenuOpen && (
+        <button
+          type="button"
+          className="mobile-menu-backdrop"
+          aria-label="Закрити меню"
+          onClick={() => setMobileMenuOpen(false)}
+        />
+      )}
+      <aside className={`page-side${mobileMenuOpen ? ' mobile-open' : ''}`}>
         <Link className="brand" href="/">
           <BrandMark />
           <span>Eyzencore</span>
@@ -67,11 +103,18 @@ export function PageShell({ children, active, initialUser = null, sidebarRole, h
                     <SidebarIcon name={item.ico} />
                   </span>
                   <span>{item.name}</span>
-                  {item.badge && <span className="badge">{item.badge}</span>}
+                  {item.key === 'forum' && forumThreadCount !== null
+                    ? forumThreadCount > 0 && <span className="badge">{forumThreadCount.toLocaleString('uk-UA')}</span>
+                    : item.badge && <span className="badge">{item.badge}</span>}
                 </>
               );
               return item.href ? (
-                <Link key={item.key} href={item.href} className={`side-item${isActive ? ' active' : ''}`}>
+                <Link
+                  key={item.key}
+                  href={item.href}
+                  className={`side-item${isActive ? ' active' : ''}`}
+                  onClick={() => setMobileMenuOpen(false)}
+                >
                   {inner}
                 </Link>
               ) : (

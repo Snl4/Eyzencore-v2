@@ -71,6 +71,7 @@ type DbServerRow = {
   max: number;
   uptime: string;
   verified: number;
+  boosted: number;
   cluster: number | null;
   cluster_id: number | null;
   cluster_name: string | null;
@@ -289,7 +290,7 @@ const SERVER_SELECT_COLUMNS = `
   s.id, s.owner_id, u.full_name AS owner_name, u.avatar_url AS owner_avatar, u.profile_slug AS owner_slug,
   s.name, s.addr, s.platform, s.mode, s.ver, s.core, s.country, s.motd, s.short_desc, s.full_desc, s.desc,
   s.website, s.discord, s.telegram, s.donate, s.tiktok, s.launcher_url, s.avatar_url, s.banner_url,
-  s.gallery_json, s.videos_json, s.tags, s.online, s.players, s.max, s.uptime, s.verified,
+  s.gallery_json, s.videos_json, s.tags, s.online, s.players, s.max, s.uptime, s.verified, s.boosted,
   s.cluster_id, c.name AS cluster_name, c.slug AS cluster_slug,
   CASE WHEN s.cluster_id IS NULL THEN NULL ELSE (SELECT COUNT(*) FROM app_servers cs WHERE cs.cluster_id = s.cluster_id) END AS cluster,
   s.project_id, s.discord_guild_id, s.discord_bot_verified, s.discord_verify_code, s.created_at, s.updated_at
@@ -412,6 +413,7 @@ function mapServerRow(row: DbServerRow): Server {
     uptime: row.uptime || 'new',
     rank: Number(row.id),
     verified: Boolean(row.verified),
+    boosted: Boolean(row.boosted),
     cluster: row.cluster ?? undefined,
     clusterId: row.cluster_id ?? null,
     clusterName: row.cluster_name || null,
@@ -908,7 +910,7 @@ export async function listServers() {
      FROM app_servers s
      JOIN app_users u ON u.id = s.owner_id
      LEFT JOIN app_clusters c ON c.id = s.cluster_id
-     ORDER BY s.id ASC`
+     ORDER BY s.boosted DESC, s.players DESC, s.id ASC`
   ).all() as DbServerRow[];
 
   return mergeLatestOnlineSamples(rows.map(mapServerRow));
@@ -1356,6 +1358,8 @@ export async function registerServerView(input: {
   fingerprint: string;
   ipAddress?: string | null;
   countryCode?: string | null;
+  referrer?: string | null;
+  trafficSource?: string | null;
   cooldownMinutes?: number;
 }) {
   const db = getDb();
@@ -1387,14 +1391,18 @@ export async function registerServerView(input: {
     return { counted: false };
   }
   await db.prepare(
-    `INSERT INTO app_server_views (server_id, user_id, fingerprint, ip_address, country_code, created_at)
-     VALUES (?, ?, ?, ?, ?, ?)`
+    `INSERT INTO app_server_views (
+       server_id, user_id, fingerprint, ip_address, country_code,
+       referrer, traffic_source, created_at
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     input.serverId,
     input.userId || null,
     input.fingerprint,
     String(input.ipAddress || '').trim() || null,
     String(input.countryCode || '').trim().toUpperCase() || null,
+    String(input.referrer || '').trim().slice(0, 1000) || null,
+    String(input.trafficSource || '').trim().slice(0, 120) || 'direct',
     now
   );
   return { counted: true };
@@ -1861,6 +1869,26 @@ export async function createOwnerNotification(input: {
   if (!serverRow) {
     return;
   }
+  const preferences = await db
+    .prepare(
+      `SELECT enabled, votes_enabled, reviews_enabled
+       FROM app_notification_preferences
+       WHERE user_id = ?
+       LIMIT 1`
+    )
+    .get(serverRow.owner_id) as {
+      enabled: number;
+      votes_enabled: number;
+      reviews_enabled: number;
+    } | undefined;
+  if (
+    preferences &&
+    (!preferences.enabled ||
+      (input.type === 'vote' && !preferences.votes_enabled) ||
+      (input.type === 'review' && !preferences.reviews_enabled))
+  ) {
+    return;
+  }
   const title = input.type === 'vote' ? 'New vote received' : 'New review posted';
   const body =
     input.type === 'vote'
@@ -2193,6 +2221,11 @@ export type DashReviewItem = {
   rating: number;
   createdAt: string;
 };
+export type DashTrafficSource = {
+  source: string;
+  visitors: number;
+  percent: number;
+};
 
 const DASH_RANGE_DAYS: Record<DashRange, number> = {
   '24h': 1,
@@ -2498,6 +2531,25 @@ export async function getServerDashboardSnapshot(input: { serverId: number; user
     percent: countryTotal > 0 ? (Number(row.visitors) / countryTotal) * 100 : 0,
   }));
 
+  const trafficRows = await db
+    .prepare(
+      `SELECT
+         COALESCE(NULLIF(traffic_source, ''), 'direct') AS source,
+         COUNT(DISTINCT fingerprint) AS visitors
+       FROM app_server_views
+       WHERE server_id = ? AND created_at >= datetime('now', ?)
+       GROUP BY source
+       ORDER BY visitors DESC
+       LIMIT 8`
+    )
+    .all(input.serverId, `-${days} days`) as Array<{ source: string; visitors: number }>;
+  const trafficTotal = trafficRows.reduce((sum, row) => sum + Number(row.visitors || 0), 0);
+  const trafficSources: DashTrafficSource[] = trafficRows.map((row) => ({
+    source: String(row.source || 'direct'),
+    visitors: Number(row.visitors || 0),
+    percent: trafficTotal > 0 ? (Number(row.visitors || 0) / trafficTotal) * 100 : 0,
+  }));
+
   return {
     range,
     days,
@@ -2525,6 +2577,7 @@ export async function getServerDashboardSnapshot(input: { serverId: number; user
     heatMax,
     ownedServers,
     byCountry,
+    trafficSources,
   };
 }
 
@@ -3467,7 +3520,15 @@ export async function approveServerApplication(id: number) {
   await db.prepare(
     "UPDATE app_server_applications SET status = 'approved', reviewed_at = ? WHERE id = ?"
   ).run(nowIso(), id);
-  if (server) {
+  const notificationPreferences = await db
+    .prepare(
+      `SELECT enabled, system_enabled
+       FROM app_notification_preferences
+       WHERE user_id = ?
+       LIMIT 1`
+    )
+    .get(app.ownerId) as { enabled: number; system_enabled: number } | undefined;
+  if (server && (!notificationPreferences || (notificationPreferences.enabled && notificationPreferences.system_enabled))) {
     await db.prepare(
       `INSERT INTO app_notifications (user_id, server_id, type, title, body, is_read, created_at)
        VALUES (?, ?, 'system', ?, ?, 0, ?)`
@@ -3494,17 +3555,27 @@ export async function rejectServerApplication(id: number, reason?: string) {
   await db.prepare(
     "UPDATE app_server_applications SET status = 'rejected', rejection_reason = ?, reviewed_at = ? WHERE id = ?"
   ).run(reason || null, nowIso(), id);
-  await db.prepare(
-    `INSERT INTO app_notifications (user_id, server_id, type, title, body, is_read, created_at)
-     VALUES (?, NULL, 'system', ?, ?, 0, ?)`
-  ).run(
-    app.ownerId,
-    'Заявку відхилено',
-    reason
-      ? `Ваш сервер "${app.name}" відхилено. Причина: ${reason}`
-      : `Ваш сервер "${app.name}" було відхилено адміністратором.`,
-    nowIso()
-  );
+  const notificationPreferences = await db
+    .prepare(
+      `SELECT enabled, system_enabled
+       FROM app_notification_preferences
+       WHERE user_id = ?
+       LIMIT 1`
+    )
+    .get(app.ownerId) as { enabled: number; system_enabled: number } | undefined;
+  if (!notificationPreferences || (notificationPreferences.enabled && notificationPreferences.system_enabled)) {
+    await db.prepare(
+      `INSERT INTO app_notifications (user_id, server_id, type, title, body, is_read, created_at)
+       VALUES (?, NULL, 'system', ?, ?, 0, ?)`
+    ).run(
+      app.ownerId,
+      'Заявку відхилено',
+      reason
+        ? `Ваш сервер "${app.name}" відхилено. Причина: ${reason}`
+        : `Ваш сервер "${app.name}" було відхилено адміністратором.`,
+      nowIso()
+    );
+  }
   return { success: true };
 }
 

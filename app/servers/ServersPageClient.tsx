@@ -96,7 +96,7 @@ export function ServersPageClient({
             Знайдено <b style={{ color: 'var(--fg)', fontFamily: 'var(--font-mono)' }}>{filtered.length}</b> серверів
           </span>
           <span style={{ marginLeft: 'auto', fontFamily: 'var(--font-mono)', fontSize: 11.5, color: 'var(--fg-3)' }}>
-            сортування: спочатку нові
+            сортування: бустовані спочатку
           </span>
         </div>
 

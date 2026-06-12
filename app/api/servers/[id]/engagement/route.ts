@@ -34,6 +34,50 @@ async function getActorContext(request: NextRequest) {
   }
 }
 
+const TIMEZONE_COUNTRIES: Record<string, string> = {
+  'Europe/Kyiv': 'UA',
+  'Europe/Kiev': 'UA',
+  'Europe/Warsaw': 'PL',
+  'Europe/Berlin': 'DE',
+  'Europe/Prague': 'CZ',
+  'Europe/Bratislava': 'SK',
+  'Europe/Chisinau': 'MD',
+  'Europe/Bucharest': 'RO',
+  'Europe/Budapest': 'HU',
+  'Europe/Vilnius': 'LT',
+  'Europe/Riga': 'LV',
+  'Europe/Tallinn': 'EE',
+  'Europe/London': 'GB',
+  'Europe/Paris': 'FR',
+  'Europe/Madrid': 'ES',
+  'Europe/Rome': 'IT',
+  'Europe/Amsterdam': 'NL',
+  'Europe/Istanbul': 'TR',
+}
+
+function isLocalAddress(ip: string) {
+  const value = String(ip || '').trim().toLowerCase().replace(/^::ffff:/, '')
+  return !value || value === '::1' || value === '127.0.0.1' || value.startsWith('10.') ||
+    value.startsWith('192.168.') || /^172\.(1[6-9]|2\d|3[01])\./.test(value)
+}
+
+function classifyTrafficSource(referrer: string, currentOrigin: string): string {
+  if (!referrer) return 'direct'
+  try {
+    const url = new URL(referrer)
+    if (url.origin === currentOrigin) return 'internal'
+    const host = url.hostname.toLowerCase().replace(/^www\./, '')
+    if (host.includes('discord.com') || host.includes('discord.gg')) return 'discord'
+    if (host.includes('google.') || host.includes('bing.com') || host.includes('duckduckgo.com') || host.includes('yahoo.')) return 'search'
+    if (host.includes('youtube.com') || host.includes('youtu.be')) return 'youtube'
+    if (host.includes('tiktok.com')) return 'tiktok'
+    if (host.includes('facebook.com') || host.includes('instagram.com') || host.includes('x.com') || host.includes('twitter.com') || host.includes('telegram.')) return 'social'
+    return host.slice(0, 120) || 'referral'
+  } catch {
+    return 'referral'
+  }
+}
+
 function normalizeMinecraftNickname(value: string): string {
   return String(value || '').trim()
 }
@@ -80,6 +124,8 @@ export async function POST(request: NextRequest, context: { params: { id: string
     text?: string
     rating?: number
     nickname?: string
+    referrer?: string
+    timezone?: string
   }
   const action = body.action
   if (action === 'view') {
@@ -89,12 +135,18 @@ export async function POST(request: NextRequest, context: { params: { id: string
       const geo = await lookupCountry(actor.ip)
       if (geo?.code) countryCode = geo.code
     }
+    if (!countryCode && isLocalAddress(actor.ip)) {
+      countryCode = TIMEZONE_COUNTRIES[String(body.timezone || '')] || ''
+    }
+    const referrer = String(body.referrer || '').trim()
     const result = await registerServerView({
       serverId,
       userId: actor.user?.id,
       fingerprint: actor.fingerprint,
       ipAddress: actor.ip,
       countryCode,
+      referrer,
+      trafficSource: classifyTrafficSource(referrer, new URL(request.url).origin),
       cooldownMinutes: body.cooldownMinutes,
     })
     return NextResponse.json({ success: true, counted: result.counted, summary: await getServerEngagementSummary(serverId) })

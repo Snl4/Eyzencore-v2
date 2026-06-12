@@ -8,9 +8,7 @@ import { Select } from '@/components/ui/Select';
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
 import { buildDiscordInviteUrl } from '@/lib/discord';
 import {
-  getMaxCountLabel,
   getOnlineCountLabel,
-  getServerPlatformLabel,
   isDiscordServer,
 } from '@/lib/server-platform';
 import type { Server } from '@/lib/types';
@@ -283,7 +281,12 @@ export function ServerOverviewClient({ server: s, cluster, canEdit, initialUser 
         await fetch(`/api/servers/${s.seed}/engagement`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'view', cooldownMinutes: 15 }),
+          body: JSON.stringify({
+            action: 'view',
+            cooldownMinutes: 15,
+            referrer: document.referrer || '',
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || '',
+          }),
         })
       } catch {
         // ignore view tracking errors
@@ -734,14 +737,10 @@ export function ServerOverviewClient({ server: s, cluster, canEdit, initialUser 
               </div>
               <div className="so-info-list">
                 <div className="so-info-row"><span>{getOnlineCountLabel(s)}</span><b>{liveInfo.players.toLocaleString('uk-UA')}</b></div>
-                <div className="so-info-row"><span>{getMaxCountLabel(s)}</span><b>{liveInfo.max.toLocaleString('uk-UA')}</b></div>
-                <div className="so-info-row"><span>Платформа</span><b>{getServerPlatformLabel(s)}</b></div>
                 {!isDiscord && <div className="so-info-row"><span>Версія</span><b>{s.ver}</b></div>}
                 {!isDiscord && <div className="so-info-row"><span>Ядро</span><b>{s.core || 'java'}</b></div>}
                 <div className="so-info-row"><span>{isDiscord ? 'Категорія' : 'Режим'}</span><b>{s.mode}</b></div>
                 {s.country && <div className="so-info-row"><span>Країна</span><b>{s.country}</b></div>}
-                <div className="so-info-row"><span>Аптайм</span><b>{s.uptime}</b></div>
-                {s.motd && <div className="so-info-row"><span>MOTD</span><b className="so-info-motd">{s.motd}</b></div>}
               </div>
               <div className="so-mini-stats">
                 {statsData.map((item) => (
