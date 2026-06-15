@@ -11,6 +11,7 @@ import type { Server } from '@/lib/types'
 import type { AuthUser } from '@/lib/auth-db'
 
 type LockedPlatform = 'Minecraft' | 'Discord'
+type SortOption = 'online' | 'rating' | 'newest' | 'oldest'
 
 type ServersPageClientProps = {
   initialServers: Server[]
@@ -21,6 +22,13 @@ type ServersPageClientProps = {
   crumb?: string
   breadcrumbs?: BreadcrumbItem[]
   addHref?: string
+}
+
+const SORT_LABELS: Record<SortOption, string> = {
+  online: 'онлайн',
+  rating: 'рейтинг',
+  newest: 'новіші',
+  oldest: 'старіші',
 }
 
 export function ServersPageClient({
@@ -44,6 +52,8 @@ export function ServersPageClient({
     setVer,
     query,
     setQuery,
+    sort,
+    setSort,
     modes,
     versions,
     platforms,
@@ -91,13 +101,27 @@ export function ServersPageClient({
           hideVersions={lockedPlatform === 'Discord' || platform === 'Discord'}
         />
 
-        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16, fontSize: 13, color: 'var(--fg-2)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 16, fontSize: 13, color: 'var(--fg-2)' }}>
           <span>
             Знайдено <b style={{ color: 'var(--fg)', fontFamily: 'var(--font-mono)' }}>{filtered.length}</b> серверів
           </span>
-          <span style={{ marginLeft: 'auto', fontFamily: 'var(--font-mono)', fontSize: 11.5, color: 'var(--fg-3)' }}>
-            сортування: рейтинг · голоси · лайки · відгуки
-          </span>
+          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11.5, color: 'var(--fg-3)' }}>
+              сортування:
+            </span>
+            <div className="forum-sort" aria-label="Сортування серверів">
+              {(['online', 'rating', 'newest', 'oldest'] as SortOption[]).map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  className={sort === option ? 'active' : ''}
+                  onClick={() => setSort(option)}
+                >
+                  {SORT_LABELS[option]}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
 
         {loading ? (
@@ -105,7 +129,7 @@ export function ServersPageClient({
         ) : filtered.length === 0 ? (
           <div className="set-card">
             {lockedPlatform === 'Discord'
-              ? 'Discord-серверів ще немає. Додай перший спільноту.'
+              ? 'Discord-серверів ще немає. Додай першу спільноту.'
               : lockedPlatform === 'Minecraft'
                 ? 'Minecraft-серверів ще немає. Додай перший.'
                 : 'Серверів ще немає. Додай перший.'}

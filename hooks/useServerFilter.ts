@@ -6,12 +6,14 @@ import { isDiscordServer } from '@/lib/server-platform';
 import type { Server } from '@/lib/types';
 
 type LockedPlatform = 'Minecraft' | 'Discord'
+type ServerSort = 'online' | 'rating' | 'newest' | 'oldest'
 
 export function useServerFilter(initialServers: Server[] = [], lockedPlatform?: LockedPlatform) {
   const [platform, setPlatform] = useState(lockedPlatform || 'Всі');
   const [mode, setMode] = useState('Всі');
   const [ver, setVer] = useState('Всі');
   const [query, setQuery] = useState('');
+  const [sort, setSort] = useState<ServerSort>('rating');
   const [servers, setServers] = useState<Server[]>(initialServers);
   const [loading, setLoading] = useState(initialServers.length === 0);
 
@@ -74,7 +76,7 @@ export function useServerFilter(initialServers: Server[] = [], lockedPlatform?: 
   }, [servers.length]);
 
   const filtered = useMemo<Server[]>(() => {
-    return servers.filter((server) => {
+    const visibleServers = servers.filter((server) => {
       const filterPlatform = lockedPlatform || platform
       if (filterPlatform === 'Minecraft' && isDiscordServer(server)) return false
       if (filterPlatform === 'Discord' && !isDiscordServer(server)) return false
@@ -88,7 +90,38 @@ export function useServerFilter(initialServers: Server[] = [], lockedPlatform?: 
       }
       return true;
     });
-  }, [servers, platform, mode, ver, query]);
+
+    return [...visibleServers].sort((left, right) => {
+      if (sort === 'online') {
+        return (
+          Number(right.on) - Number(left.on) ||
+          right.players - left.players ||
+          Number(right.ratingScore || 0) - Number(left.ratingScore || 0) ||
+          left.rank - right.rank
+        )
+      }
+      if (sort === 'newest') {
+        return (
+          new Date(right.createdAt || 0).getTime() - new Date(left.createdAt || 0).getTime() ||
+          left.rank - right.rank
+        )
+      }
+      if (sort === 'oldest') {
+        return (
+          new Date(left.createdAt || 0).getTime() - new Date(right.createdAt || 0).getTime() ||
+          left.rank - right.rank
+        )
+      }
+      return (
+        Number(right.ratingScore || 0) - Number(left.ratingScore || 0) ||
+        Number(right.averageRating || 0) - Number(left.averageRating || 0) ||
+        Number(right.votesCount || 0) - Number(left.votesCount || 0) ||
+        Number(right.likesCount || 0) - Number(left.likesCount || 0) ||
+        Number(right.reviewsCount || 0) - Number(left.reviewsCount || 0) ||
+        left.rank - right.rank
+      )
+    })
+  }, [servers, platform, mode, ver, query, sort, lockedPlatform]);
 
   const recentVersions = ['Всі', ...VERSIONS.filter((value) => value !== 'Всі').slice(0, 8)]
   const effectivePlatform = lockedPlatform || platform
@@ -107,6 +140,8 @@ export function useServerFilter(initialServers: Server[] = [], lockedPlatform?: 
     setVer,
     query,
     setQuery,
+    sort,
+    setSort,
     modes: modeOptions,
     versions: recentVersions,
     platforms: [...SERVER_PLATFORMS],
