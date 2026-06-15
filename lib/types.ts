@@ -21,6 +21,11 @@ export interface Server {
   core?: 'java' | 'bedrock' | 'java_bedrock' | 'discord';
   uptime: string;
   rank: number;
+  ratingScore?: number;
+  averageRating?: number;
+  votesCount?: number;
+  likesCount?: number;
+  reviewsCount?: number;
   verified: boolean;
   boosted?: boolean;
   cluster?: number;

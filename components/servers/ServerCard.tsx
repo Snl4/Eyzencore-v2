@@ -7,8 +7,6 @@ import { CheckBadgeIcon, CopyIcon } from '@/components/ui/Icons';
 import { buildDiscordInviteUrl } from '@/lib/discord';
 import {
   getAddressLabel,
-  getMaxCountLabel,
-  getOnlineCountLabel,
   getServerPlatformLabel,
   isDiscordServer,
 } from '@/lib/server-platform';
@@ -123,9 +121,14 @@ export function ServerCard({ s }: Props) {
           {s.tags.slice(0, 4).map(t => <span key={t} className="sc-tag">{t}</span>)}
         </div>
         <div className="sc-stats">
-          <div><div className="l">{getOnlineCountLabel(s)}</div><div className="v">{live.players.toLocaleString('uk-UA')}</div></div>
-          <div><div className="l">{getMaxCountLabel(s)}</div><div className="v">{live.max.toLocaleString('uk-UA')}</div></div>
-          <div><div className="l">Рейтинг</div><div className="v">#{s.rank}</div></div>
+          <div><div className="l">Рейтинг</div><div className="v">{(s.ratingScore || 0).toFixed(1)}</div></div>
+          <div><div className="l">Оцінка</div><div className="v">{s.reviewsCount ? `${(s.averageRating || 0).toFixed(1)}★` : '—'}</div></div>
+          <div><div className="l">Активність</div><div className="v">{(s.votesCount || 0) + (s.likesCount || 0) + (s.reviewsCount || 0)}</div></div>
+        </div>
+        <div className="sc-engagement">
+          <span>▲ {s.votesCount || 0} голосів</span>
+          <span>♥ {s.likesCount || 0}</span>
+          <span>★ {s.reviewsCount || 0} відгуків</span>
         </div>
       </div>
 

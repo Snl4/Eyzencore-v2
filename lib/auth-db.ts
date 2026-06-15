@@ -74,6 +74,10 @@ type DbServerRow = {
   uptime: string;
   verified: number;
   boosted: number;
+  votes_count?: number | null;
+  likes_count?: number | null;
+  reviews_count?: number | null;
+  average_rating?: number | null;
   cluster: number | null;
   cluster_id: number | null;
   cluster_name: string | null;
@@ -295,6 +299,10 @@ const SERVER_SELECT_COLUMNS = `
   s.name, s.addr, s.platform, s.mode, s.ver, s.core, s.country, s.motd, s.short_desc, s.full_desc, s.desc,
   s.website, s.discord, s.telegram, s.donate, s.tiktok, s.launcher_url, s.avatar_url, s.banner_url,
   s.gallery_json, s.videos_json, s.tags, s.online, s.players, s.max, s.uptime, s.verified, s.boosted,
+  COALESCE((SELECT COUNT(*) FROM app_server_nickname_votes sv WHERE sv.server_id = s.id), 0) AS votes_count,
+  COALESCE((SELECT COUNT(*) FROM app_server_likes sl WHERE sl.server_id = s.id), 0) AS likes_count,
+  COALESCE((SELECT COUNT(*) FROM app_server_reviews sr WHERE sr.server_id = s.id), 0) AS reviews_count,
+  COALESCE((SELECT AVG(sr.rating) FROM app_server_reviews sr WHERE sr.server_id = s.id), 0) AS average_rating,
   s.cluster_id, c.name AS cluster_name, c.slug AS cluster_slug,
   CASE WHEN s.cluster_id IS NULL THEN NULL ELSE (SELECT COUNT(*) FROM app_servers cs WHERE cs.cluster_id = s.cluster_id) END AS cluster,
   s.project_id, s.discord_guild_id, s.discord_bot_verified, s.discord_verify_code, s.created_at, s.updated_at
@@ -399,6 +407,16 @@ function mapServerRow(row: DbServerRow): Server {
   const tags = JSON.parse(row.tags || '[]') as string[];
   const gallery = JSON.parse(row.gallery_json || '[]') as string[];
   const videos = JSON.parse(row.videos_json || '[]') as string[];
+  const votesCount = Number(row.votes_count || 0);
+  const likesCount = Number(row.likes_count || 0);
+  const reviewsCount = Number(row.reviews_count || 0);
+  const averageRating = Number(row.average_rating || 0);
+  const ratingScore = Number((
+    averageRating * 12 +
+    Math.log1p(votesCount) * 4 +
+    Math.log1p(likesCount) * 3 +
+    Math.log1p(reviewsCount) * 5
+  ).toFixed(2));
   return {
     seed: Number(row.id),
     ic: getServerInitials(row.name),
@@ -420,6 +438,11 @@ function mapServerRow(row: DbServerRow): Server {
       : ((row.core as 'java' | 'bedrock' | 'java_bedrock') || 'java'),
     uptime: row.uptime || 'new',
     rank: Number(row.id),
+    ratingScore,
+    averageRating,
+    votesCount,
+    likesCount,
+    reviewsCount,
     verified: Boolean(row.verified),
     boosted: Boolean(row.boosted),
     cluster: row.cluster ?? undefined,
@@ -918,10 +941,20 @@ export async function listServers() {
      FROM app_servers s
      JOIN app_users u ON u.id = s.owner_id
      LEFT JOIN app_clusters c ON c.id = s.cluster_id
-     ORDER BY s.boosted DESC, s.players DESC, s.id ASC`
+     ORDER BY s.id ASC`
   ).all() as DbServerRow[];
 
-  return mergeLatestOnlineSamples(rows.map(mapServerRow));
+  const servers = await mergeLatestOnlineSamples(rows.map(mapServerRow));
+  return servers
+    .sort((left, right) =>
+      Number(Boolean(right.boosted)) - Number(Boolean(left.boosted)) ||
+      Number(right.ratingScore || 0) - Number(left.ratingScore || 0) ||
+      Number(right.averageRating || 0) - Number(left.averageRating || 0) ||
+      Number(right.votesCount || 0) - Number(left.votesCount || 0) ||
+      right.players - left.players ||
+      left.seed - right.seed
+    )
+    .map((server, index) => ({ ...server, rank: index + 1 }));
 }
 
 export async function listPlatformOnlineHistory(hours = 24) {
