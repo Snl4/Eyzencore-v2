@@ -7,6 +7,7 @@ import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianG
 import { PageShell } from '@/components/layout/PageShell'
 import { Breadcrumbs } from '@/components/ui/Breadcrumbs'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
+import { ProjectLogo } from '@/components/ui/ProjectLogo'
 import type {
   AuthUser,
   OwnerDashboardPayload,
@@ -490,9 +491,7 @@ function OwnerServersCard(input: {
             <div className="owner-project-header" role="button" tabIndex={0} aria-expanded={isExpanded} onClick={() => toggleExpand(project.id)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') toggleExpand(project.id) }}>
               <div className="owner-project-header-left">
                 <span className="owner-project-chevron">{isExpanded ? '▾' : '▸'}</span>
-                {project.logoUrl && (
-                  <img src={project.logoUrl} alt={project.name} className="owner-project-logo" />
-                )}
+                <ProjectLogo src={project.logoUrl} alt={project.name} className="owner-project-logo" />
                 <span className="owner-project-name">{project.name}</span>
                 <span className="owner-project-badge">Проект</span>
                 <span className="owner-project-count">{projectServers.length} {projectServers.length === 1 ? 'сервер' : projectServers.length < 5 ? 'сервери' : 'серверів'}</span>

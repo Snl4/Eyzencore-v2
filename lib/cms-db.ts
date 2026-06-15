@@ -15,6 +15,9 @@ export const CMS_ENTITIES = [
   'news',
   'projects',
   'reviews',
+  'forum_categories',
+  'forum_threads',
+  'forum_posts',
   'applications',
   'achievements',
 ] as const
@@ -46,13 +49,27 @@ function optionalInteger(value: unknown) {
 }
 
 export async function getCmsStats() {
-  const [users, servers, news, projects, reviews, applications, achievements] =
+  const [
+    users,
+    servers,
+    news,
+    projects,
+    reviews,
+    forum_categories,
+    forum_threads,
+    forum_posts,
+    applications,
+    achievements,
+  ] =
     await Promise.all([
       prisma.app_users.count(),
       prisma.app_servers.count(),
       prisma.app_news_posts.count(),
       prisma.app_projects.count(),
       prisma.app_server_reviews.count(),
+      prisma.forum_categories.count(),
+      prisma.forum_threads.count({ where: { is_deleted: 0 } }),
+      prisma.forum_posts.count(),
       prisma.app_server_applications.count({
         where: { status: 'pending' },
       }),
@@ -65,6 +82,9 @@ export async function getCmsStats() {
     news,
     projects,
     reviews,
+    forum_categories,
+    forum_threads,
+    forum_posts,
     applications,
     achievements,
   }
@@ -159,6 +179,61 @@ export async function listCmsEntity(entity: CmsEntity) {
           created_at: true,
           app_servers: { select: { name: true } },
           app_users: { select: { full_name: true, email: true } },
+        },
+      })
+    case 'forum_categories':
+      return prisma.forum_categories.findMany({
+        orderBy: [{ position: 'asc' }, { id: 'asc' }],
+        select: {
+          id: true,
+          slug: true,
+          name: true,
+          description: true,
+          icon: true,
+          color: true,
+          position: true,
+          created_at: true,
+          _count: { select: { forum_threads: true } },
+        },
+      })
+    case 'forum_threads':
+      return prisma.forum_threads.findMany({
+        orderBy: [{ is_deleted: 'asc' }, { last_activity_at: 'desc' }],
+        select: {
+          id: true,
+          category_id: true,
+          author_user_id: true,
+          title: true,
+          content: true,
+          is_pinned: true,
+          is_locked: true,
+          is_solved: true,
+          is_deleted: true,
+          deleted_at: true,
+          deleted_reason: true,
+          moderation_reason: true,
+          views: true,
+          created_at: true,
+          updated_at: true,
+          last_activity_at: true,
+          forum_categories: { select: { name: true, slug: true } },
+          app_users: { select: { full_name: true, email: true } },
+          _count: { select: { forum_posts: true, forum_thread_likes: true } },
+        },
+      })
+    case 'forum_posts':
+      return prisma.forum_posts.findMany({
+        orderBy: { created_at: 'desc' },
+        select: {
+          id: true,
+          thread_id: true,
+          author_user_id: true,
+          content: true,
+          created_at: true,
+          updated_at: true,
+          forum_threads: { select: { title: true } },
+          app_users: { select: { full_name: true, email: true } },
+          _count: { select: { forum_post_likes: true } },
         },
       })
     case 'applications':
@@ -360,6 +435,46 @@ export async function updateCmsEntity(
         },
         select: { id: true },
       })
+    case 'forum_categories':
+      return prisma.forum_categories.update({
+        where: { id: integer(id) },
+        data: {
+          slug: text(input.slug, 120),
+          name: text(input.name, 160),
+          description: text(input.description, 2000),
+          icon: text(input.icon, 80) || 'comments',
+          color: text(input.color, 40) || '#7b8cff',
+          position: integer(input.position),
+        },
+        select: { id: true },
+      })
+    case 'forum_threads':
+      return prisma.forum_threads.update({
+        where: { id: integer(id) },
+        data: {
+          category_id: integer(input.category_id),
+          title: text(input.title, 160),
+          content: text(input.content, 12000),
+          is_pinned: integer(input.is_pinned) ? 1 : 0,
+          is_locked: integer(input.is_locked) ? 1 : 0,
+          is_solved: integer(input.is_solved) ? 1 : 0,
+          is_deleted: integer(input.is_deleted) ? 1 : 0,
+          deleted_reason: text(input.deleted_reason, 1000),
+          moderation_reason: text(input.moderation_reason, 1000),
+          updated_at: now,
+          deleted_at: integer(input.is_deleted) ? (text(input.deleted_at, 40) || now) : null,
+        },
+        select: { id: true },
+      })
+    case 'forum_posts':
+      return prisma.forum_posts.update({
+        where: { id: integer(id) },
+        data: {
+          content: text(input.content, 12000),
+          updated_at: now,
+        },
+        select: { id: true },
+      })
     case 'applications':
       return prisma.app_server_applications.update({
         where: { id: integer(id) },
@@ -438,6 +553,21 @@ export async function deleteCmsEntity(
       })
     case 'reviews':
       return prisma.app_server_reviews.delete({
+        where: { id: integer(id) },
+        select: { id: true },
+      })
+    case 'forum_categories':
+      return prisma.forum_categories.delete({
+        where: { id: integer(id) },
+        select: { id: true },
+      })
+    case 'forum_threads':
+      return prisma.forum_threads.delete({
+        where: { id: integer(id) },
+        select: { id: true },
+      })
+    case 'forum_posts':
+      return prisma.forum_posts.delete({
         where: { id: integer(id) },
         select: { id: true },
       })

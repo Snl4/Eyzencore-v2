@@ -144,6 +144,62 @@ const configs: Record<CmsEntity, EntityConfig> = {
       { key: 'text', label: 'Текст', type: 'textarea' },
     ],
   },
+  forum_categories: {
+    label: 'Категорії форуму',
+    singular: 'категорію форуму',
+    description: 'Керування розділами форуму.',
+    columns: [
+      { key: 'name', label: 'Назва' },
+      { key: 'slug', label: 'Slug' },
+      { key: 'position', label: 'Позиція' },
+      { key: '_count.forum_threads', label: 'Тем' },
+    ],
+    fields: [
+      { key: 'slug', label: 'Slug' },
+      { key: 'name', label: 'Назва' },
+      { key: 'description', label: 'Опис', type: 'textarea' },
+      { key: 'icon', label: 'Іконка' },
+      { key: 'color', label: 'Колір' },
+      { key: 'position', label: 'Позиція', type: 'number' },
+    ],
+  },
+  forum_threads: {
+    label: 'Теми форуму',
+    singular: 'тему',
+    description: 'Повне керування темами форуму.',
+    columns: [
+      { key: 'title', label: 'Заголовок' },
+      { key: 'forum_categories.name', label: 'Категорія' },
+      { key: 'app_users.full_name', label: 'Автор' },
+      { key: 'is_deleted', label: 'Видалена' },
+      { key: 'last_activity_at', label: 'Активність' },
+    ],
+    fields: [
+      { key: 'category_id', label: 'ID категорії', type: 'number' },
+      { key: 'title', label: 'Заголовок' },
+      { key: 'content', label: 'Текст', type: 'textarea' },
+      { key: 'is_pinned', label: 'Закріплена', type: 'toggle' },
+      { key: 'is_locked', label: 'Заблокована', type: 'toggle' },
+      { key: 'is_solved', label: 'Вирішена', type: 'toggle' },
+      { key: 'is_deleted', label: 'Видалена', type: 'toggle' },
+      { key: 'deleted_reason', label: 'Причина видалення', type: 'textarea' },
+      { key: 'moderation_reason', label: 'Причина модерації', type: 'textarea' },
+    ],
+  },
+  forum_posts: {
+    label: 'Відповіді форуму',
+    singular: 'відповідь',
+    description: 'Керування повідомленнями в темах.',
+    columns: [
+      { key: 'forum_threads.title', label: 'Тема' },
+      { key: 'app_users.full_name', label: 'Автор' },
+      { key: 'content', label: 'Текст' },
+      { key: 'created_at', label: 'Створено' },
+    ],
+    fields: [
+      { key: 'content', label: 'Текст', type: 'textarea' },
+    ],
+  },
   achievements: {
     label: 'Досягнення',
     singular: 'досягнення',
@@ -185,6 +241,9 @@ const entityOrder: CmsEntity[] = [
   'news',
   'projects',
   'reviews',
+  'forum_categories',
+  'forum_threads',
+  'forum_posts',
   'applications',
   'achievements',
 ]
@@ -202,7 +261,15 @@ function renderValue(value: unknown, key: string) {
   if (key.includes('_at') && value) {
     return new Date(String(value)).toLocaleDateString('uk-UA')
   }
-  if (key === 'verified' || key === 'online' || key === 'boosted') {
+  if (
+    key === 'verified' ||
+    key === 'online' ||
+    key === 'boosted' ||
+    key === 'is_deleted' ||
+    key === 'is_pinned' ||
+    key === 'is_locked' ||
+    key === 'is_solved'
+  ) {
     return Number(value) ? 'Так' : 'Ні'
   }
   const result = String(value ?? '—')

@@ -6,6 +6,7 @@ import { useState } from 'react'
 import { PageShell } from '@/components/layout/PageShell'
 import { Breadcrumbs } from '@/components/ui/Breadcrumbs'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
+import { ProjectLogo } from '@/components/ui/ProjectLogo'
 import type { AuthUser, UserRole } from '@/lib/auth-db'
 import type { Cluster } from '@/lib/cluster-db'
 import type { Server } from '@/lib/types'
@@ -86,7 +87,7 @@ export function ClustersClient({
   const remove = async (cluster: Cluster) => {
     if (!await confirmAction({
       title: `Видалити кластер «${cluster.name}»?`,
-      description: 'Сервери залишаться на сайті, але більше не будуть об’єднані цим кластером.',
+      description: 'Сервери залишаться на сайті, але більше не будуть обʼєднані цим кластером.',
       confirmLabel: 'Видалити кластер',
     })) return
     const response = await fetch(`/api/clusters/${cluster.id}`, { method: 'DELETE' })
@@ -101,7 +102,7 @@ export function ClustersClient({
             <Breadcrumbs items={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Кластери' }]} />
             <h1 className="page-title">Кластери серверів</h1>
             <p style={{ color: 'var(--fg-3)', marginTop: 8, maxWidth: 650 }}>
-              Об’єднуйте пов’язані Minecraft і Discord сервери. Кластер показується на сторінці кожного учасника.
+              Обʼєднуйте повʼязані Minecraft і Discord сервери. Кластер показується на сторінці кожного учасника.
             </p>
           </div>
           <button className="btn btn-primary" style={{ marginLeft: 'auto' }} onClick={showCreate}>+ Створити кластер</button>
@@ -123,9 +124,7 @@ export function ClustersClient({
                   </div>
                 )}
                 <div className="project-card-header">
-                  {cluster.logoUrl ? (
-                    <Image className="project-card-logo" src={cluster.logoUrl} alt="" width={44} height={44} unoptimized />
-                  ) : <div className="project-card-logo-placeholder">CL</div>}
+                  <ProjectLogo src={cluster.logoUrl} alt={cluster.name} />
                   <div style={{ minWidth: 0, flex: 1 }}>
                     <h2 className="project-card-name">{cluster.name}</h2>
                     <span style={{ color: 'var(--fg-3)', fontSize: 12 }}>{cluster.serverCount} серверів</span>

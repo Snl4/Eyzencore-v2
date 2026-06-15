@@ -1,10 +1,10 @@
 'use client'
 
-import Image from 'next/image'
 import { useState } from 'react'
 import { PageShell } from '@/components/layout/PageShell'
 import { Breadcrumbs } from '@/components/ui/Breadcrumbs'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
+import { ProjectLogo } from '@/components/ui/ProjectLogo'
 import type { AuthUser, Project, UserRole } from '@/lib/auth-db'
 
 interface ProjectsClientProps {
@@ -104,7 +104,7 @@ export function ProjectsClient({ initialUser, role, initialProjects }: ProjectsC
   const handleDelete = async (projectId: number, projectName: string) => {
     const confirmed = await confirmAction({
       title: `Видалити проєкт «${projectName}»?`,
-      description: 'Сервери не буде видалено, але вони від’єднаються від цього проєкту.',
+      description: 'Сервери не буде видалено, але вони відʼєднаються від цього проєкту.',
       confirmLabel: 'Видалити проєкт',
     })
     if (!confirmed) return
@@ -124,22 +124,22 @@ export function ProjectsClient({ initialUser, role, initialProjects }: ProjectsC
         <div className="page-topbar">
           <div>
             <Breadcrumbs items={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Проєкти' }]} />
-            <h1 className="page-title">Мої проекти</h1>
+            <h1 className="page-title">Мої проєкти</h1>
           </div>
           <button type="button" className="btn btn-primary" style={{ marginLeft: 'auto' }} onClick={handleOpenCreate}>
-            + Новий проект
+            + Новий проєкт
           </button>
         </div>
 
         {projects.length === 0 ? (
           <div className="set-card" style={{ textAlign: 'center', padding: '48px 24px' }}>
-            <div style={{ fontSize: 40, marginBottom: 12 }}>📁</div>
-            <h3 style={{ fontSize: 18, fontWeight: 600, marginBottom: 8 }}>Проектів ще немає</h3>
+            <div style={{ fontSize: 40, marginBottom: 12 }}>📃</div>
+            <h3 style={{ fontSize: 18, fontWeight: 600, marginBottom: 8 }}>Проєктів ще немає</h3>
             <p style={{ color: 'var(--fg-3)', fontSize: 14, marginBottom: 20 }}>
-              Проекти дозволяють групувати кілька серверів під одним брендом або мережею
+              Проєкти дозволяють групувати кілька серверів під одним брендом або мережею
             </p>
             <button type="button" className="btn btn-primary" onClick={handleOpenCreate}>
-              Створити перший проект
+              Створити перший проєкт
             </button>
           </div>
         ) : (
@@ -147,18 +147,7 @@ export function ProjectsClient({ initialUser, role, initialProjects }: ProjectsC
             {projects.map((project) => (
               <article key={project.id} className="project-card">
                 <div className="project-card-header">
-                  {project.logoUrl ? (
-                    <Image
-                      src={project.logoUrl}
-                      alt={project.name}
-                      width={44}
-                      height={44}
-                      className="project-card-logo"
-                      unoptimized
-                    />
-                  ) : (
-                    <div className="project-card-logo-placeholder">🌐</div>
-                  )}
+                  <ProjectLogo src={project.logoUrl} alt={project.name} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <p className="project-card-name">{project.name}</p>
                     <div className="project-card-meta">
@@ -170,7 +159,7 @@ export function ProjectsClient({ initialUser, role, initialProjects }: ProjectsC
                           rel="noreferrer"
                           style={{ color: 'var(--accent)', fontSize: 11 }}
                           tabIndex={0}
-                          aria-label={`Відкрити сайт проекту ${project.name}`}
+                          aria-label={`Відкрити сайт проєкту ${project.name}`}
                         >
                           ↗ Сайт
                         </a>
@@ -195,7 +184,7 @@ export function ProjectsClient({ initialUser, role, initialProjects }: ProjectsC
                     className="btn btn-secondary"
                     disabled={deletingId === project.id}
                     onClick={() => void handleDelete(project.id, project.name)}
-                    aria-label={`Видалити проект ${project.name}`}
+                    aria-label={`Видалити проєкт ${project.name}`}
                   >
                     {deletingId === project.id ? '...' : 'Видалити'}
                   </button>
@@ -211,12 +200,12 @@ export function ProjectsClient({ initialUser, role, initialProjects }: ProjectsC
           className="project-form-overlay"
           role="dialog"
           aria-modal="true"
-          aria-label={editingProject ? 'Редагування проекту' : 'Новий проект'}
+          aria-label={editingProject ? 'Редагування проєкту' : 'Новий проєкт'}
           onClick={(e) => { if (e.target === e.currentTarget) handleCloseModal() }}
         >
           <div className="project-form-modal">
             <h2 className="project-form-title">
-              {editingProject ? 'Редагування проекту' : 'Новий проект'}
+              {editingProject ? 'Редагування проєкту' : 'Новий проєкт'}
             </h2>
 
             {error && (
@@ -224,7 +213,7 @@ export function ProjectsClient({ initialUser, role, initialProjects }: ProjectsC
             )}
 
             <label className="auth-field">
-              <span>Назва проекту *</span>
+              <span>Назва проєкту *</span>
               <input
                 type="text"
                 placeholder="Напр. SkyMine Network"
@@ -282,7 +271,7 @@ export function ProjectsClient({ initialUser, role, initialProjects }: ProjectsC
                 disabled={isSaving || !form.name.trim()}
                 onClick={() => void handleSave()}
               >
-                {isSaving ? 'Збереження...' : editingProject ? 'Зберегти зміни' : 'Створити проект'}
+                {isSaving ? 'Збереження...' : editingProject ? 'Зберегти зміни' : 'Створити проєкт'}
               </button>
             </div>
           </div>

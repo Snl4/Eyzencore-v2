@@ -126,6 +126,7 @@ export async function listForumThreads(input?: {
 
   const threads = await prisma.forum_threads.findMany({
     where: {
+      is_deleted: 0,
       ...(category ? { forum_categories: { slug: category } } : {}),
       ...(query
         ? {
@@ -199,7 +200,7 @@ export async function getForumHome(input?: {
 
 export async function listForumThreadsByUser(userId: string, limit = 20) {
   const threads = await prisma.forum_threads.findMany({
-    where: { author_user_id: userId },
+    where: { author_user_id: userId, is_deleted: 0 },
     orderBy: { last_activity_at: 'desc' },
     take: Math.min(50, Math.max(1, limit)),
     include: {
