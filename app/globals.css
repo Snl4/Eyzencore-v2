@@ -5393,6 +5393,94 @@ button { cursor: pointer; }
     border-radius: 14px;
     background: var(--bg-1);
   }
+  .cms-nav button.maintenance { margin-top: 8px; border-color: color-mix(in srgb, var(--amber) 30%, var(--line)); }
+  .cms-nav button.maintenance b { min-width: 34px; }
+  .cms-maintenance-page { display: grid; gap: 18px; }
+  .cms-maintenance-hero {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    padding: 26px 28px;
+    border: 1px solid color-mix(in srgb, var(--green) 34%, var(--line));
+    border-radius: 16px;
+    background:
+      radial-gradient(circle at 90% 10%, color-mix(in srgb, var(--green) 14%, transparent), transparent 36%),
+      var(--bg-1);
+  }
+  .cms-maintenance-hero.active {
+    border-color: color-mix(in srgb, var(--red) 48%, var(--line));
+    background:
+      radial-gradient(circle at 90% 10%, color-mix(in srgb, var(--red) 16%, transparent), transparent 36%),
+      var(--bg-1);
+  }
+  .cms-maintenance-hero h1 { margin: 4px 0 7px; font-size: clamp(24px, 4vw, 38px); letter-spacing: -.035em; }
+  .cms-maintenance-hero p:last-child { max-width: 700px; margin: 0; color: var(--fg-2); line-height: 1.55; }
+  .cms-maintenance-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    flex: 0 0 auto;
+    padding: 9px 13px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: var(--bg);
+    color: var(--fg-2);
+    font: 600 11px var(--font-mono);
+    text-transform: uppercase;
+  }
+  .cms-maintenance-status i { width: 9px; height: 9px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 5px color-mix(in srgb, var(--green) 13%, transparent); }
+  .cms-maintenance-hero.active .cms-maintenance-status i { background: var(--red); box-shadow: 0 0 0 5px color-mix(in srgb, var(--red) 13%, transparent); }
+  .cms-maintenance-layout { display: grid; grid-template-columns: minmax(0, .8fr) minmax(360px, 1.2fr); gap: 18px; align-items: start; }
+  .cms-maintenance-editor,
+  .cms-maintenance-preview {
+    display: grid;
+    gap: 17px;
+    padding: 22px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: var(--bg-1);
+  }
+  .cms-maintenance-editor h2 { margin: 3px 0 0; font-size: 20px; }
+  .cms-maintenance-editor label { display: grid; gap: 7px; }
+  .cms-maintenance-editor label span { color: var(--fg-2); font-size: 12px; font-weight: 600; }
+  .cms-maintenance-editor input,
+  .cms-maintenance-editor textarea {
+    width: 100%;
+    padding: 11px 12px;
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    outline: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font: inherit;
+  }
+  .cms-maintenance-editor textarea { resize: vertical; }
+  .cms-maintenance-editor input:focus,
+  .cms-maintenance-editor textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent); }
+  .cms-maintenance-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  .cms-maintenance-actions button {
+    min-height: 38px;
+    padding: 0 14px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--bg-2);
+    color: var(--fg);
+    cursor: pointer;
+  }
+  .cms-maintenance-actions button.danger { border-color: color-mix(in srgb, var(--red) 45%, var(--line)); color: var(--red); }
+  .cms-maintenance-preview .maintenance-card { width: 100%; padding: 34px 24px; box-shadow: none; }
+  .cms-maintenance-preview .maintenance-card h1 { font-size: clamp(28px, 4vw, 44px); }
+  @media (max-width: 1050px) {
+    .cms-maintenance-layout { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 680px) {
+    .cms-maintenance-hero { align-items: flex-start; flex-direction: column; padding: 21px; }
+    .cms-maintenance-editor,
+    .cms-maintenance-preview { padding: 16px; }
+    .cms-maintenance-actions { flex-direction: column; }
+    .cms-maintenance-actions button { width: 100%; }
+  }
   .cms-maintenance-card.active {
     border-color: color-mix(in srgb, var(--red) 55%, var(--line));
     background: color-mix(in srgb, var(--red) 7%, var(--bg-1));

@@ -10,6 +10,7 @@ import type { MaintenanceSettings } from '@/lib/maintenance'
 
 type CmsRow = Record<string, unknown> & { id: string | number }
 type CmsStats = Record<CmsEntity, number>
+type CmsSection = CmsEntity | 'maintenance'
 type Field = {
   key: string
   label: string
@@ -219,7 +220,7 @@ export function CmsClient({
 }) {
   const confirmAction = useConfirm()
   const router = useRouter()
-  const [entity, setEntity] = useState<CmsEntity>('users')
+  const [entity, setEntity] = useState<CmsSection>('users')
   const [rows, setRows] = useState<CmsRow[]>([])
   const [stats, setStats] = useState(initialStats)
   const [query, setQuery] = useState('')
@@ -230,12 +231,17 @@ export function CmsClient({
   const [maintenance, setMaintenance] = useState(initialMaintenance)
   const [maintenanceSaving, setMaintenanceSaving] = useState(false)
 
-  const config = configs[entity]
+  const config = entity === 'maintenance' ? null : configs[entity]
 
-  const loadRows = useCallback(async (currentEntity: CmsEntity = entity) => {
+  const loadRows = useCallback(async (currentEntity?: CmsEntity) => {
+    const targetEntity = currentEntity || (entity === 'maintenance' ? null : entity)
+    if (!targetEntity) {
+      setLoading(false)
+      return
+    }
     setLoading(true)
     setError('')
-    const response = await fetch(`/api/cms/data/${currentEntity}`, {
+    const response = await fetch(`/api/cms/data/${targetEntity}`, {
       cache: 'no-store',
     })
     if (response.status === 401) {
@@ -258,6 +264,11 @@ export function CmsClient({
   }
 
   useEffect(() => {
+    if (entity === 'maintenance') {
+      setRows([])
+      setLoading(false)
+      return
+    }
     void loadRows(entity)
   }, [entity, loadRows])
 
@@ -269,7 +280,7 @@ export function CmsClient({
     )
   }, [query, rows])
 
-  function selectEntity(next: CmsEntity) {
+  function selectEntity(next: CmsSection) {
     setEntity(next)
     setQuery('')
     setEditing(null)
@@ -279,6 +290,7 @@ export function CmsClient({
     if (!editing) return
     setSaving(true)
     setError('')
+    if (entity === 'maintenance') return
     const response = await fetch(`/api/cms/data/${entity}/${editing.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -297,12 +309,13 @@ export function CmsClient({
 
   async function remove(row: CmsRow) {
     if (!await confirmAction({
-      title: `Видалити ${config.singular}?`,
+      title: `Видалити ${config?.singular || 'запис'}?`,
       description: 'Запис буде видалено без можливості відновлення.',
       confirmLabel: 'Видалити',
     })) {
       return
     }
+    if (entity === 'maintenance') return
     const response = await fetch(`/api/cms/data/${entity}/${row.id}`, {
       method: 'DELETE',
     })
@@ -343,8 +356,8 @@ export function CmsClient({
     router.refresh()
   }
 
-  async function saveMaintenance() {
-    if (maintenance.enabled && !initialMaintenance.enabled) {
+  async function saveMaintenance(nextSettings: MaintenanceSettings = maintenance) {
+    if (nextSettings.enabled && !maintenance.enabled) {
       const confirmed = await confirmAction({
         title: 'Увімкнути технічні роботи?',
         description: 'Усі звичайні сторінки та API стануть недоступними. Адміністратор із чинною сесією збереже доступ.',
@@ -357,7 +370,7 @@ export function CmsClient({
     const response = await fetch('/api/cms/maintenance', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(maintenance),
+      body: JSON.stringify(nextSettings),
     })
     const result = await response.json().catch(() => ({}))
     if (!response.ok) {
@@ -390,6 +403,14 @@ export function CmsClient({
               <b>{stats[item]}</b>
             </button>
           ))}
+          <button
+            className={entity === 'maintenance' ? 'active maintenance' : 'maintenance'}
+            onClick={() => selectEntity('maintenance')}
+            type="button"
+          >
+            <span>Технічні роботи</span>
+            <b>{maintenance.enabled ? 'ON' : 'OFF'}</b>
+          </button>
         </nav>
         <div className="cms-sidebar-footer">
           <a href="/" target="_blank" rel="noreferrer">
@@ -412,56 +433,85 @@ export function CmsClient({
 
         <div className="cms-content">
           {error ? <div className="cms-alert">{error}</div> : null}
-          <section className={`cms-maintenance-card${maintenance.enabled ? ' active' : ''}`}>
-            <div className="cms-maintenance-copy">
-              <p className="cms-eyebrow">Стан платформи</p>
-              <h2>Технічні роботи</h2>
-              <p>
-                {maintenance.enabled
-                  ? 'Сайт закритий для відвідувачів. Адміністратор має повний доступ.'
-                  : 'Сайт працює у звичайному режимі.'}
-              </p>
-            </div>
-            <button
-              className={`cms-toggle ${maintenance.enabled ? 'on' : ''}`}
-              onClick={() => setMaintenance((current) => ({ ...current, enabled: !current.enabled }))}
-              type="button"
-            >
-              {maintenance.enabled ? 'Увімкнено' : 'Вимкнено'}
-            </button>
-            <label>
-              <span>Заголовок</span>
-              <input
-                value={maintenance.title}
-                maxLength={120}
-                onChange={(event) => setMaintenance((current) => ({ ...current, title: event.target.value }))}
-              />
-            </label>
-            <label className="wide">
-              <span>Повідомлення для відвідувачів</span>
-              <textarea
-                rows={3}
-                value={maintenance.message}
-                maxLength={1000}
-                onChange={(event) => setMaintenance((current) => ({ ...current, message: event.target.value }))}
-              />
-            </label>
-            <button
-              className="cms-primary-button"
-              disabled={maintenanceSaving}
-              onClick={saveMaintenance}
-              type="button"
-            >
-              {maintenanceSaving ? 'Збереження...' : 'Зберегти режим'}
-            </button>
-          </section>
+          {entity === 'maintenance' ? (
+            <section className="cms-maintenance-page">
+              <div className={`cms-maintenance-hero${maintenance.enabled ? ' active' : ''}`}>
+                <div>
+                  <p className="cms-eyebrow">Стан платформи</p>
+                  <h1>{maintenance.enabled ? 'Технічні роботи активні' : 'Сайт працює'}</h1>
+                  <p>
+                    {maintenance.enabled
+                      ? 'Відвідувачі бачать лише службову сторінку. Для перевірки відкрийте сайт у режимі інкогніто.'
+                      : 'Усі сторінки та API доступні відвідувачам.'}
+                  </p>
+                </div>
+                <span className="cms-maintenance-status">
+                  <i /> {maintenance.enabled ? 'Maintenance ON' : 'Online'}
+                </span>
+              </div>
+
+              <div className="cms-maintenance-layout">
+                <div className="cms-maintenance-editor">
+                  <div>
+                    <p className="cms-eyebrow">Налаштування сторінки</p>
+                    <h2>Повідомлення для відвідувачів</h2>
+                  </div>
+                  <label>
+                    <span>Заголовок</span>
+                    <input
+                      value={maintenance.title}
+                      maxLength={120}
+                      onChange={(event) => setMaintenance((current) => ({ ...current, title: event.target.value }))}
+                    />
+                  </label>
+                  <label>
+                    <span>Опис робіт</span>
+                    <textarea
+                      rows={6}
+                      value={maintenance.message}
+                      maxLength={1000}
+                      onChange={(event) => setMaintenance((current) => ({ ...current, message: event.target.value }))}
+                    />
+                  </label>
+                  <div className="cms-maintenance-actions">
+                    <button
+                      className={maintenance.enabled ? 'danger' : 'cms-primary-button'}
+                      disabled={maintenanceSaving}
+                      onClick={() => void saveMaintenance({ ...maintenance, enabled: !maintenance.enabled })}
+                      type="button"
+                    >
+                      {maintenance.enabled ? 'Вимкнути технічні роботи' : 'Увімкнути технічні роботи'}
+                    </button>
+                    <button
+                      disabled={maintenanceSaving}
+                      onClick={() => void saveMaintenance()}
+                      type="button"
+                    >
+                      {maintenanceSaving ? 'Збереження...' : 'Зберегти зміни'}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="cms-maintenance-preview">
+                  <p className="cms-eyebrow">Попередній перегляд</p>
+                  <div className="maintenance-card">
+                    <div className="maintenance-mark">EC</div>
+                    <p className="maintenance-eyebrow">Eyzencore · системне оновлення</p>
+                    <h1>{maintenance.title || 'Технічні роботи'}</h1>
+                    <p>{maintenance.message}</p>
+                    <div className="maintenance-status"><span /> Роботи тривають</div>
+                  </div>
+                </div>
+              </div>
+            </section>
+          ) : null}
           {entity === 'achievements' ? (
             <CmsAchievementsPanel
               onError={setError}
               onStatsRefresh={refreshStats}
             />
           ) : null}
-          {entity !== 'achievements' ? (
+          {entity !== 'achievements' && entity !== 'maintenance' && config ? (
           <>
           <div className="cms-heading">
             <div>
@@ -569,7 +619,7 @@ export function CmsClient({
         </div>
       </section>
 
-      {editing ? (
+      {editing && config ? (
         <div className="cms-modal-backdrop" onMouseDown={() => setEditing(null)}>
           <section
             className="cms-editor"

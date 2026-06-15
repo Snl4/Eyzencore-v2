@@ -19,7 +19,10 @@ export async function middleware(request: NextRequest) {
   if (isAlwaysAllowed(pathname)) return NextResponse.next()
 
   try {
-    const statusUrl = new URL('/api/system/maintenance', request.url)
+    const internalOrigin =
+      process.env.MAINTENANCE_INTERNAL_ORIGIN ||
+      `http://127.0.0.1:${process.env.PORT || '3000'}`
+    const statusUrl = new URL('/api/system/maintenance', internalOrigin)
     const response = await fetch(statusUrl, {
       headers: {
         cookie: request.headers.get('cookie') || '',
@@ -27,7 +30,12 @@ export async function middleware(request: NextRequest) {
       cache: 'no-store',
     })
     const status = await response.json() as { enabled?: boolean; adminAccess?: boolean }
-    if (!status.enabled || status.adminAccess) return NextResponse.next()
+    if (!status.enabled) return NextResponse.next()
+    if (status.adminAccess) {
+      const response = NextResponse.next()
+      response.headers.set('x-eyzencore-maintenance-admin', '1')
+      return response
+    }
 
     if (pathname.startsWith('/api/')) {
       return NextResponse.json(
@@ -37,6 +45,12 @@ export async function middleware(request: NextRequest) {
     }
     return NextResponse.rewrite(new URL('/maintenance', request.url))
   } catch {
+    if (pathname.startsWith('/api/')) {
+      return NextResponse.json(
+        { error: 'Сервіс тимчасово недоступний.' },
+        { status: 503, headers: { 'Retry-After': '60' } }
+      )
+    }
     return NextResponse.next()
   }
 }
