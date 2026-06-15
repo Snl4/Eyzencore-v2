@@ -407,6 +407,31 @@
   padding: 6px; border-radius: 10px; border: 1px solid var(--line);
 }
 .news-block-media-fields { display: grid; grid-template-columns: 2fr 1fr; gap: 10px; }
+.news-legacy-import { display: grid; gap: 10px; }
+.news-legacy-import > .btn { justify-self: start; }
+.news-legacy-import-panel {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 10px;
+  background: var(--bg-2);
+}
+.news-legacy-import-panel > div { display: flex; align-items: center; gap: 12px; }
+.news-legacy-import-panel > div span { color: var(--fg-3); font-size: 11px; }
+.news-gallery-editor { display: grid; gap: 12px; }
+.news-gallery-editor-preview {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+.news-gallery-editor-preview img {
+  width: 100%;
+  aspect-ratio: 16/10;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  object-fit: cover;
+}
 
 /* Aside preview + structure */
 .news-edit-preview {
@@ -3478,6 +3503,12 @@ button { cursor: pointer; }
     width: min(390px, calc(100vw - 36px));
     pointer-events: none;
   }
+  .pbadge-medal img {
+    width: 100%;
+    height: 100%;
+    border-radius: inherit;
+    object-fit: cover;
+  }
   .notification-toast {
     position: relative;
     overflow: hidden;
@@ -5894,6 +5925,10 @@ button { cursor: pointer; }
 .forum-topic-stats { gap: 14px; color: var(--fg-3); font-size: 10px; }
 .forum-topic-stats span { display: inline-flex; align-items: center; gap: 6px; }
 .forum-topic-menu { position: relative; }
+.forum-topic-menu .ui-dropdown-panel {
+  right: 0;
+  left: auto;
+}
 .forum-topic-menu-trigger {
   display: grid;
   place-items: center;
@@ -6001,8 +6036,133 @@ button { cursor: pointer; }
   font-size: 14px;
   line-height: 1.75;
   overflow-wrap: anywhere;
-  white-space: pre-wrap;
 }
+.cms-achievement-image-field {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
+.cms-achievement-image-field > span {
+  color: var(--fg-2);
+  font-size: 11px;
+  font-weight: 700;
+}
+.cms-achievement-image-upload {
+  min-height: 76px;
+  border: 1px dashed color-mix(in oklab, var(--accent) 45%, var(--line));
+  border-radius: 11px;
+  background: color-mix(in oklab, var(--accent) 5%, var(--bg));
+  color: var(--fg-2);
+  cursor: pointer;
+}
+.cms-achievement-image-preview {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--bg);
+}
+.cms-achievement-image-preview > img {
+  width: 72px;
+  height: 72px;
+  border-radius: 12px;
+  object-fit: cover;
+}
+.cms-achievement-image-preview > div { display: flex; flex-wrap: wrap; gap: 7px; }
+.na-gallery { display: grid; gap: 12px; margin: 10px 0; }
+.na-gallery > h3 { margin: 0; color: var(--fg); font-size: 18px; }
+.na-gallery-stage {
+  position: relative;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  min-height: 280px;
+  border: 1px solid var(--line);
+  border-radius: 15px;
+  background: #080b12;
+}
+.na-gallery-stage img { display: block; width: 100%; max-height: 680px; object-fit: contain; }
+.na-gallery-stage > span {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgb(0 0 0 / .7);
+  color: #fff;
+  font: 11px var(--font-mono);
+}
+.na-gallery-controls { display: grid; grid-template-columns: 38px minmax(0, 1fr) 38px; gap: 8px; }
+.na-gallery-controls > button {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg-2);
+  color: var(--fg);
+  cursor: pointer;
+}
+.na-gallery-thumbs { display: flex; gap: 7px; overflow-x: auto; padding-bottom: 4px; }
+.na-gallery-thumbs button {
+  flex: 0 0 88px;
+  padding: 0;
+  overflow: hidden;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  background: var(--bg-2);
+  cursor: pointer;
+}
+.na-gallery-thumbs button.active { border-color: var(--accent); }
+.na-gallery-thumbs img { display: block; width: 100%; aspect-ratio: 16/10; object-fit: cover; }
+.forum-rich-text > :first-child { margin-top: 0; }
+.forum-rich-text > :last-child { margin-bottom: 0; }
+.forum-rich-text p { margin: 0 0 12px; white-space: pre-wrap; }
+.forum-rich-text h1,
+.forum-rich-text h2,
+.forum-rich-text h3,
+.forum-rich-text h4 {
+  margin: 18px 0 9px;
+  color: var(--fg);
+  line-height: 1.3;
+}
+.forum-rich-text h1 { font-size: 22px; }
+.forum-rich-text h2 { font-size: 19px; }
+.forum-rich-text h3 { font-size: 16px; }
+.forum-rich-text ul,
+.forum-rich-text ol { margin: 10px 0 14px; padding-left: 24px; }
+.forum-rich-text blockquote {
+  margin: 14px 0;
+  padding: 8px 14px;
+  border-left: 3px solid var(--accent);
+  background: var(--bg-2);
+  color: var(--fg-2);
+}
+.forum-rich-text a { color: var(--accent); text-decoration: underline; }
+.forum-rich-text code {
+  padding: 2px 5px;
+  border-radius: 5px;
+  background: var(--bg-2);
+  font-family: var(--font-mono);
+  font-size: .92em;
+}
+.forum-rich-text pre {
+  overflow-x: auto;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--bg-2);
+}
+.forum-rich-text pre code { padding: 0; background: transparent; }
+.forum-rich-text img {
+  display: block;
+  max-width: min(100%, 900px);
+  max-height: 680px;
+  margin: 14px 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  object-fit: contain;
+}
+.forum-rich-text hr { margin: 20px 0; border: 0; border-top: 1px solid var(--line); }
 .forum-post-content > footer {
   display: flex;
   align-items: center;
@@ -6511,15 +6671,6 @@ svg {
   .cms-table-card { border-radius: 10px; }
   .modal-backdrop,
   .cms-modal-backdrop { padding: 6px; }
-  .ui-dropdown-panel {
-    position: fixed;
-    right: 8px !important;
-    bottom: 8px !important;
-    left: 8px !important;
-    top: auto !important;
-    width: auto !important;
-    max-width: none;
-  }
   .notification-toast-stack {
     top: max(10px, env(safe-area-inset-top));
     right: 10px;
@@ -6544,4 +6695,88 @@ svg {
   .stat-row,
   .kpi-grid,
   .so-stats-summary { grid-template-columns: 1fr; }
+}
+.confirm-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: color-mix(in oklab, #020617 72%, transparent);
+  backdrop-filter: blur(8px);
+  animation: confirm-fade-in 150ms ease-out;
+}
+.confirm-dialog {
+  position: relative;
+  width: min(100%, 460px);
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  gap: 16px;
+  padding: 24px;
+  border: 1px solid var(--line-strong);
+  border-radius: 18px;
+  background: color-mix(in oklab, var(--bg-1) 96%, transparent);
+  box-shadow: 0 28px 80px rgb(0 0 0 / .42);
+  animation: confirm-dialog-in 180ms cubic-bezier(.2,.8,.2,1);
+}
+.confirm-dialog::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: var(--accent);
+}
+.confirm-dialog-danger::before { background: var(--destructive); }
+.confirm-dialog-icon {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border: 1px solid color-mix(in oklab, var(--destructive) 45%, var(--line));
+  border-radius: 14px;
+  background: color-mix(in oklab, var(--destructive) 13%, var(--bg-2));
+  color: var(--destructive);
+  font: 800 22px var(--font-mono);
+}
+.confirm-dialog-primary .confirm-dialog-icon {
+  border-color: color-mix(in oklab, var(--accent) 45%, var(--line));
+  background: color-mix(in oklab, var(--accent) 13%, var(--bg-2));
+  color: var(--accent);
+}
+.confirm-dialog-copy { min-width: 0; }
+.confirm-dialog-eyebrow {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--destructive);
+  font: 600 10px var(--font-mono);
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+.confirm-dialog-primary .confirm-dialog-eyebrow { color: var(--accent); }
+.confirm-dialog h2 { margin: 0; color: var(--fg); font-size: 19px; line-height: 1.3; }
+.confirm-dialog p { margin: 8px 0 0; color: var(--fg-2); font-size: 13px; line-height: 1.65; }
+.confirm-dialog-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 5px;
+}
+.confirm-danger-btn {
+  border: 1px solid color-mix(in oklab, var(--destructive) 78%, #fff 8%);
+  background: var(--destructive);
+  color: var(--destructive-foreground);
+}
+.confirm-danger-btn:hover { filter: brightness(1.08); }
+@keyframes confirm-fade-in { from { opacity: 0; } }
+@keyframes confirm-dialog-in {
+  from { opacity: 0; transform: translateY(12px) scale(.97); }
+}
+@media (max-width: 520px) {
+  .confirm-dialog { grid-template-columns: 40px minmax(0, 1fr); padding: 19px; border-radius: 15px; }
+  .confirm-dialog-icon { width: 40px; height: 40px; border-radius: 11px; }
+  .confirm-dialog-actions { flex-direction: column-reverse; }
+  .confirm-dialog-actions .btn { width: 100%; justify-content: center; }
 }

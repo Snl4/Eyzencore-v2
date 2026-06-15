@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { CmsAchievementsPanel } from '@/components/cms/CmsAchievementsPanel'
 import { Select } from '@/components/ui/Select'
+import { useConfirm } from '@/components/ui/ConfirmDialog'
 import type { CmsEntity } from '@/lib/cms-db'
 
 type CmsRow = Record<string, unknown> & { id: string | number }
@@ -213,6 +214,7 @@ export function CmsClient({
   admin: { email: string; name: string }
   initialStats: CmsStats
 }) {
+  const confirmAction = useConfirm()
   const router = useRouter()
   const [entity, setEntity] = useState<CmsEntity>('users')
   const [rows, setRows] = useState<CmsRow[]>([])
@@ -289,7 +291,11 @@ export function CmsClient({
   }
 
   async function remove(row: CmsRow) {
-    if (!confirm(`Видалити ${config.singular} без можливості відновлення?`)) {
+    if (!await confirmAction({
+      title: `Видалити ${config.singular}?`,
+      description: 'Запис буде видалено без можливості відновлення.',
+      confirmLabel: 'Видалити',
+    })) {
       return
     }
     const response = await fetch(`/api/cms/data/${entity}/${row.id}`, {

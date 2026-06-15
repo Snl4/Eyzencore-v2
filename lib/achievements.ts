@@ -142,6 +142,7 @@ export async function listUserBadges(userId: string): Promise<UserBadge[]> {
     name: achievement.name,
     description: achievement.description,
     emblem: achievement.emblem,
+    imageUrl: achievement.image_url,
     earned: isAchievementConditionMet(
       achievement.trigger_type,
       achievement.trigger_value,

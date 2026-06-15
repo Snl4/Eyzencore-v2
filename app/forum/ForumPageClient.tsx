@@ -24,6 +24,7 @@ import {
   type ForumAttachment,
 } from '@/components/forum/ForumMedia'
 import type { AuthUser } from '@/lib/auth-db'
+import { IMAGE_PLACEHOLDER } from '@/lib/placeholders'
 import type { getForumHome } from '@/lib/forum-db'
 
 type ForumHome = Awaited<ReturnType<typeof getForumHome>>
@@ -235,17 +236,13 @@ export function ForumPageClient({
                 key={thread.id}
               >
                 <div className="forum-thread-avatar">
-                  {thread.author.avatarUrl ? (
-                    <span
-                      style={{
-                        backgroundImage: `url(${JSON.stringify(
-                          thread.author.avatarUrl
-                        ).slice(1, -1)})`,
-                      }}
-                    />
-                  ) : (
-                    thread.author.name.slice(0, 1).toUpperCase()
-                  )}
+                  <span
+                    style={{
+                      backgroundImage: `url(${JSON.stringify(
+                        thread.author.avatarUrl || IMAGE_PLACEHOLDER
+                      ).slice(1, -1)})`,
+                    }}
+                  />
                 </div>
                 <div className="forum-thread-main">
                   <div className="forum-thread-title">

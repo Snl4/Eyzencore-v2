@@ -17,7 +17,7 @@ export const PROFILE_HEADER: ProfileHeaderData = {
   avatarUrl: null,
   bannerUrl: null,
   role: 'OWNER',
-  tags: ['Stuff'],
+  tags: [],
 };
 
 export const PROFILE_STATS: ProfileStat[] = [

@@ -19,7 +19,7 @@ export default async function ForumThreadPage({ params }: Props) {
   if (!Number.isInteger(id) || id <= 0) notFound()
 
   const user = await getCurrentUser()
-  const thread = await getForumThread(id, user?.id, true)
+  const thread = await getForumThread(id, user?.id, user?.user_metadata.role, true)
   if (!thread) notFound()
 
   return (

@@ -7,6 +7,7 @@ import './globals.css';
 import './external-api.css';
 import { RouteTransitionLoader } from '@/components/layout/RouteTransitionLoader';
 import { NotificationToasts } from '@/components/layout/NotificationToasts';
+import { ConfirmProvider } from '@/components/ui/ConfirmDialog';
 
 config.autoAddCss = false;
 
@@ -68,11 +69,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body className={`${inter.variable} ${jetbrainsMono.variable} ${merriweather.variable}`}>
-        <Suspense fallback={null}>
-          <RouteTransitionLoader />
-        </Suspense>
-        <NotificationToasts />
-        {children}
+        <ConfirmProvider>
+          <Suspense fallback={null}>
+            <RouteTransitionLoader />
+          </Suspense>
+          <NotificationToasts />
+          {children}
+        </ConfirmProvider>
       </body>
     </html>
   );

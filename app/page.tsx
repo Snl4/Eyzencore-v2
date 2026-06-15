@@ -8,6 +8,7 @@ import {
   getCachedPublicServers,
   getCachedPublicStats,
 } from '@/lib/public-cache'
+import { IMAGE_PLACEHOLDER } from '@/lib/placeholders'
 
 export const dynamic = 'force-dynamic'
 
@@ -36,10 +37,8 @@ function ServerSpotlight({ server }: { server: Server }) {
     <Link href={`/servers/${server.seed}`} className="home-server-row">
       <span
         className="home-server-avatar"
-        style={server.avatarUrl ? { backgroundImage: `url(${server.avatarUrl})` } : undefined}
-      >
-        {server.avatarUrl ? '' : server.ic}
-      </span>
+        style={{ backgroundImage: `url(${server.avatarUrl || IMAGE_PLACEHOLDER})` }}
+      />
       <span className="home-server-copy">
         <span className="home-server-name">
           {server.name}
@@ -248,7 +247,7 @@ export default async function LandingPage() {
                   >
                     <span
                       className="home-news-cover"
-                      style={post.coverUrl ? { backgroundImage: `url(${post.coverUrl})` } : undefined}
+                      style={{ backgroundImage: `url(${post.coverUrl || IMAGE_PLACEHOLDER})` }}
                     >
                       {!post.coverUrl && <span>EYZENCORE</span>}
                     </span>

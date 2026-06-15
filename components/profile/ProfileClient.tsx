@@ -92,7 +92,7 @@ function buildActivityEntries(events: UserProfileActivity[]): UserActivityEntry[
   });
 }
 
-function buildHeader(user: AuthUser, tags: string[]): ProfileHeaderData {
+function buildHeader(user: AuthUser): ProfileHeaderData {
   const meta = user.user_metadata;
   return {
     fullName: meta.full_name || user.email.split('@')[0] || 'Без імені',
@@ -107,7 +107,7 @@ function buildHeader(user: AuthUser, tags: string[]): ProfileHeaderData {
     avatarUrl: meta.avatar_url,
     bannerUrl: meta.banner_url,
     role: meta.role || 'user',
-    tags,
+    tags: meta.is_legacy ? ['OLD'] : [],
   };
 }
 
@@ -117,11 +117,10 @@ export function ProfileClient({ user: initialUser, currentUser = null, serverCou
   // For public profile views, show the *logged-in viewer* in the sidebar (or null = guest).
   // For the personal profile (/profile), the profile owner IS the current user.
   const sidebarUser = isPublicView ? currentUser : user;
-  const [profileTags, setProfileTags] = useState<string[]>(['Stuff', 'Old']);
   const [tab, setTab] = useState<ProfileTabKey>('servers');
   const [editing, setEditing] = useState(false);
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
-  const headerData = useMemo(() => buildHeader(user, profileTags), [user, profileTags]);
+  const headerData = useMemo(() => buildHeader(user), [user]);
   useEffect(() => {
     if (!toast) return;
     const timeoutId = window.setTimeout(() => setToast(null), 2500);
@@ -227,11 +226,9 @@ export function ProfileClient({ user: initialUser, currentUser = null, serverCou
       {!isPublicView && (
         <ProfileEditModal
           user={user}
-          initialTags={profileTags}
           open={editing}
           onClose={() => setEditing(false)}
           onSaved={handleSaved}
-          onTagsSaved={setProfileTags}
         />
       )}
       {toast && (

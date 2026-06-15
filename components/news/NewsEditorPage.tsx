@@ -47,6 +47,9 @@ const ImageIcon = (
 const VideoIcon = (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="6" width="14" height="12" rx="2"/><path d="m22 8-6 4 6 4z"/></svg>
 )
+const GalleryIcon = (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="5" width="14" height="14" rx="2"/><path d="m7 15 3-3 3 3 2-2 2 2"/><path d="M7 5V3h14v14h-4"/></svg>
+)
 const TrashIcon = (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"/></svg>
 )
@@ -81,6 +84,7 @@ const BLOCK_TYPES: BlockTypeMeta[] = [
   { value: 'quote', label: 'Цитата', hint: 'Виділена фраза', icon: QuoteIcon },
   { value: 'image', label: 'Зображення', hint: 'Завантаж з ПК або встав посилання', icon: ImageIcon },
   { value: 'video', label: 'Відео', hint: 'Файл або посилання YouTube', icon: VideoIcon },
+  { value: 'gallery', label: 'Галерея', hint: 'Слайдер із кількох зображень', icon: GalleryIcon },
 ]
 
 const CATEGORIES = ['Новини', 'Оновлення', 'Гайд', 'Подія', 'Анонс', 'Інтервʼю', 'Реліз']
@@ -90,10 +94,53 @@ function createBlockId(): string {
 }
 
 function createEmptyBlock(type: NewsContentBlock['type']): NewsContentBlock {
+  if (type === 'gallery') {
+    return { id: createBlockId(), type, urls: [], caption: '' }
+  }
   if (type === 'image' || type === 'video') {
     return { id: createBlockId(), type, url: '', caption: '' }
   }
   return { id: createBlockId(), type, text: '' }
+}
+
+function normalizeImportedUrl(value: string): string {
+  return value.trim().replace('https://eyzencore.com//uploads/', '/uploads/')
+}
+
+function parseLegacyNewsContent(raw: string): NewsContentBlock[] {
+  const source = raw.replace(/\r\n/g, '\n').trim()
+  if (!source) return []
+  const blocks: NewsContentBlock[] = []
+  const tokenPattern = /::slider::\s*([\s\S]*?)\s*::\/slider::|::video::\s*([\s\S]*?)\s*::\/video::/gi
+  let cursor = 0
+
+  const appendText = (text: string) => {
+    text.split(/\n{2,}/).map((part) => part.trim()).filter(Boolean).forEach((part) => {
+      const imageMatch = part.match(/^!\[[^\]]*\]\((https?:\/\/[^)]+)\)$/)
+      if (imageMatch) {
+        blocks.push({ id: createBlockId(), type: 'image', url: normalizeImportedUrl(imageMatch[1]), caption: '' })
+      } else {
+        blocks.push({ id: createBlockId(), type: 'paragraph', text: part })
+      }
+    })
+  }
+
+  let match: RegExpExecArray | null
+  while ((match = tokenPattern.exec(source)) !== null) {
+    appendText(source.slice(cursor, match.index))
+    if (match[1] != null) {
+      const lines = match[1].split('\n').map((line) => line.trim()).filter(Boolean)
+      const caption = lines[0] && !/^https?:\/\//i.test(lines[0]) ? lines.shift() || '' : ''
+      const urls = lines.filter((line) => /^https?:\/\//i.test(line)).map(normalizeImportedUrl)
+      if (urls.length) blocks.push({ id: createBlockId(), type: 'gallery', urls, caption })
+    } else if (match[2] != null) {
+      const url = match[2].split('\n').map((line) => line.trim()).find((line) => /^https?:\/\//i.test(line))
+      if (url) blocks.push({ id: createBlockId(), type: 'video', url, caption: '' })
+    }
+    cursor = tokenPattern.lastIndex
+  }
+  appendText(source.slice(cursor))
+  return blocks
 }
 
 function buildInitialForm(input: { mode: NewsEditorMode; initialPost?: NewsPost }): NewsEditorForm {
@@ -137,6 +184,8 @@ export function NewsEditorPage({ mode, initialUser, initialPost }: NewsEditorPag
   const [coverUploading, setCoverUploading] = useState(false)
   const [coverDragOver, setCoverDragOver] = useState(false)
   const [blockUploading, setBlockUploading] = useState<string | null>(null)
+  const [legacyImportOpen, setLegacyImportOpen] = useState(false)
+  const [legacyContent, setLegacyContent] = useState('')
   const coverInputRef = useRef<HTMLInputElement>(null)
 
   const isEditMode = mode === 'edit'
@@ -157,7 +206,7 @@ export function NewsEditorPage({ mode, initialUser, initialPost }: NewsEditorPag
   }, [form.blocks])
 
   const blocksByType = useMemo(() => {
-    const acc: Record<NewsContentBlock['type'], number> = { heading: 0, paragraph: 0, quote: 0, image: 0, video: 0 }
+    const acc: Record<NewsContentBlock['type'], number> = { heading: 0, paragraph: 0, quote: 0, image: 0, video: 0, gallery: 0 }
     form.blocks.forEach((block) => { acc[block.type] = (acc[block.type] || 0) + 1 })
     return acc
   }, [form.blocks])
@@ -310,6 +359,48 @@ export function NewsEditorPage({ mode, initialUser, initialPost }: NewsEditorPag
                   <p>Перше враження статті — велике зображення зверху картки.</p>
                 </div>
               </header>
+
+              <div className="news-legacy-import">
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setLegacyImportOpen((open) => !open)}
+                >
+                  {legacyImportOpen ? 'Закрити імпорт' : 'Імпортувати старий текст'}
+                </button>
+                {legacyImportOpen && (
+                  <div className="news-legacy-import-panel">
+                    <textarea
+                      className="news-input"
+                      rows={10}
+                      value={legacyContent}
+                      onChange={(event) => setLegacyContent(event.target.value)}
+                      placeholder="Вставте старий текст із ::slider:: та ::video::"
+                    />
+                    <div>
+                      <button
+                        type="button"
+                        className="btn btn-primary"
+                        disabled={!legacyContent.trim()}
+                        onClick={() => {
+                          const imported = parseLegacyNewsContent(legacyContent)
+                          if (!imported.length) {
+                            setErrorMessage('Не вдалося знайти контент для імпорту')
+                            return
+                          }
+                          setForm((previous) => ({ ...previous, blocks: imported }))
+                          setLegacyContent('')
+                          setLegacyImportOpen(false)
+                          setErrorMessage('')
+                        }}
+                      >
+                        Розібрати на блоки
+                      </button>
+                      <span>{legacyContent.length} символів</span>
+                    </div>
+                  </div>
+                )}
+              </div>
 
               <input
                 ref={coverInputRef}
@@ -507,6 +598,13 @@ export function NewsEditorPage({ mode, initialUser, initialPost }: NewsEditorPag
                           onUpdate={(patch) => handleUpdateBlock(block.id, patch)}
                           onPickFile={(file) => void handleBlockFile(block.id, file)}
                           uploading={blockUploading === block.id}
+                        />
+                      )}
+
+                      {block.type === 'gallery' && (
+                        <GalleryBlockEditor
+                          block={block}
+                          onUpdate={(patch) => handleUpdateBlock(block.id, patch)}
                         />
                       )}
                     </article>
@@ -769,6 +867,50 @@ function BlockMedia({
           />
         </label>
       </div>
+    </div>
+  )
+}
+
+function GalleryBlockEditor({
+  block,
+  onUpdate,
+}: {
+  block: NewsContentBlock
+  onUpdate: (patch: Partial<NewsContentBlock>) => void
+}) {
+  const urls = block.urls || []
+  return (
+    <div className="news-gallery-editor">
+      <label className="news-edit-field">
+        <span>Назва галереї</span>
+        <input
+          className="news-input"
+          value={block.caption || ''}
+          onChange={(event) => onUpdate({ caption: event.target.value })}
+          placeholder="Наприклад: Фото моду"
+          maxLength={220}
+        />
+      </label>
+      <label className="news-edit-field">
+        <span>Зображення, одне посилання на рядок</span>
+        <textarea
+          className="news-input"
+          rows={7}
+          value={urls.join('\n')}
+          onChange={(event) => onUpdate({
+            urls: event.target.value.split('\n').map(normalizeImportedUrl).filter(Boolean).slice(0, 20),
+          })}
+          placeholder={'https://example.com/image-1.webp\nhttps://example.com/image-2.png'}
+        />
+      </label>
+      {urls.length > 0 && (
+        <div className="news-gallery-editor-preview">
+          {urls.slice(0, 8).map((url, index) => (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={url} alt="" key={`${url}-${index}`} />
+          ))}
+        </div>
+      )}
     </div>
   )
 }

@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useState } from 'react'
 import { PageShell } from '@/components/layout/PageShell'
 import { Breadcrumbs } from '@/components/ui/Breadcrumbs'
+import { useConfirm } from '@/components/ui/ConfirmDialog'
 import type { AuthUser, UserRole } from '@/lib/auth-db'
 import type { Cluster } from '@/lib/cluster-db'
 import type { Server } from '@/lib/types'
@@ -31,6 +32,7 @@ export function ClustersClient({
   initialClusters: Cluster[]
   servers: Server[]
 }) {
+  const confirmAction = useConfirm()
   const [clusters, setClusters] = useState(initialClusters)
   const [editing, setEditing] = useState<Cluster | null>(null)
   const [form, setForm] = useState<Form>(emptyForm())
@@ -82,7 +84,11 @@ export function ClustersClient({
     setOpen(false)
   }
   const remove = async (cluster: Cluster) => {
-    if (!window.confirm(`Видалити кластер «${cluster.name}»? Сервери залишаться на сайті.`)) return
+    if (!await confirmAction({
+      title: `Видалити кластер «${cluster.name}»?`,
+      description: 'Сервери залишаться на сайті, але більше не будуть об’єднані цим кластером.',
+      confirmLabel: 'Видалити кластер',
+    })) return
     const response = await fetch(`/api/clusters/${cluster.id}`, { method: 'DELETE' })
     if (response.ok) setClusters((current) => current.filter((item) => item.id !== cluster.id))
   }

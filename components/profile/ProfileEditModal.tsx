@@ -2,14 +2,12 @@
 
 import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import type { AuthUser } from '@/lib/auth-db';
-import { Toggle } from '@/components/ui/Toggle';
 
 const MAX_AVATAR_BYTES = 800 * 1024;
 const MAX_BANNER_BYTES = 1_400 * 1024;
 const MAX_BIO_LENGTH = 250;
 const MODAL_CLOSE_ANIMATION_MS = 220;
 const MODAL_OPEN_ANIMATION_DELAY_MS = 20;
-const PROFILE_TAG_OPTIONS = ['Stuff', 'Old'];
 
 function normalizeBioText(value: string): string {
   return value.replace(/[\r\n]+/g, ' ').replace(/\s{2,}/g, ' ').trimStart();
@@ -17,11 +15,9 @@ function normalizeBioText(value: string): string {
 
 interface Props {
   user: AuthUser;
-  initialTags: string[];
   open: boolean;
   onClose: () => void;
   onSaved: (user: AuthUser) => void;
-  onTagsSaved: (tags: string[]) => void;
 }
 
 function readFileAsDataUrl(file: File, maxBytes: number): Promise<string> {
@@ -41,7 +37,7 @@ function readFileAsDataUrl(file: File, maxBytes: number): Promise<string> {
   });
 }
 
-export function ProfileEditModal({ user, initialTags, open, onClose, onSaved, onTagsSaved }: Props) {
+export function ProfileEditModal({ user, open, onClose, onSaved }: Props) {
   const meta = user.user_metadata;
   const [fullName, setFullName] = useState(meta.full_name);
   const [handle, setHandle] = useState(meta.profile_slug || '');
@@ -49,7 +45,6 @@ export function ProfileEditModal({ user, initialTags, open, onClose, onSaved, on
   const [website, setWebsite] = useState(meta.website || '');
   const [telegram, setTelegram] = useState(meta.telegram || '');
   const [discord, setDiscord] = useState(meta.discord || '');
-  const [selectedTags, setSelectedTags] = useState<string[]>(initialTags);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(meta.avatar_url);
   const [bannerUrl, setBannerUrl] = useState<string | null>(meta.banner_url);
   const [error, setError] = useState<string | null>(null);
@@ -73,11 +68,10 @@ export function ProfileEditModal({ user, initialTags, open, onClose, onSaved, on
     setWebsite(meta.website || '');
     setTelegram(meta.telegram || '');
     setDiscord(meta.discord || '');
-    setSelectedTags(initialTags);
     setAvatarUrl(meta.avatar_url);
     setBannerUrl(meta.banner_url);
     setError(null);
-  }, [open, meta, initialTags]);
+  }, [open, meta]);
 
   useEffect(() => {
     if (open) {
@@ -104,20 +98,6 @@ export function ProfileEditModal({ user, initialTags, open, onClose, onSaved, on
   }, [bio, open, shouldRender]);
 
   if (!shouldRender) return null;
-
-  function toggleProfileTag(tag: string): void {
-    setSelectedTags((currentTags) => {
-      if (currentTags.includes(tag)) {
-        return currentTags.filter((currentTag) => currentTag !== tag)
-      }
-      if (currentTags.length >= 3) {
-        setError('Можна обрати максимум 3 теги')
-        return currentTags
-      }
-      setError(null)
-      return [...currentTags, tag]
-    })
-  }
 
   async function handleFile(
     e: ChangeEvent<HTMLInputElement>,
@@ -160,7 +140,6 @@ export function ProfileEditModal({ user, initialTags, open, onClose, onSaved, on
         throw new Error(data.error || 'Не вдалося зберегти профіль');
       }
       onSaved(data.user);
-      onTagsSaved(selectedTags);
       window.setTimeout(() => {
         onClose()
       }, 700)
@@ -213,23 +192,6 @@ export function ProfileEditModal({ user, initialTags, open, onClose, onSaved, on
                 }}
                 maxLength={MAX_BIO_LENGTH}
               />
-            </div>
-            <div className="field">
-              <label>Теги профілю (максимум 3)</label>
-              <div className="add-tags-grid">
-                {PROFILE_TAG_OPTIONS.map((tag) => (
-                  <Toggle
-                    key={tag}
-                    type="button"
-                    variant="outline"
-                    className="filter-chip"
-                    pressed={selectedTags.includes(tag)}
-                    onPressedChange={() => toggleProfileTag(tag)}
-                  >
-                    {tag}
-                  </Toggle>
-                ))}
-              </div>
             </div>
           </section>
 

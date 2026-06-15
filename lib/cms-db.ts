@@ -249,6 +249,7 @@ export async function createCmsEntity(
       name,
       description: text(input.description, 500),
       emblem: text(input.emblem, 8) || '★',
+      image_url: nullableText(input.image_url, 2048),
       trigger_type: triggerType,
       trigger_value: triggerType === 'manual' || triggerType === 'server_verified'
         ? 0
@@ -392,6 +393,7 @@ export async function updateCmsEntity(
           name: text(input.name, 120),
           description: text(input.description, 500),
           emblem: text(input.emblem, 8) || '★',
+          image_url: nullableText(input.image_url, 2048),
           trigger_type: triggerType,
           trigger_value:
             triggerType === 'manual' || triggerType === 'server_verified'

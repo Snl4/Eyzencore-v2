@@ -11,6 +11,7 @@ import {
   getOnlineCountLabel,
   isDiscordServer,
 } from '@/lib/server-platform';
+import { IMAGE_PLACEHOLDER } from '@/lib/placeholders';
 import type { Server } from '@/lib/types';
 import { formatPlural } from '@/lib/format-plural';
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
@@ -393,13 +394,11 @@ export function ServerOverviewClient({ server: s, cluster, canEdit, initialUser 
         <div
           className="so-hero"
           style={{
-            background: s.bannerUrl
-              ? `linear-gradient(180deg, rgba(10,12,20,0.86) 0%, rgba(10,12,20,0.74) 42%, rgba(10,12,20,0.9) 100%), url(${s.bannerUrl}) center/cover`
-              : 'linear-gradient(135deg, #0c0e13 0%, #1a1f2e 100%)',
+            background: `linear-gradient(180deg, rgba(10,12,20,0.86) 0%, rgba(10,12,20,0.74) 42%, rgba(10,12,20,0.9) 100%), url(${s.bannerUrl || IMAGE_PLACEHOLDER}) center/cover`,
           }}
         >
           <div className="so-hero-content">
-            <div className="so-icon" style={{ background: s.avatarUrl ? `url(${s.avatarUrl}) center/cover` : undefined }}>{s.avatarUrl ? '' : s.ic}</div>
+            <div className="so-icon" style={{ background: `url(${s.avatarUrl || IMAGE_PLACEHOLDER}) center/cover` }} />
             <div className="so-titles">
               <h1>
                 <span className="so-titles-name">{s.name}</span>

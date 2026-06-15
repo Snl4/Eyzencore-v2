@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { IMAGE_PLACEHOLDER } from '@/lib/placeholders';
 
 export interface UserServerCard {
   seed: number;
@@ -28,15 +29,13 @@ export function UserServersTab({ servers, isOwnerView }: UserServersTabProps) {
           <div
             className="pserver-banner"
             style={{
-              background: s.bannerUrl
-                ? `url(${s.bannerUrl}) center/cover`
-                : 'linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%)',
+              background: `url(${s.bannerUrl || IMAGE_PLACEHOLDER}) center/cover`,
             }}
           >
             <div className="pserver-banner-overlay" />
           </div>
           <div className="pserver-head">
-            <div className="pserver-icon" style={s.avatarUrl ? { background: `url(${s.avatarUrl}) center/cover`, color: 'transparent' } : undefined}>{s.avatarUrl ? '' : s.ic}</div>
+            <div className="pserver-icon" style={{ background: `url(${s.avatarUrl || IMAGE_PLACEHOLDER}) center/cover`, color: 'transparent' }} />
             <div className="pserver-title">
               <b>{s.name}</b>
               <span>{s.addr}</span>

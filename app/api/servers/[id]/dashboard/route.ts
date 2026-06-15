@@ -39,7 +39,12 @@ export async function GET(request: NextRequest, context: { params: { id: string 
       const probeResponse = await fetch(`${new URL(request.url).origin}/api/servers/check`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ addr: server.addr, core: server.core || 'java', allowExisting: true }),
+        body: JSON.stringify({
+          addr: server.addr,
+          core: server.core || 'java',
+          platform: server.platform || 'minecraft',
+          allowExisting: true,
+        }),
         cache: 'no-store',
       })
       if (probeResponse.ok) {

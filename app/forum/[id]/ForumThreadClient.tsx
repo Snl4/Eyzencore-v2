@@ -21,12 +21,15 @@ import {
 } from '@fortawesome/free-solid-svg-icons'
 import { PageShell } from '@/components/layout/PageShell'
 import { DropdownMenu } from '@/components/ui/DropdownMenu'
+import { useConfirm } from '@/components/ui/ConfirmDialog'
 import {
   ForumMediaGallery,
   ForumMediaUploader,
   type ForumAttachment,
 } from '@/components/forum/ForumMedia'
+import { ForumRichText } from '@/components/forum/ForumRichText'
 import type { AuthUser } from '@/lib/auth-db'
+import { IMAGE_PLACEHOLDER } from '@/lib/placeholders'
 import type { getForumThread } from '@/lib/forum-db'
 
 type ForumThread = NonNullable<Awaited<ReturnType<typeof getForumThread>>>
@@ -43,25 +46,19 @@ function formatDate(value: string) {
 }
 
 function UserAvatar({
-  name,
   avatarUrl,
 }: {
-  name: string
   avatarUrl: string | null
 }) {
   return (
     <div
       className="forum-post-avatar"
       style={
-        avatarUrl
-          ? {
-              backgroundImage: `url(${JSON.stringify(avatarUrl).slice(1, -1)})`,
-            }
-          : undefined
+        {
+          backgroundImage: `url(${JSON.stringify(avatarUrl || IMAGE_PLACEHOLDER).slice(1, -1)})`,
+        }
       }
-    >
-      {!avatarUrl ? name.slice(0, 1).toUpperCase() : null}
-    </div>
+    />
   )
 }
 
@@ -73,6 +70,7 @@ export function ForumThreadClient({
   initialThread: ForumThread
 }) {
   const router = useRouter()
+  const confirmAction = useConfirm()
   const [thread, setThread] = useState(initialThread)
   const [reply, setReply] = useState('')
   const [replyAttachments, setReplyAttachments] = useState<ForumAttachment[]>([])
@@ -85,6 +83,13 @@ export function ForumThreadClient({
     attachments: thread.attachments,
   })
   const [editingReply, setEditingReply] = useState<ForumReply | null>(null)
+  const [reasonModal, setReasonModal] = useState<{
+    action: 'removeThread' | 'moderateLock' | 'moderateDelete'
+    title: string
+    description: string
+    confirmLabel: string
+    reason: string
+  } | null>(null)
 
   const isAdmin = initialUser?.user_metadata.role === 'ADMIN'
   const ownsThread = initialUser?.id === thread.author.id
@@ -178,15 +183,78 @@ export function ForumThreadClient({
     setSubmitting(false)
   }
 
-  async function removeThread() {
-    if (!confirm('Видалити тему разом з усіма відповідями?')) return
+  function openReasonModal(action: 'removeThread' | 'moderateLock' | 'moderateDelete') {
+    setError('')
+    setReasonModal({
+      action,
+      reason: '',
+      title:
+        action === 'removeThread'
+          ? 'Видалити тему'
+          : action === 'moderateLock'
+          ? 'Заблокувати тему'
+          : 'Видалити тему',
+      description:
+        action === 'removeThread'
+          ? 'Вкажіть причину видалення теми.'
+          : action === 'moderateLock'
+          ? 'Вкажіть причину блокування теми.'
+          : 'Вкажіть причину видалення теми.',
+      confirmLabel:
+        action === 'removeThread'
+          ? 'Видалити тему'
+          : action === 'moderateLock'
+          ? 'Заблокувати'
+          : 'Видалити тему',
+    })
+  }
+
+  async function performRemoveThread(reason = '') {
     const response = await fetch(`/api/forum/threads/${thread.id}`, {
       method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reason }),
     })
     if (response.ok) {
       router.replace('/forum')
       router.refresh()
+    } else {
+      const result = await response.json().catch(() => ({}))
+      setError(result.error || 'Не вдалося видалити тему')
     }
+  }
+
+  async function performModeration(action: 'pin' | 'lock' | 'solve' | 'delete', reason?: string) {
+    const body: Record<string, unknown> = { action }
+    if (reason) body.reason = reason
+
+    const response = await fetch(`/api/forum/threads/${thread.id}/moderate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    const result = await response.json().catch(() => ({}))
+    if (!response.ok) {
+      setError(result.error || 'Не вдалося виконати дію')
+      return
+    }
+    await reload()
+  }
+
+  async function removeThread() {
+    if (!await confirmAction({
+      title: 'Видалити тему?',
+      description: 'Тема, усі відповіді та реакції будуть видалені без можливості відновлення.',
+      confirmLabel: 'Видалити тему',
+    })) return
+
+    const isAdminDelete = isAdmin && thread.author.id !== initialUser?.id
+    if (isAdminDelete) {
+      openReasonModal('removeThread')
+      return
+    }
+
+    await performRemoveThread()
   }
 
   async function saveReply(event: FormEvent<HTMLFormElement>) {
@@ -213,7 +281,11 @@ export function ForumThreadClient({
   }
 
   async function removeReply(postId: number) {
-    if (!confirm('Видалити цю відповідь?')) return
+    if (!await confirmAction({
+      title: 'Видалити відповідь?',
+      description: 'Відповідь і реакції на неї буде остаточно видалено.',
+      confirmLabel: 'Видалити відповідь',
+    })) return
     const response = await fetch(`/api/forum/replies/${postId}`, {
       method: 'DELETE',
     })
@@ -225,18 +297,47 @@ export function ForumThreadClient({
     await reload()
   }
 
-  async function moderate(action: 'pin' | 'lock' | 'solve') {
-    const response = await fetch(`/api/forum/threads/${thread.id}/moderate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action }),
-    })
-    const result = await response.json().catch(() => ({}))
-    if (!response.ok) {
-      setError(result.error || 'Не вдалося виконати дію')
+  async function moderate(action: 'pin' | 'lock' | 'solve' | 'delete') {
+    if (action === 'lock' && isAdmin && thread.author.id !== initialUser?.id) {
+      openReasonModal('moderateLock')
       return
     }
-    await reload()
+
+    if (action === 'delete') {
+      openReasonModal('moderateDelete')
+      return
+    }
+
+    await performModeration(action)
+  }
+
+  async function confirmReasonAction() {
+    if (!reasonModal) return
+
+    const reason = reasonModal.reason.trim()
+    if (!reason) {
+      setError('Потрібно вказати причину')
+      return
+    }
+
+    const action = reasonModal.action
+    setReasonModal(null)
+    setError('')
+
+    if (action === 'removeThread') {
+      await performRemoveThread(reason)
+      return
+    }
+
+    if (action === 'moderateLock') {
+      await performModeration('lock', reason)
+      return
+    }
+
+    if (action === 'moderateDelete') {
+      await performModeration('delete', reason)
+      return
+    }
   }
 
   function renderPost(
@@ -254,16 +355,26 @@ export function ForumThreadClient({
   ) {
     const canManage =
       initialUser?.id === item.author.id || initialUser?.user_metadata.role === 'ADMIN'
+    const authorRole = item.author.role.toUpperCase()
+    const roleLabel =
+      authorRole === 'ADMIN'
+        ? 'Адміністратор'
+        : authorRole === 'OWNER'
+          ? 'Власник'
+          : null
+
     return (
       <article className={`forum-post ${original ? 'original' : ''}`} key={item.id || 'topic'}>
         <aside>
-          <UserAvatar name={item.author.name} avatarUrl={item.author.avatarUrl} />
+          <UserAvatar avatarUrl={item.author.avatarUrl} />
           <Link href={`/profile/${item.author.slug || item.author.id}`}>
             {item.author.name}
           </Link>
-          <span className={`forum-role role-${item.author.role.toLowerCase()}`}>
-            {item.author.role}
-          </span>
+          {roleLabel ? (
+            <span className={`forum-role role-${authorRole.toLowerCase()}`}>
+              {roleLabel}
+            </span>
+          ) : null}
           <small>З нами з {formatDate(item.author.joinedAt)}</small>
         </aside>
         <div className="forum-post-content">
@@ -272,7 +383,9 @@ export function ForumThreadClient({
             {item.updatedAt !== item.createdAt ? <em>редаговано</em> : null}
             {original ? <b>Тема</b> : null}
           </header>
-          <div className="forum-post-text">{item.content}</div>
+          <div className="forum-post-text">
+            <ForumRichText content={item.content} />
+          </div>
           <ForumMediaGallery attachments={item.attachments} />
           <footer>
             <button
@@ -386,6 +499,12 @@ export function ForumThreadClient({
                     icon: <FontAwesomeIcon icon={thread.isLocked ? faUnlock : faLock} />,
                     onSelect: () => void moderate('lock'),
                   },
+                  {
+                    label: 'Видалити тему',
+                    icon: <FontAwesomeIcon icon={faTrash} />,
+                    onSelect: () => void moderate('delete'),
+                    danger: true,
+                  },
                 ] : []),
               ]}
             />
@@ -393,6 +512,12 @@ export function ForumThreadClient({
         </section>
 
         {error ? <div className="forum-alert">{error}</div> : null}
+        {thread.isDeleted ? (
+          <div className="forum-alert">
+            Тему видалено.
+            {thread.deletedReason ? <div>Причина: {thread.deletedReason}</div> : null}
+          </div>
+        ) : null}
 
         <section className="forum-post-list">
           {renderPost(
@@ -410,7 +535,13 @@ export function ForumThreadClient({
           {thread.replies.map((item) => renderPost(item))}
         </section>
 
-        {thread.isLocked ? (
+        {thread.isDeleted ? (
+          <div className="forum-alert">
+            <FontAwesomeIcon icon={faTrash} />
+            Тему видалено.
+            {thread.deletedReason ? <div>Причина: {thread.deletedReason}</div> : null}
+          </div>
+        ) : thread.isLocked ? (
           <div className="forum-locked-notice">
             <FontAwesomeIcon icon={faLock} />
             Тему заблоковано. Нові відповіді тимчасово недоступні.
@@ -552,6 +683,48 @@ export function ForumThreadClient({
               </button>
               <button className="btn btn-primary" disabled={submitting} type="submit">
                 Зберегти
+              </button>
+            </footer>
+          </form>
+        </div>
+      ) : null}
+
+      {reasonModal ? (
+        <div className="forum-modal-backdrop" onMouseDown={() => setReasonModal(null)}>
+          <form
+            className="forum-compose-modal"
+            onSubmit={(event) => {
+              event.preventDefault()
+              void confirmReasonAction()
+            }}
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <header>
+              <h2>{reasonModal.title}</h2>
+              <button onClick={() => setReasonModal(null)} type="button">
+                <FontAwesomeIcon icon={faXmark} />
+              </button>
+            </header>
+            <p>{reasonModal.description}</p>
+            <label>
+              <span>Причина</span>
+              <textarea
+                maxLength={1000}
+                minLength={5}
+                required
+                rows={7}
+                value={reasonModal.reason}
+                onChange={(event) =>
+                  setReasonModal({ ...reasonModal, reason: event.target.value })
+                }
+              />
+            </label>
+            <footer>
+              <button className="btn btn-ghost" onClick={() => setReasonModal(null)} type="button">
+                Скасувати
+              </button>
+              <button className="btn btn-primary" type="submit">
+                {reasonModal.confirmLabel}
               </button>
             </footer>
           </form>

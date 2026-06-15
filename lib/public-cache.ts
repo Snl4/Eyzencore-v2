@@ -7,18 +7,18 @@ import {
 
 export const getCachedPublicServers = unstable_cache(
   async () => listServers(),
-  ['public-servers-v1'],
+  ['public-servers-v2'],
   { revalidate: 15 }
 )
 
 export const getCachedPublicNews = unstable_cache(
   async (limit: number) => listNewsPosts(limit),
-  ['public-news-v1'],
+  ['public-news-v2'],
   { revalidate: 30 }
 )
 
 export const getCachedPublicStats = unstable_cache(
   async () => getAdminStats(),
-  ['public-stats-v1'],
+  ['public-stats-v2'],
   { revalidate: 30 }
 )

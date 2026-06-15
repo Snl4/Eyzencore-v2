@@ -5,7 +5,12 @@ import {
   probeDiscordInvite,
   type ServerPlatform,
 } from '@/lib/discord';
-import { findServerByAddress, getServerById, updateServerDiscordGuildId } from '@/lib/auth-db';
+import {
+  findServerByAddress,
+  getServerById,
+  updateServerDiscordGuildId,
+  updateServerLiveStatus,
+} from '@/lib/auth-db';
 
 function isValidMinecraftAddress(value: string) {
   return /^[a-zA-Z0-9.-]+(?::\d{2,5})?$/.test(value);
@@ -14,13 +19,24 @@ function isValidMinecraftAddress(value: string) {
 function normalizeMinecraftProbe(payload: Record<string, unknown>) {
   const playersPayload = (payload.players || {}) as { online?: number; max?: number };
   const motdPayload = (payload.motd || {}) as { clean?: string[] };
-  const versionPayload = payload.version as string | { name?: string; protocol?: number } | undefined;
+  const versionPayload = payload.version as string | {
+    name?: string;
+    name_clean?: string;
+    name_raw?: string;
+    protocol?: number;
+  } | undefined;
   const motd = Array.isArray(motdPayload.clean) ? motdPayload.clean.join(' ').trim().slice(0, 180) : '';
   const version =
     typeof versionPayload === 'string'
       ? versionPayload.trim()
       : typeof versionPayload === 'object' && versionPayload
-        ? String(versionPayload.name || versionPayload.protocol || '').trim()
+        ? String(
+            versionPayload.name_clean ||
+            versionPayload.name ||
+            versionPayload.name_raw ||
+            versionPayload.protocol ||
+            ''
+          ).trim()
         : '';
   return {
     online: Boolean(payload.online),
@@ -33,15 +49,29 @@ function normalizeMinecraftProbe(payload: Record<string, unknown>) {
   };
 }
 
-async function probeMinecraftAddress(normalized: string) {
-  const javaSources = [
-    fetch(`https://api.mcstatus.io/v2/status/java/${encodeURIComponent(normalized)}`),
-    fetch(`https://api.mcsrvstat.us/3/${encodeURIComponent(normalized)}`),
-  ];
-  const responses = await Promise.all(javaSources);
+type MinecraftCore = 'java' | 'bedrock' | 'java_bedrock';
+
+async function fetchProbe(url: string) {
+  return fetch(url, {
+    cache: 'no-store',
+    signal: AbortSignal.timeout(8_000),
+  }).catch(() => null);
+}
+
+async function probeMinecraftAddress(normalized: string, core: MinecraftCore) {
+  const editions = core === 'java_bedrock' ? ['java', 'bedrock'] : [core];
+  const sources = editions.flatMap((edition) => {
+    const statusPath = edition === 'bedrock' ? 'bedrock' : 'java';
+    const mcsrvPath = edition === 'bedrock' ? 'bedrock/3' : '3';
+    return [
+      fetchProbe(`https://api.mcstatus.io/v2/status/${statusPath}/${encodeURIComponent(normalized)}`),
+      fetchProbe(`https://api.mcsrvstat.us/${mcsrvPath}/${encodeURIComponent(normalized)}`),
+    ];
+  });
+  const responses = await Promise.all(sources);
   const probes: Array<ReturnType<typeof normalizeMinecraftProbe>> = [];
   for (const response of responses) {
-    if (!response.ok) continue;
+    if (!response?.ok) continue;
     const payload = await response.json() as Record<string, unknown>;
     probes.push(normalizeMinecraftProbe(payload));
   }
@@ -104,6 +134,8 @@ export async function POST(request: Request) {
   };
   const rawAddr = String(body.addr || '').trim();
   const platform = resolvePlatform({ platform: body.platform, addr: rawAddr, core: body.core });
+  const core: MinecraftCore =
+    body.core === 'bedrock' || body.core === 'java_bedrock' ? body.core : 'java';
   if (!rawAddr) {
     return NextResponse.json({ error: 'Адреса сервера є обовʼязковою' }, { status: 400 });
   }
@@ -148,7 +180,15 @@ export async function POST(request: Request) {
         },
       });
     }
-    const minecraftProbe = await probeMinecraftAddress(normalized);
+    const minecraftProbe = await probeMinecraftAddress(normalized, core);
+    if (Number.isFinite(Number(body.serverId))) {
+      await updateServerLiveStatus({
+        serverId: Number(body.serverId),
+        online: minecraftProbe.online,
+        players: minecraftProbe.players,
+        max: minecraftProbe.max,
+      });
+    }
     return NextResponse.json({
       success: true,
       platform: 'minecraft',

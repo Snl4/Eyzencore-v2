@@ -1,0 +1,1 @@
+ALTER TABLE "app_users" ADD COLUMN "is_legacy" INTEGER NOT NULL DEFAULT 0;

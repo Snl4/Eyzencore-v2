@@ -121,6 +121,7 @@ export type AchievementRecord = {
   name: string
   description: string
   emblem: string
+  image_url: string | null
   trigger_type: AchievementTriggerType
   trigger_value: number
   is_active: number

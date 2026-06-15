@@ -23,6 +23,7 @@ export async function GET(request: Request, context: Context) {
   const thread = await getForumThread(
     threadId,
     user?.id,
+    user?.user_metadata.role,
     url.searchParams.get('view') === '1'
   )
   if (!thread) {
@@ -61,7 +62,7 @@ export async function PATCH(request: Request, context: Context) {
   }
 }
 
-export async function DELETE(_request: Request, context: Context) {
+export async function DELETE(request: Request, context: Context) {
   const user = await getCurrentUser()
   if (!user) {
     return NextResponse.json({ error: 'Потрібна авторизація' }, { status: 401 })
@@ -71,10 +72,12 @@ export async function DELETE(_request: Request, context: Context) {
     return NextResponse.json({ error: 'Некоректний ID' }, { status: 400 })
   }
   try {
+    const body = await request.json().catch(() => ({}))
     await deleteForumThread({
       threadId,
       userId: user.id,
       role: user.user_metadata.role,
+      reason: String(body.reason || ''),
     })
     return NextResponse.json({ success: true })
   } catch (error) {

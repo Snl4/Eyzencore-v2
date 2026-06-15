@@ -177,7 +177,7 @@ model app_server_reviews {
   app_servers app_servers @relation(fields: [server_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@unique([server_id, fingerprint], map: "idx_server_reviews_unique_fingerprint")
-  @@unique([server_id, user_id], map: "idx_server_reviews_unique_user", where: raw("ON app_server_reviews(server_id, user_id) WHERE user_id IS NOT NULL"))
+  @@unique([server_id, user_id], map: "idx_server_reviews_unique_user", where: raw("user_id IS NOT NULL"))
   @@index([fingerprint], map: "idx_server_reviews_fingerprint")
   @@index([user_id], map: "idx_server_reviews_user_id")
   @@index([server_id], map: "idx_server_reviews_server_id")
@@ -239,7 +239,7 @@ model app_server_votes {
   app_servers app_servers @relation(fields: [server_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@unique([server_id, fingerprint], map: "idx_server_votes_unique_fingerprint")
-  @@unique([server_id, user_id], map: "idx_server_votes_unique_user", where: raw("ON app_server_votes(server_id, user_id) WHERE user_id IS NOT NULL"))
+  @@unique([server_id, user_id], map: "idx_server_votes_unique_user", where: raw("user_id IS NOT NULL"))
   @@index([fingerprint], map: "idx_server_votes_fingerprint")
   @@index([user_id], map: "idx_server_votes_user_id")
   @@index([server_id], map: "idx_server_votes_server_id")
@@ -256,7 +256,7 @@ model app_server_likes {
   app_servers app_servers @relation(fields: [server_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@unique([server_id, fingerprint], map: "idx_server_likes_unique_fingerprint")
-  @@unique([server_id, user_id], map: "idx_server_likes_unique_user", where: raw("ON app_server_likes(server_id, user_id) WHERE user_id IS NOT NULL"))
+  @@unique([server_id, user_id], map: "idx_server_likes_unique_user", where: raw("user_id IS NOT NULL"))
   @@index([server_id], map: "idx_server_likes_server_id")
   @@index([user_id], map: "idx_server_likes_user_id")
 }
@@ -382,6 +382,7 @@ model app_achievements {
   name                  String
   description           String                  @default("")
   emblem                String                  @default("★")
+  image_url              String?
   trigger_type          String                  @default("manual")
   trigger_value         Int                     @default(0)
   is_active             Int                     @default(1)
@@ -420,6 +421,7 @@ model app_users {
   avatar_url               String?
   banner_url               String?
   role                     String                     @default("USER")
+  is_legacy                Int                        @default(0)
   created_at               String
   updated_at               String
   discord_user_id          String?                    @unique(map: "idx_app_users_discord_user_id", where: raw("discord_user_id IS NOT NULL"))
@@ -471,6 +473,11 @@ model forum_threads {
   is_pinned          Int                  @default(0)
   is_locked          Int                  @default(0)
   is_solved          Int                  @default(0)
+  is_deleted         Int                  @default(0)
+  deleted_at         String?
+  deleted_by_user_id String?
+  deleted_reason     String               @default("")
+  moderation_reason  String               @default("")
   views              Int                  @default(0)
   created_at         String
   updated_at         String

@@ -4,7 +4,9 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState, type ReactNode } from 'react'
 import { PageShell } from '@/components/layout/PageShell'
+import { useConfirm } from '@/components/ui/ConfirmDialog'
 import type { AuthUser, NewsContentBlock, NewsPost } from '@/lib/auth-db'
+import { IMAGE_PLACEHOLDER } from '@/lib/placeholders'
 
 type NewsDetailsClientProps = {
   initialUser: AuthUser | null
@@ -115,11 +117,50 @@ function renderNewsBlock(block: NewsContentBlock): ReactNode {
       </figure>
     )
   }
+  if (block.type === 'gallery' && block.urls?.length) {
+    return <NewsGallery urls={block.urls} caption={block.caption || ''} />
+  }
   return null
+}
+
+function NewsGallery({ urls, caption }: { urls: string[]; caption: string }) {
+  const [active, setActive] = useState(0)
+  const current = urls[active] || urls[0]
+  return (
+    <figure className="na-gallery">
+      {caption && <h3>{caption}</h3>}
+      <a href={current} target="_blank" rel="noreferrer" className="na-gallery-stage">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={current} alt={caption || `Зображення ${active + 1}`} loading="lazy" />
+        <span>{active + 1} / {urls.length}</span>
+      </a>
+      {urls.length > 1 && (
+        <div className="na-gallery-controls">
+          <button type="button" onClick={() => setActive((active - 1 + urls.length) % urls.length)}>←</button>
+          <div className="na-gallery-thumbs">
+            {urls.map((url, index) => (
+              <button
+                type="button"
+                className={index === active ? 'active' : ''}
+                onClick={() => setActive(index)}
+                key={`${url}-${index}`}
+                aria-label={`Зображення ${index + 1}`}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={url} alt="" loading="lazy" />
+              </button>
+            ))}
+          </div>
+          <button type="button" onClick={() => setActive((active + 1) % urls.length)}>→</button>
+        </div>
+      )}
+    </figure>
+  )
 }
 
 export function NewsDetailsClient({ initialUser, post, canManage }: NewsDetailsClientProps) {
   const router = useRouter()
+  const confirmAction = useConfirm()
   const [isCopied, setIsCopied] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const readTime = estimateReadTime(post.content)
@@ -135,7 +176,11 @@ export function NewsDetailsClient({ initialUser, post, canManage }: NewsDetailsC
   }
 
   const handleDelete = async (): Promise<void> => {
-    if (!window.confirm('Видалити цю новину? Дію неможливо скасувати.')) return
+    if (!await confirmAction({
+      title: 'Видалити новину?',
+      description: 'Новина та весь її медіаконтент зникнуть зі сторінки. Цю дію неможливо скасувати.',
+      confirmLabel: 'Видалити новину',
+    })) return
     setIsDeleting(true)
     try {
       const response = await fetch(`/api/news/${post.id}`, { method: 'DELETE' })
@@ -202,13 +247,7 @@ export function NewsDetailsClient({ initialUser, post, canManage }: NewsDetailsC
             {post.excerpt && <p className="na-lead">{post.excerpt}</p>}
 
             <div className="na-author-row">
-              {post.authorAvatarUrl ? (
-                <img src={post.authorAvatarUrl} alt="" className="na-author-avatar" />
-              ) : (
-                <span className="na-author-avatar na-author-avatar-fallback" aria-hidden="true">
-                  {post.authorName.slice(0, 1).toUpperCase()}
-                </span>
-              )}
+              <img src={post.authorAvatarUrl || IMAGE_PLACEHOLDER} alt="" className="na-author-avatar" />
               <div className="na-author-copy">
                 <span>Автор</span>
                 {post.authorSlug ? (
@@ -220,15 +259,15 @@ export function NewsDetailsClient({ initialUser, post, canManage }: NewsDetailsC
             </div>
           </header>
 
-          {post.coverUrl && (
+          {(
             <a
-              href={post.coverUrl}
+              href={post.coverUrl || IMAGE_PLACEHOLDER}
               target="_blank"
               rel="noreferrer"
               className="na-cover"
               aria-label="Відкрити обкладинку у повному розмірі"
             >
-              <img src={post.coverUrl} alt={post.title} className="na-cover-img" loading="eager" />
+              <img src={post.coverUrl || IMAGE_PLACEHOLDER} alt={post.title} className="na-cover-img" loading="eager" />
               <span className="na-cover-hint">Переглянути повністю ↗</span>
             </a>
           )}

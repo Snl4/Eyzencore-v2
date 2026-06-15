@@ -16,7 +16,7 @@ export async function POST(
   if (
     !Number.isInteger(threadId) ||
     threadId <= 0 ||
-    !['pin', 'lock', 'solve'].includes(action)
+    !['pin', 'lock', 'solve', 'delete'].includes(action)
   ) {
     return NextResponse.json({ error: 'Некоректний запит' }, { status: 400 })
   }
@@ -26,7 +26,8 @@ export async function POST(
         threadId,
         userId: user.id,
         role: user.user_metadata.role,
-        action: action as 'pin' | 'lock' | 'solve',
+        action: action as 'pin' | 'lock' | 'solve' | 'delete',
+        reason: String(body.reason || ''),
       })
     )
   } catch (error) {

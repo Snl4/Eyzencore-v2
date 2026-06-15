@@ -6,6 +6,7 @@ import { usePathname, useSearchParams } from 'next/navigation'
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts'
 import { PageShell } from '@/components/layout/PageShell'
 import { Breadcrumbs } from '@/components/ui/Breadcrumbs'
+import { useConfirm } from '@/components/ui/ConfirmDialog'
 import type {
   AuthUser,
   OwnerDashboardPayload,
@@ -339,6 +340,7 @@ function OwnerServersCard(input: {
   onProjectsChange: (projects: Project[]) => void
 }) {
   const { servers, projects, selectedServerId, onSelectServer, onProjectsChange } = input
+  const confirmAction = useConfirm()
   const [showProjectModal, setShowProjectModal] = useState(false)
   const [editingProject, setEditingProject] = useState<Project | null>(null)
   const [projectForm, setProjectForm] = useState<ProjectFormState>({ name: '', description: '', logoUrl: '', website: '', discord: '' })
@@ -414,7 +416,11 @@ function OwnerServersCard(input: {
   }
 
   const handleDeleteProject = async (project: Project) => {
-    const confirmed = window.confirm(`Видалити проект "${project.name}"? Сервери будуть відʼєднані від проекту.`)
+    const confirmed = await confirmAction({
+      title: `Видалити проєкт «${project.name}»?`,
+      description: 'Сервери залишаться на сайті, але будуть від’єднані від цього проєкту.',
+      confirmLabel: 'Видалити проєкт',
+    })
     if (!confirmed) return
     const response = await fetch(`/api/projects/${project.id}`, { method: 'DELETE' })
     if (!response.ok) return

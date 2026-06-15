@@ -7,6 +7,7 @@ import { Icons } from '@/components/ui/Icons'
 import { Toggle } from '@/components/ui/Toggle'
 import { Breadcrumbs } from '@/components/ui/Breadcrumbs'
 import type { AuthUser, NewsPost } from '@/lib/auth-db'
+import { IMAGE_PLACEHOLDER } from '@/lib/placeholders'
 
 type NewsPageClientProps = {
   initialUser: AuthUser | null
@@ -32,16 +33,10 @@ function NewsCard({ post, featured = false }: { post: NewsPost; featured?: boole
     <Link href={`/news/${post.id}`} className={`nc-card${featured ? ' nc-card-featured' : ''}`}>
       {/* Media */}
       <div className="nc-media">
-        {post.coverUrl ? (
-          <div
-            className="nc-img"
-            style={{ backgroundImage: `url(${JSON.stringify(post.coverUrl).slice(1, -1)})` }}
-          />
-        ) : (
-          <div className="nc-img nc-img-empty">
-            <span style={{ opacity: 0.2 }}>{Icons.news}</span>
-          </div>
-        )}
+        <div
+          className="nc-img"
+          style={{ backgroundImage: `url(${JSON.stringify(post.coverUrl || IMAGE_PLACEHOLDER).slice(1, -1)})` }}
+        />
         <span className="nc-category-badge">{post.category}</span>
       </div>
 

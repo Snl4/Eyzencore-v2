@@ -22,14 +22,6 @@ export async function POST(request: Request) {
     }
     const { code, expiresInSeconds } = await generateAndStoreVerificationCode(normalizedEmail)
 
-    // 🧪 ТЕСТОВИЙ РЕЖИМ: Виводимо код в консоль сервера
-    console.log('\n🔐 === VERIFICATION CODE (ТЕСТОВИЙ РЕЖИМ) ===')
-    console.log(`📧 Email: ${normalizedEmail}`)
-    console.log(`👤 Name: ${name || 'Не вказано'}`)
-    console.log(`🔑 CODE: ${code}`)
-    console.log(`⏱️  Дійсний на: ${Math.floor(expiresInSeconds / 60)} хвилин`)
-    console.log('🔐 ========================================\n')
-
     const messageResult = await sendMailWithGomailify({
       toEmail: normalizedEmail,
       toName: String(name || '').trim(),
@@ -38,7 +30,7 @@ export async function POST(request: Request) {
       html: `<div style="font-family:Arial,sans-serif"><h2>Підтвердження email</h2><p>Ваш код підтвердження:</p><p style="font-size:28px;font-weight:700;letter-spacing:4px">${code}</p><p>Код дійсний ${Math.floor(expiresInSeconds / 60)} хвилин.</p></div>`,
     })
     if (!messageResult.isSent) {
-      console.warn('⚠️  Email не був відправлений, але КОД вже показаний вище в консолі')
+      console.error('Email verification delivery failed:', messageResult.error)
       return NextResponse.json({ error: 'Не вдалося надіслати код. Перевірте налаштування пошти.' }, { status: 500 })
     }
     return NextResponse.json({

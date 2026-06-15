@@ -74,17 +74,32 @@ function mapAuthor(user: {
 }
 
 export async function listForumCategories() {
-  const categories = await prisma.forum_categories.findMany({
-    orderBy: [{ position: 'asc' }, { id: 'asc' }],
-    include: {
-      _count: { select: { forum_threads: true } },
-      forum_threads: {
-        orderBy: { last_activity_at: 'desc' },
-        take: 1,
-        select: { last_activity_at: true },
+  const [categories, categoryCounts] = await Promise.all([
+    prisma.forum_categories.findMany({
+      orderBy: [{ position: 'asc' }, { id: 'asc' }],
+      include: {
+        forum_threads: {
+          where: { is_deleted: 0 },
+          orderBy: { last_activity_at: 'desc' },
+          take: 1,
+          select: { last_activity_at: true },
+        },
       },
+    }),
+    prisma.forum_threads.groupBy({
+      by: ['category_id'],
+      where: { is_deleted: 0 },
+      _count: { _all: true },
+    }),
+  ])
+
+  const countsByCategory = categoryCounts.reduce<Record<number, number>>(
+    (acc, item) => {
+      acc[item.category_id] = item._count._all
+      return acc
     },
-  })
+    {}
+  )
 
   return categories.map((category) => ({
     id: category.id,
@@ -93,7 +108,7 @@ export async function listForumCategories() {
     description: category.description,
     icon: category.icon,
     color: category.color,
-    threads: category._count.forum_threads,
+    threads: countsByCategory[category.id] || 0,
     lastActivityAt: category.forum_threads[0]?.last_activity_at ?? null,
   }))
 }
@@ -237,16 +252,9 @@ export async function createForumThread(input: {
 export async function getForumThread(
   threadId: number,
   currentUserId?: string | null,
+  currentUserRole?: string | null,
   incrementView = false
 ) {
-  if (incrementView) {
-    await prisma.forum_threads.update({
-      where: { id: threadId },
-      data: { views: { increment: 1 } },
-      select: { id: true },
-    }).catch(() => null)
-  }
-
   const thread = await prisma.forum_threads.findUnique({
     where: { id: threadId },
     include: {
@@ -290,6 +298,24 @@ export async function getForumThread(
   })
 
   if (!thread) return null
+  if (
+    thread.is_deleted &&
+    thread.author_user_id !== currentUserId &&
+    !isAdmin(currentUserRole)
+  ) {
+    return null
+  }
+
+  if (incrementView && !thread.is_deleted) {
+    await prisma.forum_threads
+      .update({
+        where: { id: threadId },
+        data: { views: { increment: 1 } },
+        select: { id: true },
+      })
+      .catch(() => null)
+    thread.views += 1
+  }
 
   return {
     id: thread.id,
@@ -330,6 +356,11 @@ export async function getForumThread(
     isPinned: Boolean(thread.is_pinned),
     isLocked: Boolean(thread.is_locked),
     isSolved: Boolean(thread.is_solved),
+    isDeleted: Boolean(thread.is_deleted),
+    deletedAt: thread.deleted_at,
+    deletedByUserId: thread.deleted_by_user_id,
+    deletedReason: thread.deleted_reason,
+    moderationReason: thread.moderation_reason,
     createdAt: thread.created_at,
     updatedAt: thread.updated_at,
     lastActivityAt: thread.last_activity_at,
@@ -373,6 +404,7 @@ export async function deleteForumThread(input: {
   threadId: number
   userId: string
   role?: string | null
+  reason?: string
 }) {
   const existing = await prisma.forum_threads.findUnique({
     where: { id: input.threadId },
@@ -382,7 +414,16 @@ export async function deleteForumThread(input: {
   if (existing.author_user_id !== input.userId && !isAdmin(input.role)) {
     throw new Error('Недостатньо прав')
   }
-  await prisma.forum_threads.delete({ where: { id: input.threadId } })
+  await prisma.forum_threads.update({
+    where: { id: input.threadId },
+    data: {
+      is_deleted: 1,
+      deleted_at: new Date().toISOString(),
+      deleted_by_user_id: input.userId,
+      deleted_reason: input.reason || '',
+    },
+    select: { id: true },
+  })
 }
 
 export async function createForumReply(input: {
@@ -523,7 +564,8 @@ export async function moderateForumThread(input: {
   threadId: number
   userId: string
   role?: string | null
-  action: 'pin' | 'lock' | 'solve'
+  action: 'pin' | 'lock' | 'solve' | 'delete'
+  reason?: string
 }) {
   const thread = await prisma.forum_threads.findUnique({
     where: { id: input.threadId },
@@ -532,6 +574,7 @@ export async function moderateForumThread(input: {
       is_pinned: true,
       is_locked: true,
       is_solved: true,
+      moderation_reason: true,
     },
   })
   if (!thread) throw new Error('Тему не знайдено')
@@ -547,13 +590,30 @@ export async function moderateForumThread(input: {
     })
   }
 
+  if (input.action === 'delete') {
+    if (!isAdmin(input.role)) throw new Error('Потрібні права адміністратора')
+    return prisma.forum_threads.update({
+      where: { id: input.threadId },
+      data: {
+        is_deleted: 1,
+        deleted_at: new Date().toISOString(),
+        deleted_by_user_id: input.userId,
+        deleted_reason: input.reason || '',
+      },
+      select: { is_deleted: true },
+    })
+  }
+
   if (!isAdmin(input.role)) throw new Error('Потрібні права адміністратора')
   return prisma.forum_threads.update({
     where: { id: input.threadId },
     data:
       input.action === 'pin'
         ? { is_pinned: thread.is_pinned ? 0 : 1 }
-        : { is_locked: thread.is_locked ? 0 : 1 },
-    select: { is_pinned: true, is_locked: true },
+        : {
+            is_locked: thread.is_locked ? 0 : 1,
+            moderation_reason: input.reason || thread.moderation_reason,
+          },
+    select: { is_pinned: true, is_locked: true, moderation_reason: true },
   })
 }

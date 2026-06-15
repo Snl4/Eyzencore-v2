@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { ResponsiveContainer, AreaChart, Area, CartesianGrid, XAxis, YAxis, Tooltip } from 'recharts'
 import { PageShell } from '@/components/layout/PageShell'
 import { Breadcrumbs } from '@/components/ui/Breadcrumbs'
+import { useConfirm } from '@/components/ui/ConfirmDialog'
 import type { AuthUser, ServerReview, ServerVoteEntry, UserRole } from '@/lib/auth-db'
 
 interface OwnerServerManageClientProps {
@@ -55,6 +56,7 @@ type ManageChartTooltipProps = {
 
 export function OwnerServerManageClient({ initialUser, role, serverId }: OwnerServerManageClientProps) {
   const router = useRouter()
+  const confirmAction = useConfirm()
   const [server, setServer] = useState<ServerData | null>(null)
   const [stats, setStats] = useState<StatsResponse | null>(null)
   const [activity, setActivity] = useState<ActivityResponse | null>(null)
@@ -112,7 +114,11 @@ export function OwnerServerManageClient({ initialUser, role, serverId }: OwnerSe
     if (!server) {
       return
     }
-    const shouldDelete = window.confirm(`Delete "${server.name}"? This action cannot be undone.`)
+    const shouldDelete = await confirmAction({
+      title: `Видалити сервер «${server.name}»?`,
+      description: 'Сервер, статистика, голоси й відгуки будуть видалені. Дію неможливо скасувати.',
+      confirmLabel: 'Видалити сервер',
+    })
     if (!shouldDelete) {
       return
     }
@@ -128,7 +134,11 @@ export function OwnerServerManageClient({ initialUser, role, serverId }: OwnerSe
   }
 
   const handleDeleteReview = async (reviewId: number) => {
-    const shouldDelete = window.confirm('Delete this review?')
+    const shouldDelete = await confirmAction({
+      title: 'Видалити відгук?',
+      description: 'Відгук буде остаточно видалено зі сторінки сервера.',
+      confirmLabel: 'Видалити відгук',
+    })
     if (!shouldDelete) {
       return
     }

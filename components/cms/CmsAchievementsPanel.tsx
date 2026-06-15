@@ -1,7 +1,9 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Select } from '@/components/ui/Select'
+import { useConfirm } from '@/components/ui/ConfirmDialog'
+import { uploadFile } from '@/lib/upload'
 import {
   ACHIEVEMENT_TRIGGER_META,
   ACHIEVEMENT_TRIGGER_TYPES,
@@ -25,6 +27,7 @@ type BuilderState = {
   slug: string
   description: string
   emblem: string
+  image_url: string
   trigger_type: AchievementTriggerType
   trigger_value: number
   is_active: number
@@ -36,6 +39,7 @@ const emptyBuilder = (): BuilderState => ({
   slug: '',
   description: '',
   emblem: '★',
+  image_url: '',
   trigger_type: 'servers_count',
   trigger_value: 1,
   is_active: 1,
@@ -54,6 +58,7 @@ function toBuilder(row: AchievementRecord): BuilderState {
     slug: row.slug,
     description: row.description,
     emblem: row.emblem,
+    image_url: row.image_url || '',
     trigger_type: triggerType,
     trigger_value: meta.needsValue ? row.trigger_value : meta.defaultValue,
     is_active: row.is_active,
@@ -68,6 +73,7 @@ export function CmsAchievementsPanel({
   onError: (message: string) => void
   onStatsRefresh: () => Promise<void>
 }) {
+  const confirmAction = useConfirm()
   const [rows, setRows] = useState<AchievementRecord[]>([])
   const [users, setUsers] = useState<CmsUserOption[]>([])
   const [loading, setLoading] = useState(true)
@@ -78,6 +84,8 @@ export function CmsAchievementsPanel({
   const [editingId, setEditingId] = useState<number | null>(null)
   const [grantUserId, setGrantUserId] = useState('')
   const [grantAchievementId, setGrantAchievementId] = useState<number | ''>('')
+  const [imageUploading, setImageUploading] = useState(false)
+  const imageInputRef = useRef<HTMLInputElement>(null)
 
   const triggerMeta = ACHIEVEMENT_TRIGGER_META[builder.trigger_type]
 
@@ -183,8 +191,25 @@ export function CmsAchievementsPanel({
     setSaving(false)
   }
 
+  async function uploadAchievementImage(file: File | null) {
+    if (!file) return
+    setImageUploading(true)
+    try {
+      const uploaded = await uploadFile(file, 'misc')
+      setBuilder((current) => ({ ...current, image_url: uploaded.url }))
+    } catch (error) {
+      onError(error instanceof Error ? error.message : 'Не вдалося завантажити зображення')
+    } finally {
+      setImageUploading(false)
+    }
+  }
+
   async function removeAchievement(id: number) {
-    if (!confirm('Видалити досягнення? Користувачі втратять цей бейдж.')) return
+    if (!await confirmAction({
+      title: 'Видалити досягнення?',
+      description: 'Користувачі втратять цей бейдж, а налаштування досягнення буде видалено.',
+      confirmLabel: 'Видалити досягнення',
+    })) return
     const response = await fetch(`/api/cms/data/achievements/${id}`, {
       method: 'DELETE',
     })
@@ -403,10 +428,52 @@ export function CmsAchievementsPanel({
             </div>
           </div>
 
+          <div className="cms-achievement-image-field">
+            <span>Кастомне зображення</span>
+            <input
+              ref={imageInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif,image/avif"
+              hidden
+              onChange={(event) => {
+                void uploadAchievementImage(event.target.files?.[0] || null)
+                event.target.value = ''
+              }}
+            />
+            {builder.image_url ? (
+              <div className="cms-achievement-image-preview">
+                <img src={builder.image_url} alt="Превʼю емблеми" />
+                <div>
+                  <button type="button" onClick={() => imageInputRef.current?.click()}>
+                    {imageUploading ? 'Завантаження...' : 'Замінити'}
+                  </button>
+                  <button
+                    className="danger"
+                    type="button"
+                    onClick={() => setBuilder({ ...builder, image_url: '' })}
+                  >
+                    Прибрати
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                className="cms-achievement-image-upload"
+                type="button"
+                disabled={imageUploading}
+                onClick={() => imageInputRef.current?.click()}
+              >
+                {imageUploading ? 'Завантаження...' : 'Завантажити PNG, JPG, WebP, GIF або AVIF'}
+              </button>
+            )}
+          </div>
+
           <div className="cms-achievements-preview">
             <p className="cms-eyebrow">Превʼю в профілі</p>
             <div className={`pbadge${builder.is_active ? '' : ' locked'}`}>
-              <div className="pbadge-medal">{builder.emblem || '★'}</div>
+              <div className="pbadge-medal">
+                {builder.image_url ? <img src={builder.image_url} alt="" /> : builder.emblem || '★'}
+              </div>
               <div className="pbadge-name">
                 {builder.name || 'Назва досягнення'}
               </div>
@@ -492,7 +559,9 @@ export function CmsAchievementsPanel({
                   className={row.is_active ? '' : 'inactive'}
                   key={row.id}
                 >
-                  <div className="pbadge-medal">{row.emblem}</div>
+                  <div className="pbadge-medal">
+                    {row.image_url ? <img src={row.image_url} alt="" /> : row.emblem}
+                  </div>
                   <div>
                     <strong>{row.name}</strong>
                     <p>{row.description}</p>

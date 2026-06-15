@@ -1,4 +1,5 @@
 import { createHash, randomBytes, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';
+import bcrypt from 'bcryptjs';
 import { normalizeServerAddress, type ServerPlatform } from '@/lib/discord';
 import { prisma } from '@/lib/prisma';
 import type { Server } from '@/lib/types';
@@ -25,6 +26,7 @@ type DbUserRow = {
   avatar_url: string | null;
   banner_url: string | null;
   role: string;
+  is_legacy?: number | null;
   created_at: string;
   updated_at: string;
 };
@@ -171,13 +173,14 @@ export type NewsPost = {
   authorAvatarUrl: string | null;
 };
 
-export type NewsBlockType = 'heading' | 'paragraph' | 'quote' | 'image' | 'video';
+export type NewsBlockType = 'heading' | 'paragraph' | 'quote' | 'image' | 'video' | 'gallery';
 
 export type NewsContentBlock = {
   id: string;
   type: NewsBlockType;
   text?: string;
   url?: string;
+  urls?: string[];
   caption?: string;
 };
 
@@ -209,6 +212,7 @@ export type AuthUser = {
     avatar_url: string | null;
     banner_url: string | null;
     role: UserRole;
+    is_legacy: boolean;
   };
 };
 
@@ -335,6 +339,9 @@ function hashPassword(password: string) {
 }
 
 function verifyPassword(password: string, stored: string) {
+  if (/^\$2[aby]\$/.test(stored)) {
+    return bcrypt.compareSync(password, stored);
+  }
   const [algo, salt, existingHash] = stored.split('$');
   if (algo !== 'scrypt' || !salt || !existingHash) return false;
   const incomingHash = scryptSync(password, salt, 64);
@@ -371,6 +378,7 @@ function mapUserRow(row: DbUserRow): AuthUser {
       avatar_url: row.avatar_url || null,
       banner_url: row.banner_url || null,
       role: resolveUserRole({ userId: row.id, role: row.role }),
+      is_legacy: Boolean(row.is_legacy),
     },
   };
 }
@@ -1057,7 +1065,7 @@ export async function createServer(input: {
   const result = await db.prepare(
     `INSERT INTO app_servers (
       owner_id, name, addr, platform, mode, ver, core, country, motd, short_desc, full_desc, desc, website, discord, telegram, donate, tiktok, launcher_url,
-      avatar_url, banner_url, gallery_json, videos_json, tags, online, players, max, uptime, verified, cluster, project_id,
+      avatar_url, banner_url, gallery_json, videos_json, tags, online, players, max, uptime, verified, cluster_id, project_id,
       discord_guild_id, discord_bot_verified, discord_verify_code, created_at, updated_at
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, 'new', 0, NULL, ?, NULL, 0, ?, ?, ?)`
   ).run(
@@ -1604,14 +1612,21 @@ export async function getServerReviewByActor(input: { serverId: number; userId?:
 export async function recordServerOnlineSample(input: { serverId: number; online: boolean; players: number; max: number; votes: number; views: number }) {
   const db = getDb();
   const recordedAt = nowIso();
+  const players = Math.max(0, Number(input.players || 0));
+  const max = Math.max(0, Number(input.max || 0));
+  await db.prepare(
+    `UPDATE app_servers
+     SET online = ?, players = ?, max = ?, updated_at = ?
+     WHERE id = ?`
+  ).run(input.online ? 1 : 0, players, max, recordedAt, input.serverId);
   await db.prepare(
     `INSERT INTO app_server_online_samples (server_id, online, players, max, votes, views, recorded_at)
      VALUES (?, ?, ?, ?, ?, ?, ?)`
   ).run(
     input.serverId,
     input.online ? 1 : 0,
-    Math.max(0, Number(input.players || 0)),
-    Math.max(0, Number(input.max || 0)),
+    players,
+    max,
     Math.max(0, Number(input.votes || 0)),
     Math.max(0, Number(input.views || 0)),
     recordedAt
@@ -2581,6 +2596,26 @@ export async function getServerDashboardSnapshot(input: { serverId: number; user
   };
 }
 
+export async function updateServerLiveStatus(input: {
+  serverId: number;
+  online: boolean;
+  players: number;
+  max: number;
+}) {
+  const db = getDb();
+  await db.prepare(
+    `UPDATE app_servers
+     SET online = ?, players = ?, max = ?, updated_at = ?
+     WHERE id = ?`
+  ).run(
+    input.online ? 1 : 0,
+    Math.max(0, Number(input.players || 0)),
+    Math.max(0, Number(input.max || 0)),
+    nowIso(),
+    input.serverId
+  );
+}
+
 /**
  * Backfill missing country_code on app_server_views rows that have an IP but no country.
  * Returns the number of rows that were updated. Safe to call repeatedly.
@@ -2872,6 +2907,9 @@ function buildNewsPlainContent(blocks: NewsContentBlock[]): string {
     if ((block.type === 'image' || block.type === 'video') && block.caption) {
       lines.push(String(block.caption).trim());
     }
+    if (block.type === 'gallery' && block.caption) {
+      lines.push(String(block.caption).trim());
+    }
   });
   return normalizeNewsText(lines.join('\n\n'), 4000);
 }
@@ -2911,6 +2949,20 @@ function normalizeNewsBlocks(input: { blocks?: NewsContentBlock[]; fallbackConte
         id,
         type,
         url,
+        caption: normalizeNewsText(String(block?.caption || ''), 220),
+      });
+      return;
+    }
+    if (type === 'gallery') {
+      const urls = (Array.isArray(block?.urls) ? block.urls : [])
+        .map((url) => sanitizeImageUrl(String(url || ''), 'News gallery image'))
+        .filter((url): url is string => Boolean(url))
+        .slice(0, 20);
+      if (urls.length === 0) return;
+      normalizedBlocks.push({
+        id,
+        type,
+        urls,
         caption: normalizeNewsText(String(block?.caption || ''), 220),
       });
     }

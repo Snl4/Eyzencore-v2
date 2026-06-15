@@ -4,6 +4,7 @@ import Image from 'next/image'
 import { useState } from 'react'
 import { PageShell } from '@/components/layout/PageShell'
 import { Breadcrumbs } from '@/components/ui/Breadcrumbs'
+import { useConfirm } from '@/components/ui/ConfirmDialog'
 import type { AuthUser, Project, UserRole } from '@/lib/auth-db'
 
 interface ProjectsClientProps {
@@ -29,6 +30,7 @@ const emptyForm = (): ProjectFormData => ({
 })
 
 export function ProjectsClient({ initialUser, role, initialProjects }: ProjectsClientProps) {
+  const confirmAction = useConfirm()
   const [projects, setProjects] = useState<Project[]>(initialProjects)
   const [showModal, setShowModal] = useState(false)
   const [editingProject, setEditingProject] = useState<Project | null>(null)
@@ -100,7 +102,11 @@ export function ProjectsClient({ initialUser, role, initialProjects }: ProjectsC
   }
 
   const handleDelete = async (projectId: number, projectName: string) => {
-    const confirmed = window.confirm(`Видалити проект "${projectName}"? Сервери не будуть видалені, але відʼєднаються від проекту.`)
+    const confirmed = await confirmAction({
+      title: `Видалити проєкт «${projectName}»?`,
+      description: 'Сервери не буде видалено, але вони від’єднаються від цього проєкту.',
+      confirmLabel: 'Видалити проєкт',
+    })
     if (!confirmed) return
     setDeletingId(projectId)
     const response = await fetch(`/api/projects/${projectId}`, { method: 'DELETE' })

@@ -1,5 +1,6 @@
 import { Icons } from '@/components/ui/Icons';
 import { formatJoinedAt, formatNumberUA } from './format';
+import { IMAGE_PLACEHOLDER } from '@/lib/placeholders';
 
 export interface ProfileHeaderData {
   fullName: string;
@@ -17,23 +18,16 @@ export interface ProfileHeaderData {
   tags: string[];
 }
 
-function avatarChar(name: string) {
-  const trimmed = name.trim();
-  return (trimmed[0] || 'U').toUpperCase();
-}
-
 export function ProfileHeader({ data }: { data: ProfileHeaderData }) {
   const normalizedRole = String(data.role || '').toUpperCase();
   const showOwner = normalizedRole === 'OWNER';
   const showAdmin = normalizedRole === 'ADMIN';
 
-  const coverStyle = data.bannerUrl
-    ? {
-        backgroundImage: `url(${JSON.stringify(data.bannerUrl).slice(1, -1)})`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-      }
-    : undefined;
+  const coverStyle = {
+    backgroundImage: `url(${JSON.stringify(data.bannerUrl || IMAGE_PLACEHOLDER).slice(1, -1)})`,
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
+  };
 
   return (
     <>
@@ -42,25 +36,21 @@ export function ProfileHeader({ data }: { data: ProfileHeaderData }) {
         <div
           className="profile-avatar"
           style={
-            data.avatarUrl
-              ? {
-                  backgroundImage: `url(${JSON.stringify(data.avatarUrl).slice(1, -1)})`,
+            {
+                  backgroundImage: `url(${JSON.stringify(data.avatarUrl || IMAGE_PLACEHOLDER).slice(1, -1)})`,
                   backgroundSize: 'cover',
                   backgroundPosition: 'center',
                   color: 'transparent',
                 }
-              : undefined
           }
-        >
-          {!data.avatarUrl && avatarChar(data.fullName)}
-        </div>
+        />
         <div className="profile-info">
           <h2 className="profile-name">
             <span className="profile-name-tags">
               {data.tags.map((tag) => (
                 <span
                   key={tag}
-                  className={tag.toLowerCase() === 'stuff' ? 'tag tag-stuff' : 'tag tag-old'}
+                  className="tag tag-old"
                 >
                   {tag}
                 </span>
