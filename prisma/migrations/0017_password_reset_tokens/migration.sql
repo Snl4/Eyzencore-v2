@@ -10,10 +10,7 @@ CREATE TABLE "password_reset_tokens" (
     ON DELETE CASCADE ON UPDATE NO ACTION
 );
 
-CREATE UNIQUE INDEX "sqlite_autoindex_password_reset_tokens_2"
-  ON "password_reset_tokens"("token_hash");
-
-CREATE INDEX "idx_password_reset_tokens_token_hash"
+CREATE UNIQUE INDEX "idx_password_reset_tokens_token_hash_unique"
   ON "password_reset_tokens"("token_hash");
 
 CREATE INDEX "idx_password_reset_tokens_user_id"
