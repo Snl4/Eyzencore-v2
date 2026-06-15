@@ -20,7 +20,8 @@
     "db:audit": "tsx scripts/prisma-audit.ts",
     "db:verify": "npm run db:generate && prisma validate && prisma migrate status && npm run db:audit && npm run db:smoke",
     "db:import-nebula": "node scripts/import-nebula.cjs",
-    "db:migrate-user-slugs": "node scripts/migrate-imported-user-slugs.cjs"
+    "db:migrate-user-slugs": "node scripts/migrate-imported-user-slugs.cjs",
+    "deploy:vps": "bash ./deploy.sh"
   },
   "dependencies": {
     "@fortawesome/fontawesome-svg-core": "^7.2.0",
