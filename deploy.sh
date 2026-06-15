@@ -15,6 +15,7 @@ backup_path="${BACKUP_DIR}/${timestamp}"
 previous_commit=""
 database_path=""
 release_activated=0
+app_was_running=0
 
 log() {
   printf '\n\033[1;36m[%s]\033[0m %s\n' "$(date +%H:%M:%S)" "$*"
@@ -34,6 +35,9 @@ on_error() {
     git reset --hard "$previous_commit" >&2 || true
     if [[ -n "$database_path" && -f "$backup_path/$(basename "$database_path")" ]]; then
       cp "$backup_path/$(basename "$database_path")" "$database_path" || true
+    fi
+    if [[ "$app_was_running" -eq 1 ]]; then
+      PORT="$PORT" pm2 restart "$PM2_APP" --update-env >&2 || true
     fi
   fi
   exit "$exit_code"
@@ -87,6 +91,12 @@ npm ci
 
 log "Generating Prisma client"
 npm run db:generate
+
+if pm2 describe "$PM2_APP" >/dev/null 2>&1; then
+  app_was_running=1
+  log "Stopping application to unlock SQLite"
+  pm2 stop "$PM2_APP"
+fi
 
 log "Applying database migrations"
 npm run db:deploy
