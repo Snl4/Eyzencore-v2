@@ -14,6 +14,7 @@ export function Nav() {
   const router = useRouter();
   const { theme, toggle } = useTheme();
   const [user, setUser] = useState<AuthUser | null>(null);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const [, startTransition] = useTransition();
 
   useEffect(() => {
@@ -37,14 +38,26 @@ export function Nav() {
   }
 
   return (
-    <nav className="nav" style={{ position: 'sticky', top: 12, zIndex: 50, margin: '12px auto 0', maxWidth: 1100, padding: '0 16px' }}>
+    <nav className={`nav${mobileOpen ? ' mobile-open' : ''}`}>
       <div className="nav-inner">
         <Link className="brand" href="/">
           <BrandMark />
           <span>Eyzencore</span>
         </Link>
 
-        <div className="nav-links" style={{ display: 'flex', gap: 4, marginLeft: 8 }}>
+        <button
+          type="button"
+          className="nav-mobile-toggle"
+          aria-label={mobileOpen ? 'Закрити меню' : 'Відкрити меню'}
+          aria-expanded={mobileOpen}
+          onClick={() => setMobileOpen((open) => !open)}
+        >
+          <span />
+          <span />
+          <span />
+        </button>
+
+        <div className="nav-links">
           {[
             { href: '/servers/minecraft', label: 'Minecraft' },
             { href: '/servers/discord', label: 'Discord' },
@@ -55,24 +68,16 @@ export function Nav() {
             <Link
               key={href}
               href={href}
-              style={{ padding: '6px 12px', fontSize: '13.5px', color: 'var(--fg-1)', borderRadius: 999, transition: 'color .15s, background .15s' }}
-              onMouseEnter={(event) => {
-                (event.target as HTMLAnchorElement).style.color = 'var(--fg)';
-                (event.target as HTMLAnchorElement).style.background = 'var(--bg-2)';
-              }}
-              onMouseLeave={(event) => {
-                (event.target as HTMLAnchorElement).style.color = 'var(--fg-1)';
-                (event.target as HTMLAnchorElement).style.background = 'transparent';
-              }}
+              onClick={() => setMobileOpen(false)}
             >
               {label}
             </Link>
           ))}
         </div>
 
-        <div style={{ flex: 1 }} />
+        <div className="nav-spacer" />
 
-        <div className="nav-cta" style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+        <div className="nav-cta">
           {user ? (
             <UserProfileDropdown
               user={user}

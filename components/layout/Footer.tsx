@@ -12,7 +12,7 @@ const SOCIALS = ['Discord', 'Telegram', 'GitHub', 'X'] as const;
 
 export function Footer() {
   return (
-    <footer className="foot" style={{ paddingTop:64, paddingBottom:40, borderTop:'1px solid var(--line)', marginTop:40 }}>
+    <footer className="foot">
       <div className="container">
         <div className="foot-grid">
           <div className="foot-brand">

@@ -6344,6 +6344,143 @@ button { cursor: pointer; }
   .legal-document > section { grid-template-columns: 1fr; gap: 7px; padding-bottom: 34px; }
   .legal-contact { margin-left: 0; }
 }
+
+/* Mobile navbar and footer hardening */
+.nav {
+  position: sticky;
+  top: 12px;
+  z-index: 80;
+  width: min(1100px, 100%);
+  margin: 12px auto 0;
+  padding: 0 16px;
+}
+.nav-links,
+.nav-cta { display: flex; align-items: center; }
+.nav-links { gap: 4px; margin-left: 8px; }
+.nav-links a {
+  padding: 6px 12px;
+  border-radius: 999px;
+  color: var(--fg-1);
+  font-size: 13.5px;
+  transition: color .15s, background .15s;
+}
+.nav-links a:hover { color: var(--fg); background: var(--bg-2); }
+.nav-cta { gap: 6px; }
+.nav-spacer { flex: 1; }
+.nav-mobile-toggle { display: none; }
+
+.foot {
+  overflow: hidden;
+  margin-top: 40px;
+  padding: 64px 0 40px;
+  border-top: 1px solid var(--line);
+}
+.foot-grid {
+  grid-template-columns: minmax(240px, 1.4fr) repeat(4, minmax(120px, 1fr));
+}
+
+@media (max-width: 900px) {
+  .nav { top: 8px; padding-inline: 10px; }
+  .nav-inner {
+    position: relative;
+    gap: 10px;
+    min-height: 54px;
+    padding: 7px 8px 7px 12px;
+    border-radius: 16px;
+  }
+  .nav-mobile-toggle {
+    order: 4;
+    display: grid;
+    place-content: center;
+    gap: 4px;
+    width: 38px;
+    height: 38px;
+    padding: 0;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--bg-2);
+    color: var(--fg);
+  }
+  .nav-mobile-toggle span {
+    width: 17px;
+    height: 2px;
+    border-radius: 999px;
+    background: currentColor;
+  }
+  .nav-links {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    left: 0;
+    display: none;
+    max-height: calc(100dvh - 92px);
+    margin: 0;
+    padding: 8px;
+    overflow-y: auto;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: color-mix(in oklab, var(--bg-1) 97%, transparent);
+    box-shadow: var(--shadow-lg);
+    backdrop-filter: blur(20px);
+  }
+  .nav.mobile-open .nav-links { display: grid; }
+  .nav-links a {
+    width: 100%;
+    padding: 11px 12px;
+    border-radius: 9px;
+  }
+  .nav-spacer { display: none; }
+  .nav-cta { margin-left: auto; }
+  .nav-cta .btn-primary { display: none; }
+
+  .foot-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 28px 22px;
+  }
+  .foot-brand { grid-column: 1 / -1; }
+}
+
+@media (max-width: 560px) {
+  html,
+  body { max-width: 100%; overflow-x: clip; }
+  .nav { width: 100%; padding-inline: 8px; }
+  .nav-inner { min-width: 0; }
+  .nav .brand span { display: none; }
+  .nav-cta .btn-secondary { padding-inline: 10px; }
+  .nav-theme-toggle { flex: 0 0 auto; }
+
+  .foot {
+    margin-top: 24px;
+    padding: 40px 0 calc(26px + env(safe-area-inset-bottom));
+  }
+  .foot-grid {
+    grid-template-columns: 1fr;
+    gap: 26px;
+    margin-bottom: 34px;
+  }
+  .foot-brand { grid-column: auto; }
+  .foot-brand p { max-width: none; }
+  .foot-bottom {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 12px;
+    overflow-wrap: anywhere;
+  }
+  .foot-bottom .right {
+    margin-left: 0;
+    flex-wrap: wrap;
+    gap: 8px 14px;
+  }
+  .page-side {
+    right: auto !important;
+    bottom: 0 !important;
+    top: 0 !important;
+    width: min(300px, calc(100vw - 28px)) !important;
+    height: 100dvh !important;
+    padding-bottom: calc(18px + env(safe-area-inset-bottom)) !important;
+    overflow-x: hidden !important;
+  }
+}
 .forum-locked-notice {
   display: flex;
   align-items: center;
