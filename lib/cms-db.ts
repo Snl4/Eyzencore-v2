@@ -114,6 +114,7 @@ export async function listCmsEntity(entity: CmsEntity) {
         orderBy: { created_at: 'desc' },
         select: {
           id: true,
+          owner_id: true,
           name: true,
           addr: true,
           platform: true,
@@ -365,9 +366,22 @@ export async function updateCmsEntity(
         select: { id: true },
       })
     case 'servers':
+      if (!text(input.owner_id, 191)) {
+        throw new Error('Вкажіть ID власника')
+      }
+      {
+        const owner = await prisma.app_users.findUnique({
+          where: { id: text(input.owner_id, 191) },
+          select: { id: true },
+        })
+        if (!owner) {
+          throw new Error('Користувача з таким ID не знайдено')
+        }
+      }
       return prisma.app_servers.update({
         where: { id: integer(id) },
         data: {
+          owner_id: text(input.owner_id, 191),
           name: text(input.name, 160),
           addr: text(input.addr, 255),
           platform: text(input.platform, 40) || 'minecraft',

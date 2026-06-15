@@ -149,12 +149,14 @@ const configs: Record<CmsEntity, EntityConfig> = {
     singular: 'категорію форуму',
     description: 'Керування розділами форуму.',
     columns: [
+      { key: 'app_users.full_name', label: 'Власник' },
       { key: 'name', label: 'Назва' },
       { key: 'slug', label: 'Slug' },
       { key: 'position', label: 'Позиція' },
       { key: '_count.forum_threads', label: 'Тем' },
     ],
     fields: [
+      { key: 'owner_id', label: 'ID власника' },
       { key: 'slug', label: 'Slug' },
       { key: 'name', label: 'Назва' },
       { key: 'description', label: 'Опис', type: 'textarea' },
