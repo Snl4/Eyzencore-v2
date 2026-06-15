@@ -6,6 +6,7 @@ import { CmsAchievementsPanel } from '@/components/cms/CmsAchievementsPanel'
 import { Select } from '@/components/ui/Select'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
 import type { CmsEntity } from '@/lib/cms-db'
+import type { MaintenanceSettings } from '@/lib/maintenance'
 
 type CmsRow = Record<string, unknown> & { id: string | number }
 type CmsStats = Record<CmsEntity, number>
@@ -210,9 +211,11 @@ function renderValue(value: unknown, key: string) {
 export function CmsClient({
   admin,
   initialStats,
+  initialMaintenance,
 }: {
   admin: { email: string; name: string }
   initialStats: CmsStats
+  initialMaintenance: MaintenanceSettings
 }) {
   const confirmAction = useConfirm()
   const router = useRouter()
@@ -224,6 +227,8 @@ export function CmsClient({
   const [error, setError] = useState('')
   const [editing, setEditing] = useState<CmsRow | null>(null)
   const [saving, setSaving] = useState(false)
+  const [maintenance, setMaintenance] = useState(initialMaintenance)
+  const [maintenanceSaving, setMaintenanceSaving] = useState(false)
 
   const config = configs[entity]
 
@@ -338,6 +343,31 @@ export function CmsClient({
     router.refresh()
   }
 
+  async function saveMaintenance() {
+    if (maintenance.enabled && !initialMaintenance.enabled) {
+      const confirmed = await confirmAction({
+        title: 'Увімкнути технічні роботи?',
+        description: 'Усі звичайні сторінки та API стануть недоступними. Адміністратор із чинною сесією збереже доступ.',
+        confirmLabel: 'Увімкнути',
+      })
+      if (!confirmed) return
+    }
+    setMaintenanceSaving(true)
+    setError('')
+    const response = await fetch('/api/cms/maintenance', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(maintenance),
+    })
+    const result = await response.json().catch(() => ({}))
+    if (!response.ok) {
+      setError(result.error || 'Не вдалося змінити режим технічних робіт')
+    } else {
+      setMaintenance(result as MaintenanceSettings)
+    }
+    setMaintenanceSaving(false)
+  }
+
   return (
     <main className="cms-shell">
       <aside className="cms-sidebar">
@@ -382,6 +412,49 @@ export function CmsClient({
 
         <div className="cms-content">
           {error ? <div className="cms-alert">{error}</div> : null}
+          <section className={`cms-maintenance-card${maintenance.enabled ? ' active' : ''}`}>
+            <div className="cms-maintenance-copy">
+              <p className="cms-eyebrow">Стан платформи</p>
+              <h2>Технічні роботи</h2>
+              <p>
+                {maintenance.enabled
+                  ? 'Сайт закритий для відвідувачів. Адміністратор має повний доступ.'
+                  : 'Сайт працює у звичайному режимі.'}
+              </p>
+            </div>
+            <button
+              className={`cms-toggle ${maintenance.enabled ? 'on' : ''}`}
+              onClick={() => setMaintenance((current) => ({ ...current, enabled: !current.enabled }))}
+              type="button"
+            >
+              {maintenance.enabled ? 'Увімкнено' : 'Вимкнено'}
+            </button>
+            <label>
+              <span>Заголовок</span>
+              <input
+                value={maintenance.title}
+                maxLength={120}
+                onChange={(event) => setMaintenance((current) => ({ ...current, title: event.target.value }))}
+              />
+            </label>
+            <label className="wide">
+              <span>Повідомлення для відвідувачів</span>
+              <textarea
+                rows={3}
+                value={maintenance.message}
+                maxLength={1000}
+                onChange={(event) => setMaintenance((current) => ({ ...current, message: event.target.value }))}
+              />
+            </label>
+            <button
+              className="cms-primary-button"
+              disabled={maintenanceSaving}
+              onClick={saveMaintenance}
+              type="button"
+            >
+              {maintenanceSaving ? 'Збереження...' : 'Зберегти режим'}
+            </button>
+          </section>
           {entity === 'achievements' ? (
             <CmsAchievementsPanel
               onError={setError}

@@ -5188,7 +5188,7 @@ button { cursor: pointer; }
   font: inherit;
   cursor: pointer;
 }
-.cms-toggle.on {
+  .cms-toggle.on {
   border-color: color-mix(in oklab, #22c55e 35%, var(--line));
   background: color-mix(in oklab, #22c55e 10%, var(--bg));
   color: #86efac;
@@ -5381,6 +5381,79 @@ button { cursor: pointer; }
 @media (max-width: 1100px) {
   .cms-achievements-layout {
     grid-template-columns: 1fr;
+  }
+  .cms-maintenance-card {
+    display: grid;
+    grid-template-columns: minmax(260px, 1fr) auto;
+    gap: 16px;
+    align-items: end;
+    margin-bottom: 22px;
+    padding: 20px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: var(--bg-1);
+  }
+  .cms-maintenance-card.active {
+    border-color: color-mix(in srgb, var(--red) 55%, var(--line));
+    background: color-mix(in srgb, var(--red) 7%, var(--bg-1));
+  }
+  .cms-maintenance-copy h2 { margin: 3px 0 6px; font-size: 20px; }
+  .cms-maintenance-copy > p:last-child { margin: 0; color: var(--fg-2); font-size: 13px; }
+  .cms-maintenance-card label { display: grid; gap: 7px; }
+  .cms-maintenance-card label.wide { grid-column: 1 / -1; }
+  .cms-maintenance-card label > span { color: var(--fg-2); font-size: 12px; font-weight: 600; }
+  .cms-maintenance-card input,
+  .cms-maintenance-card textarea {
+    width: 100%;
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    background: var(--bg);
+    color: var(--fg);
+    padding: 10px 12px;
+    font: inherit;
+  }
+  .cms-maintenance-card textarea { resize: vertical; }
+  .cms-maintenance-card > .cms-primary-button { justify-self: end; min-height: 38px; padding: 0 16px; }
+  .maintenance-page {
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    background:
+      radial-gradient(circle at 20% 20%, rgba(99,102,241,.16), transparent 34%),
+      radial-gradient(circle at 80% 75%, rgba(129,140,248,.12), transparent 30%),
+      var(--bg);
+  }
+  .maintenance-card {
+    width: min(620px, 100%);
+    padding: clamp(28px, 6vw, 56px);
+    border: 1px solid var(--line);
+    border-radius: 22px;
+    background: color-mix(in srgb, var(--bg-1) 94%, transparent);
+    box-shadow: 0 24px 80px rgba(0,0,0,.2);
+    text-align: center;
+  }
+  .maintenance-mark {
+    width: 58px;
+    height: 58px;
+    display: grid;
+    place-items: center;
+    margin: 0 auto 22px;
+    border-radius: 16px;
+    background: var(--primary);
+    color: var(--primary-foreground);
+    font: 700 18px var(--font-mono);
+  }
+  .maintenance-eyebrow { color: var(--primary); font: 500 11px var(--font-mono); text-transform: uppercase; letter-spacing: .12em; }
+  .maintenance-card h1 { margin: 12px 0; font-size: clamp(34px, 7vw, 58px); letter-spacing: -.045em; }
+  .maintenance-card > p:not(.maintenance-eyebrow) { max-width: 500px; margin: 0 auto; color: var(--fg-2); font-size: 16px; line-height: 1.7; }
+  .maintenance-status { display: inline-flex; align-items: center; gap: 8px; margin: 28px 0 18px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 999px; color: var(--fg-2); font: 500 12px var(--font-mono); }
+  .maintenance-status span { width: 8px; height: 8px; border-radius: 50%; background: var(--amber); box-shadow: 0 0 0 5px color-mix(in srgb, var(--amber) 15%, transparent); }
+  .maintenance-card a { display: block; color: var(--fg-3); font-size: 12px; text-decoration: none; }
+  .maintenance-card a:hover { color: var(--primary); }
+  @media (max-width: 720px) {
+    .cms-maintenance-card { grid-template-columns: 1fr; align-items: stretch; }
+    .cms-maintenance-card > .cms-primary-button { justify-self: stretch; }
   }
 }
 .cms-login-page {
