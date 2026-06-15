@@ -100,7 +100,8 @@ export async function POST(request: Request) {
       success: true,
       message: 'Якщо акаунт з таким email існує, ми надіслали інструкцію для відновлення пароля.',
     })
-  } catch {
+  } catch (error) {
+    console.error('Forgot password request failed:', error)
     return NextResponse.json({ error: 'Не вдалося обробити запит на відновлення пароля.' }, { status: 500 })
   }
 }

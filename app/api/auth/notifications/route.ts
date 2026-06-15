@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic'
 export async function GET() {
   const user = await getCurrentUser()
   if (!user) {
-    return NextResponse.json({ notifications: [] }, { status: 401 })
+    return NextResponse.json({ notifications: [] })
   }
 
   const notifications = await prisma.app_notifications.findMany({
