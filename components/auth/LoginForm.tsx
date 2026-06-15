@@ -1,5 +1,6 @@
 'use client'
 import type { FormEvent } from 'react'
+import Link from 'next/link'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { AuthIcons } from '@/components/auth/AuthIcons'
@@ -17,10 +18,12 @@ export function LoginForm() {
   const [remember, setRemember] = useState<boolean>(true)
   const [isLoading, setIsLoading] = useState<boolean>(false)
   const [status, setStatus] = useState<LoginStatus>({ type: null, message: '' })
+
   const handleSubmitLogin = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault()
     setStatus({ type: 'loading', message: 'Перевіряємо дані входу...' })
     setIsLoading(true)
+
     try {
       const response = await fetch('/api/auth/login', {
         method: 'POST',
@@ -28,11 +31,13 @@ export function LoginForm() {
         body: JSON.stringify({ email, password, remember }),
       })
       const data = (await response.json()) as { error?: string }
+
       if (!response.ok) {
         setStatus({ type: 'error', message: data.error || 'Невірний email або пароль' })
         setIsLoading(false)
         return
       }
+
       setStatus({ type: 'success', message: 'Успішний вхід. Переходимо в кабінет...' })
       router.push('/settings')
       router.refresh()
@@ -41,6 +46,7 @@ export function LoginForm() {
       setIsLoading(false)
     }
   }
+
   return (
     <form onSubmit={handleSubmitLogin}>
       <div className="social-row">
@@ -66,7 +72,7 @@ export function LoginForm() {
       <div className="field">
         <label>
           Пароль
-          <a href="#">Забули пароль?</a>
+          <Link href="/forgot-password">Забули пароль?</Link>
         </label>
         <div className="input-wrap">
           <span className="ico-l">

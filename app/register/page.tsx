@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { RegisterForm } from '@/components/auth/RegisterForm'
 import { AuthIcons } from '@/components/auth/AuthIcons'
+import { BrandMark } from '@/components/ui/BrandMark'
 import { getCurrentUser } from '@/lib/auth-server'
 import { prisma } from '@/lib/prisma'
 
@@ -69,7 +70,7 @@ export default async function RegisterPage() {
     <div className="auth-page">
       <aside className="auth-aside">
         <Link className="brand" href="/">
-          <span className="auth-brand-logo">E</span>
+          <BrandMark size={24} className="auth-brand-logo" />
           <span>Eyzencore</span>
         </Link>
         <div className="auth-headline">

@@ -2721,12 +2721,11 @@ button { cursor: pointer; }
   .auth-bullet { display: flex; gap: 10px; align-items: flex-start; font-size: 13.5px; color: var(--fg-1); }
   .auth-bullet .check { width: 18px; height: 18px; border-radius: 999px; background: color-mix(in oklab, var(--accent) 25%, transparent); border: 1px solid var(--accent); display: grid; place-items: center; color: var(--accent); flex-shrink: 0; margin-top: 1px; }
   .auth-brand-logo {
-    width: 24px; height: 24px; display: grid; place-items: center;
-    background: linear-gradient(135deg, var(--accent), var(--accent-2));
-    border-radius: 6px; color: #0a0c14; font-weight: 800; font-size: 13px;
-    font-family: var(--font-mono);
-    box-shadow: 0 0 0 1px rgba(255,255,255,0.1) inset, 0 4px 14px rgba(123,140,255,0.4);
+    width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center;
+    border-radius: 6px; overflow: hidden;
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.1) inset, 0 4px 14px rgba(24,144,255,0.28);
   }
+  .auth-brand-logo img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .auth-main { display: flex; flex-direction: column; padding: 32px 40px 40px; justify-content: space-between; }
   .auth-form-wrap { max-width: 380px; width: 100%; margin: auto; padding: 40px 0; }
   .auth-form-wrap h1 { font-family: var(--font-display); font-size: 28px; font-weight: 600; letter-spacing: -0.025em; margin: 0 0 8px; }

@@ -7,6 +7,7 @@ import { ADMIN_EMAIL } from '@/lib/constants';
 
 export const AUTH_COOKIE_NAME = 'eyzencore_session';
 const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 30;
+const PASSWORD_RESET_TOKEN_TTL_SECONDS = 60 * 30;
 const DEFAULT_VOTE_COOLDOWN_HOURS = 24;
 
 export type UserRole = 'USER' | 'OWNER' | 'ADMIN';
@@ -38,6 +39,17 @@ type DbSessionRow = {
   user_agent: string | null;
   created_at: string;
   revoked_at: string | null;
+};
+
+type DbPasswordResetTokenRow = {
+  id: string;
+  user_id: string;
+  token_hash: string;
+  created_at: string;
+  expires_at: string;
+  used_at: string | null;
+  email?: string;
+  full_name?: string;
 };
 
 type DbServerRow = {
@@ -225,6 +237,14 @@ export type AuthSession = {
   created_at: string;
   current: boolean;
   user_agent: string | null;
+};
+
+export type PasswordResetRequest = {
+  userId: string;
+  email: string;
+  fullName: string;
+  token: string;
+  expiresAt: string;
 };
 
 type PrismaRunResult = {
@@ -514,6 +534,10 @@ export function getSessionMaxAgeSeconds() {
   return SESSION_MAX_AGE_SECONDS;
 }
 
+export function getPasswordResetTokenTtlSeconds() {
+  return PASSWORD_RESET_TOKEN_TTL_SECONDS;
+}
+
 export async function createUser(input: { email: string; password: string; name?: string | null }) {
   const email = normalizeEmail(input.email);
   const fallbackName = email.split('@')[0] || 'user';
@@ -741,6 +765,13 @@ export async function revokeOtherSessions(userId: string, currentSessionId: stri
   ).run(nowIso(), userId, currentSessionId);
 }
 
+export async function revokeAllSessionsForUser(userId: string) {
+  const db = getDb();
+  await db.prepare(
+    'UPDATE user_login_sessions SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL'
+  ).run(nowIso(), userId);
+}
+
 export async function updatePassword(userId: string, currentPassword: string, nextPassword: string) {
   const db = getDb();
   const row = await db.prepare('SELECT password_hash FROM app_users WHERE id = ? LIMIT 1').get(userId) as
@@ -756,6 +787,110 @@ export async function updatePassword(userId: string, currentPassword: string, ne
     nowIso(),
     userId
   );
+}
+
+export async function createPasswordResetRequest(emailInput: string) {
+  const email = normalizeEmail(emailInput);
+  const db = getDb();
+  const user = await db.prepare(
+    'SELECT id, email, full_name FROM app_users WHERE email = ? LIMIT 1'
+  ).get(email) as { id: string; email: string; full_name: string } | undefined;
+
+  if (!user) {
+    return null;
+  }
+
+  await db.prepare(
+    `DELETE FROM password_reset_tokens
+     WHERE user_id = ?
+        OR datetime(expires_at) <= datetime('now')
+        OR used_at IS NOT NULL`
+  ).run(user.id);
+
+  const id = randomUUID();
+  const token = randomBytes(32).toString('base64url');
+  const createdAt = nowIso();
+  const expiresAt = new Date(Date.now() + PASSWORD_RESET_TOKEN_TTL_SECONDS * 1000).toISOString();
+
+  await db.prepare(
+    `INSERT INTO password_reset_tokens (id, user_id, token_hash, created_at, expires_at, used_at)
+     VALUES (?, ?, ?, ?, ?, NULL)`
+  ).run(id, user.id, hashSessionToken(token), createdAt, expiresAt);
+
+  return {
+    userId: user.id,
+    email: user.email,
+    fullName: user.full_name,
+    token,
+    expiresAt,
+  } satisfies PasswordResetRequest;
+}
+
+export async function getPasswordResetRequest(token: string) {
+  const normalizedToken = String(token || '').trim();
+  if (!normalizedToken) {
+    return null;
+  }
+
+  const db = getDb();
+  const row = await db.prepare(
+    `SELECT
+       prt.id,
+       prt.user_id,
+       prt.token_hash,
+       prt.created_at,
+       prt.expires_at,
+       prt.used_at,
+       u.email,
+       u.full_name
+     FROM password_reset_tokens prt
+     JOIN app_users u ON u.id = prt.user_id
+     WHERE prt.token_hash = ?
+       AND prt.used_at IS NULL
+       AND datetime(prt.expires_at) > datetime('now')
+     LIMIT 1`
+  ).get(hashSessionToken(normalizedToken)) as DbPasswordResetTokenRow | undefined;
+
+  if (!row) {
+    return null;
+  }
+
+  return {
+    userId: row.user_id,
+    email: String(row.email || ''),
+    fullName: String(row.full_name || ''),
+    token: normalizedToken,
+    expiresAt: row.expires_at,
+  } satisfies PasswordResetRequest;
+}
+
+export async function resetPasswordWithToken(token: string, nextPassword: string) {
+  if (String(nextPassword || '').length < 8) {
+    throw new Error('Password must be at least 8 characters long');
+  }
+
+  const activeRequest = await getPasswordResetRequest(token);
+  if (!activeRequest) {
+    throw new Error('Reset token is invalid or expired');
+  }
+
+  const db = getDb();
+  const timestamp = nowIso();
+
+  await db.prepare(
+    'UPDATE app_users SET password_hash = ?, updated_at = ? WHERE id = ?'
+  ).run(hashPassword(nextPassword), timestamp, activeRequest.userId);
+
+  await db.prepare(
+    `UPDATE password_reset_tokens
+     SET used_at = ?
+     WHERE user_id = ?
+       AND used_at IS NULL`
+  ).run(timestamp, activeRequest.userId);
+
+  await revokeAllSessionsForUser(activeRequest.userId);
+
+  return { success: true };
 }
 
 const MAX_IMAGE_DATA_URL_LENGTH = 1_500_000;

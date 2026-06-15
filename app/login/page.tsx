@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { LoginForm } from '@/components/auth/LoginForm'
 import { AuthIcons } from '@/components/auth/AuthIcons'
+import { BrandMark } from '@/components/ui/BrandMark'
 import { getCurrentUser } from '@/lib/auth-server'
 
 export const metadata: Metadata = {
@@ -18,7 +19,7 @@ export default async function LoginPage() {
     <div className="auth-page">
       <aside className="auth-aside">
         <Link className="brand" href="/">
-          <span className="auth-brand-logo">E</span>
+          <BrandMark size={24} className="auth-brand-logo" />
           <span>Eyzencore</span>
         </Link>
         <div className="auth-headline">
