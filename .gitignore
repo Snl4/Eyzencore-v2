@@ -31,7 +31,10 @@ data/*.sqlite
 data/*.sqlite-*
 /dev.db
 /backups/
-/public/uploads/legacy-nebula/
+/public/uploads/legacy-nebula/*
+!/public/uploads/legacy-nebula/embedded/
+!/public/uploads/legacy-nebula/embedded/servers/
+!/public/uploads/legacy-nebula/embedded/servers/*.png
 /public/uploads/forum/
 
 # IDE / OS

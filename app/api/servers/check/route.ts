@@ -147,6 +147,22 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: message }, { status: 400 });
   }
   if (platform === 'minecraft' && !isValidMinecraftAddress(normalized)) {
+    if (body.allowExisting) {
+      return NextResponse.json({
+        success: true,
+        platform: 'minecraft',
+        probe: {
+          online: false,
+          players: 0,
+          max: 0,
+          version: '',
+          name: '',
+          motd: '',
+          country: '',
+          ip: '',
+        },
+      });
+    }
     return NextResponse.json({ error: 'Некоректний формат адреси Minecraft-сервера' }, { status: 400 });
   }
   if (!body.allowExisting && await findServerByAddress(normalized, platform)) {
