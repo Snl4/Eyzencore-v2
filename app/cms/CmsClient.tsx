@@ -60,6 +60,7 @@ const configs: Record<CmsEntity, EntityConfig> = {
     columns: [
       { key: 'name', label: 'Назва' },
       { key: 'addr', label: 'Адреса' },
+      { key: 'owner_id', label: 'ID власника' },
       { key: 'platform', label: 'Платформа' },
       { key: 'players', label: 'Гравці' },
       { key: 'verified', label: 'Перевірено' },
@@ -68,6 +69,7 @@ const configs: Record<CmsEntity, EntityConfig> = {
     fields: [
       { key: 'name', label: 'Назва' },
       { key: 'addr', label: 'Адреса' },
+      { key: 'owner_id', label: 'ID власника' },
       {
         key: 'platform',
         label: 'Платформа',
