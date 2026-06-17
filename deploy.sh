@@ -5,6 +5,7 @@ APP_DIR="${APP_DIR:-/root/eyzencore-new}"
 BRANCH="${BRANCH:-main}"
 REMOTE="${REMOTE:-origin}"
 PM2_APP="${PM2_APP:-eyzencore-new}"
+PM2_STATS_APP="${PM2_STATS_APP:-${PM2_APP}-stats}"
 PORT="${PORT:-3001}"
 HEALTH_URL="${HEALTH_URL:-http://127.0.0.1:${PORT}}"
 BACKUP_DIR="${BACKUP_DIR:-/root/backups/eyzencore}"
@@ -113,6 +114,13 @@ if pm2 describe "$PM2_APP" >/dev/null 2>&1; then
   PORT="$PORT" pm2 restart "$PM2_APP" --update-env
 else
   PORT="$PORT" pm2 start npm --name "$PM2_APP" --cwd "$APP_DIR" -- start
+fi
+
+log "Starting stats collector with PM2"
+if pm2 describe "$PM2_STATS_APP" >/dev/null 2>&1; then
+  PORT="$PORT" STATS_COLLECTOR_BASE_URL="$HEALTH_URL" pm2 restart "$PM2_STATS_APP" --update-env
+else
+  PORT="$PORT" STATS_COLLECTOR_BASE_URL="$HEALTH_URL" pm2 start npm --name "$PM2_STATS_APP" --cwd "$APP_DIR" -- run stats:collector
 fi
 pm2 save
 

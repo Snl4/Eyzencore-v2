@@ -1779,7 +1779,7 @@ export async function getServerReviewByActor(input: { serverId: number; userId?:
 
 export async function recordServerOnlineSample(input: { serverId: number; online: boolean; players: number; max: number; votes: number; views: number }) {
   const db = getDb();
-  const recordedAt = nowIso();
+  const recordedAt = new Date(Math.floor(Date.now() / 60_000) * 60_000).toISOString();
   const players = Math.max(0, Number(input.players || 0));
   const max = Math.max(0, Number(input.max || 0));
   await db.prepare(
@@ -1789,7 +1789,13 @@ export async function recordServerOnlineSample(input: { serverId: number; online
   ).run(input.online ? 1 : 0, players, max, recordedAt, input.serverId);
   await db.prepare(
     `INSERT INTO app_server_online_samples (server_id, online, players, max, votes, views, recorded_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`
+     VALUES (?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(server_id, recorded_at) DO UPDATE SET
+       online = excluded.online,
+       players = excluded.players,
+       max = excluded.max,
+       votes = excluded.votes,
+       views = excluded.views`
   ).run(
     input.serverId,
     input.online ? 1 : 0,
@@ -1802,7 +1808,7 @@ export async function recordServerOnlineSample(input: { serverId: number; online
   await db.prepare(
     `DELETE FROM app_server_online_samples
      WHERE server_id = ?
-       AND recorded_at < datetime('now', '-3 days')`
+       AND recorded_at < datetime('now', '-400 days')`
   ).run(input.serverId);
 }
 
@@ -1812,9 +1818,9 @@ export async function listServerOnlineSamples(serverId: number, hours = 24) {
     `SELECT server_id, online, players, max, votes, views, recorded_at
      FROM app_server_online_samples
      WHERE server_id = ?
-       AND recorded_at >= datetime('now', ?)
+       AND datetime(recorded_at) >= datetime('now', ?)
      ORDER BY datetime(recorded_at) ASC`
-  ).all(serverId, `-${Math.max(1, Math.min(hours, 24 * 365))} hours`) as DbServerOnlineSampleRow[];
+  ).all(serverId, `-${Math.max(1, Math.min(hours, 24 * 400))} hours`) as DbServerOnlineSampleRow[];
   return rows.map((row) => ({
     serverId: Number(row.server_id),
     online: Boolean(row.online),
@@ -2278,7 +2284,7 @@ export async function getOwnerServerStats(input: { serverId: number; userId: str
     .prepare(
       `SELECT substr(created_at, 1, 13) AS hour_key, COUNT(*) AS total
        FROM app_server_nickname_votes
-       WHERE server_id = ? AND created_at >= datetime('now', ?)
+       WHERE server_id = ? AND datetime(created_at) >= datetime('now', ?)
        GROUP BY hour_key`
     )
     .all(input.serverId, `-${days} days`) as Array<{ hour_key: string; total: number }>;
@@ -2286,7 +2292,7 @@ export async function getOwnerServerStats(input: { serverId: number; userId: str
     .prepare(
       `SELECT substr(created_at, 1, 13) AS hour_key, COUNT(*) AS total
        FROM app_server_views
-       WHERE server_id = ? AND created_at >= datetime('now', ?)
+       WHERE server_id = ? AND datetime(created_at) >= datetime('now', ?)
        GROUP BY hour_key`
     )
     .all(input.serverId, `-${days} days`) as Array<{ hour_key: string; total: number }>;
@@ -2424,10 +2430,10 @@ function rangeDays(range: DashRange): number {
 
 async function countSince(table: 'app_server_views' | 'app_server_nickname_votes' | 'app_server_reviews', serverId: number, sinceDays: number, untilDays?: number) {
   const db = getDb();
-  let sql = `SELECT COUNT(*) AS c FROM ${table} WHERE server_id = ? AND created_at >= datetime('now', ?)`;
+  let sql = `SELECT COUNT(*) AS c FROM ${table} WHERE server_id = ? AND datetime(created_at) >= datetime('now', ?)`;
   const params: Array<number | string> = [serverId, `-${sinceDays} days`];
   if (typeof untilDays === 'number') {
-    sql += ` AND created_at < datetime('now', ?)`;
+    sql += ` AND datetime(created_at) < datetime('now', ?)`;
     params.push(`-${untilDays} days`);
   }
   const row = await db.prepare(sql).get(...params) as { c: number } | undefined;
@@ -2437,7 +2443,7 @@ async function countSince(table: 'app_server_views' | 'app_server_nickname_votes
 async function avgRatingSince(serverId: number, sinceDays: number) {
   const db = getDb();
   const row = await db
-    .prepare(`SELECT AVG(rating) AS r FROM app_server_reviews WHERE server_id = ? AND created_at >= datetime('now', ?)`)
+    .prepare(`SELECT AVG(rating) AS r FROM app_server_reviews WHERE server_id = ? AND datetime(created_at) >= datetime('now', ?)`)
     .get(serverId, `-${sinceDays} days`) as { r: number | null } | undefined;
   return Number(row?.r || 0);
 }
@@ -2473,60 +2479,85 @@ export async function getServerDashboardSnapshot(input: { serverId: number; user
 
   // IP copies — count distinct fingerprints with views (proxy: unique visitors who reached the server page)
   const uniqueRow = await db
-    .prepare(`SELECT COUNT(DISTINCT fingerprint) AS c FROM app_server_views WHERE server_id = ? AND created_at >= datetime('now', ?)`)
+    .prepare(`SELECT COUNT(DISTINCT fingerprint) AS c FROM app_server_views WHERE server_id = ? AND datetime(created_at) >= datetime('now', ?)`)
     .get(input.serverId, `-${days} days`) as { c: number } | undefined;
   const uniqueVisitorsNow = Number(uniqueRow?.c || 0);
   const uniquePriorRow = await db
-    .prepare(`SELECT COUNT(DISTINCT fingerprint) AS c FROM app_server_views WHERE server_id = ? AND created_at >= datetime('now', ?) AND created_at < datetime('now', ?)`)
+    .prepare(`SELECT COUNT(DISTINCT fingerprint) AS c FROM app_server_views WHERE server_id = ? AND datetime(created_at) >= datetime('now', ?) AND datetime(created_at) < datetime('now', ?)`)
     .get(input.serverId, `-${days * 2} days`, `-${days} days`) as { c: number } | undefined;
   const uniqueVisitorsPrior = Number(uniquePriorRow?.c || 0);
 
   // Live band: peak today + uptime 30d + current
   const peakRow = await db
-    .prepare(`SELECT MAX(players) AS m FROM app_server_online_samples WHERE server_id = ? AND recorded_at >= date('now')`)
+    .prepare(`SELECT MAX(players) AS m FROM app_server_online_samples WHERE server_id = ? AND datetime(recorded_at) >= date('now')`)
     .get(input.serverId) as { m: number | null } | undefined;
   const peakToday = Number(peakRow?.m || 0);
 
   const uptimeRow = await db
-    .prepare(`SELECT AVG(CASE WHEN online = 1 THEN 1.0 ELSE 0.0 END) AS up FROM app_server_online_samples WHERE server_id = ? AND recorded_at >= datetime('now', '-30 days')`)
+    .prepare(`SELECT AVG(CASE WHEN online = 1 THEN 1.0 ELSE 0.0 END) AS up FROM app_server_online_samples WHERE server_id = ? AND datetime(recorded_at) >= datetime('now', '-30 days')`)
     .get(input.serverId) as { up: number | null } | undefined;
   const uptime30 = uptimeRow?.up == null ? null : Math.round(Number(uptimeRow.up) * 1000) / 10;
 
   const latest = await getLatestServerOnlineSample(input.serverId);
 
-  // Daily chart: avg players per day + distinct visitors per day
-  const playerRows = await db
+  // Time-bucketed chart: use finer buckets for short ranges and wider buckets for long ranges.
+  const bucketHoursByRange: Record<DashRange, number> = {
+    '24h': 1,
+    '7d': 6,
+    '30d': 24,
+    '90d': 72,
+    all: 24 * 30,
+  };
+  const bucketMs = bucketHoursByRange[range] * 60 * 60 * 1000;
+  const chartStart = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+  const chartEnd = new Date();
+  const firstBucket = Math.floor(chartStart.getTime() / bucketMs) * bucketMs;
+  const lastBucket = Math.floor(chartEnd.getTime() / bucketMs) * bucketMs;
+  const sampleRows = await db
     .prepare(
-      `SELECT substr(recorded_at, 1, 10) AS d, AVG(players) AS p, MAX(players) AS peak
+      `SELECT players, recorded_at
        FROM app_server_online_samples
-       WHERE server_id = ? AND recorded_at >= datetime('now', ?)
-       GROUP BY d
-       ORDER BY d ASC`
+       WHERE server_id = ? AND datetime(recorded_at) >= datetime('now', ?)
+       ORDER BY datetime(recorded_at) ASC`
     )
-    .all(input.serverId, `-${days} days`) as Array<{ d: string; p: number; peak: number }>;
-  const visitorRows = await db
+    .all(input.serverId, `-${days} days`) as Array<{ players: number; recorded_at: string }>;
+  const viewRowsForChart = await db
     .prepare(
-      `SELECT substr(created_at, 1, 10) AS d, COUNT(DISTINCT fingerprint) AS v
+      `SELECT fingerprint, created_at
        FROM app_server_views
-       WHERE server_id = ? AND created_at >= datetime('now', ?)
-       GROUP BY d
-       ORDER BY d ASC`
+       WHERE server_id = ? AND datetime(created_at) >= datetime('now', ?)
+       ORDER BY datetime(created_at) ASC`
     )
-    .all(input.serverId, `-${days} days`) as Array<{ d: string; v: number }>;
-  const playerMap = new Map(playerRows.map((row) => [row.d, { avg: Number(row.p || 0), peak: Number(row.peak || 0) }]));
-  const visitorMap = new Map(visitorRows.map((row) => [row.d, Number(row.v || 0)]));
+    .all(input.serverId, `-${days} days`) as Array<{ fingerprint: string; created_at: string }>;
+  const playerBuckets = new Map<number, { total: number; count: number; peak: number }>();
+  for (const row of sampleRows) {
+    const time = new Date(row.recorded_at).getTime();
+    if (!Number.isFinite(time)) continue;
+    const key = Math.floor(time / bucketMs) * bucketMs;
+    const current = playerBuckets.get(key) || { total: 0, count: 0, peak: 0 };
+    const players = Math.max(0, Number(row.players || 0));
+    current.total += players;
+    current.count += 1;
+    current.peak = Math.max(current.peak, players);
+    playerBuckets.set(key, current);
+  }
+  const visitorBuckets = new Map<number, Set<string>>();
+  for (const row of viewRowsForChart) {
+    const time = new Date(row.created_at).getTime();
+    if (!Number.isFinite(time)) continue;
+    const key = Math.floor(time / bucketMs) * bucketMs;
+    const set = visitorBuckets.get(key) || new Set<string>();
+    set.add(String(row.fingerprint || 'guest'));
+    visitorBuckets.set(key, set);
+  }
   const chart: Array<{ date: string; online: number; peak: number; visitors: number }> = [];
-  for (let offset = days - 1; offset >= 0; offset -= 1) {
-    const date = new Date();
-    date.setUTCHours(0, 0, 0, 0);
-    date.setUTCDate(date.getUTCDate() - offset);
-    const key = date.toISOString().slice(0, 10);
-    const player = playerMap.get(key);
+  for (let cursor = firstBucket; cursor <= lastBucket; cursor += bucketMs) {
+    const player = playerBuckets.get(cursor);
     chart.push({
-      date: key,
-      online: Math.round(player?.avg || 0),
-      peak: Math.round(player?.peak || 0),
-      visitors: visitorMap.get(key) || 0,
+      date: new Date(cursor).toISOString(),
+      online: player && player.count > 0 ? Math.round(player.total / player.count) : 0,
+      peak: player?.peak || 0,
+      visitors: visitorBuckets.get(cursor)?.size || 0,
     });
   }
 
@@ -2677,7 +2708,7 @@ export async function getServerDashboardSnapshot(input: { serverId: number; user
          CAST(strftime('%H', created_at) AS INTEGER) AS hour,
          COUNT(*) AS c
        FROM app_server_views
-       WHERE server_id = ? AND created_at >= datetime('now', '-7 days')
+       WHERE server_id = ? AND datetime(created_at) >= datetime('now', '-7 days')
        GROUP BY dow, hour`
     )
     .all(input.serverId) as Array<{ dow: number; hour: number; c: number }>;
@@ -2701,7 +2732,7 @@ export async function getServerDashboardSnapshot(input: { serverId: number; user
          COALESCE(NULLIF(country_code, ''), 'UN') AS code,
          COUNT(DISTINCT fingerprint) AS visitors
        FROM app_server_views
-       WHERE server_id = ? AND created_at >= datetime('now', ?)
+       WHERE server_id = ? AND datetime(created_at) >= datetime('now', ?)
        GROUP BY code
        ORDER BY visitors DESC
        LIMIT 8`
@@ -2720,7 +2751,7 @@ export async function getServerDashboardSnapshot(input: { serverId: number; user
          COALESCE(NULLIF(traffic_source, ''), 'direct') AS source,
          COUNT(DISTINCT fingerprint) AS visitors
        FROM app_server_views
-       WHERE server_id = ? AND created_at >= datetime('now', ?)
+       WHERE server_id = ? AND datetime(created_at) >= datetime('now', ?)
        GROUP BY source
        ORDER BY visitors DESC
        LIMIT 8`
@@ -3316,13 +3347,13 @@ export async function countServerActivityInDays(input: { serverId: number; days?
   const days = Math.max(1, Math.min(Number(input.days || 30), 365));
   const windowExpr = `-${days} days`;
   const viewsRow = await db
-    .prepare(`SELECT COUNT(*) AS c FROM app_server_views WHERE server_id = ? AND created_at >= datetime('now', ?)`)
+    .prepare(`SELECT COUNT(*) AS c FROM app_server_views WHERE server_id = ? AND datetime(created_at) >= datetime('now', ?)`)
     .get(input.serverId, windowExpr) as { c: number } | undefined;
   const votesRow = await db
-    .prepare(`SELECT COUNT(*) AS c FROM app_server_nickname_votes WHERE server_id = ? AND created_at >= datetime('now', ?)`)
+    .prepare(`SELECT COUNT(*) AS c FROM app_server_nickname_votes WHERE server_id = ? AND datetime(created_at) >= datetime('now', ?)`)
     .get(input.serverId, windowExpr) as { c: number } | undefined;
   const reviewsRow = await db
-    .prepare(`SELECT COUNT(*) AS c FROM app_server_reviews WHERE server_id = ? AND created_at >= datetime('now', ?)`)
+    .prepare(`SELECT COUNT(*) AS c FROM app_server_reviews WHERE server_id = ? AND datetime(created_at) >= datetime('now', ?)`)
     .get(input.serverId, windowExpr) as { c: number } | undefined;
   return {
     views: Number(viewsRow?.c || 0),

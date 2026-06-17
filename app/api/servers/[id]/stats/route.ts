@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerById, getServerEngagementSummary, listServerOnlineSamples, recordServerOnlineSample } from '@/lib/auth-db'
+import { getServerById, listServerOnlineSamples } from '@/lib/auth-db'
 
 interface Context {
   params: { id: string }
@@ -13,34 +13,6 @@ export async function GET(_request: NextRequest, context: Context) {
   const server = await getServerById(serverId)
   if (!server) {
     return NextResponse.json({ error: 'Сервер не знайдено' }, { status: 404 })
-  }
-  try {
-    const probeResponse = await fetch(`${new URL(_request.url).origin}/api/servers/check`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        addr: server.addr,
-        core: server.core || 'java',
-        platform: server.platform || 'minecraft',
-        allowExisting: true,
-      }),
-      cache: 'no-store',
-    })
-    if (probeResponse.ok) {
-      const payload = await probeResponse.json() as { probe?: { online?: boolean; players?: number; max?: number } }
-      const probe = payload.probe || {}
-      const summary = await getServerEngagementSummary(server.seed)
-      await recordServerOnlineSample({
-        serverId: server.seed,
-        online: Boolean(probe.online),
-        players: Number(probe.players || 0),
-        max: Number(probe.max || 0),
-        votes: summary.votes,
-        views: summary.views,
-      })
-    }
-  } catch {
-    // return existing samples even when probe fails
   }
   const period = _request.nextUrl.searchParams.get('period') || 'day'
   const periodMap: Record<string, { hours: number; bucketMinutes: number }> = {

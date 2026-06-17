@@ -7,9 +7,10 @@ import {
 } from '@/lib/discord';
 import {
   findServerByAddress,
+  getServerEngagementSummary,
   getServerById,
+  recordServerOnlineSample,
   updateServerDiscordGuildId,
-  updateServerLiveStatus,
 } from '@/lib/auth-db';
 
 function isValidMinecraftAddress(value: string) {
@@ -124,6 +125,25 @@ function resolvePlatform(input: {
   return 'minecraft';
 }
 
+async function persistProbeSample(input: {
+  serverId?: number;
+  online: boolean;
+  players: number;
+  max: number;
+}) {
+  const serverId = Number(input.serverId);
+  if (!Number.isFinite(serverId)) return;
+  const summary = await getServerEngagementSummary(serverId).catch(() => ({ votes: 0, views: 0 }));
+  await recordServerOnlineSample({
+    serverId,
+    online: input.online,
+    players: input.players,
+    max: input.max,
+    votes: summary.votes,
+    views: summary.views,
+  }).catch(() => undefined);
+}
+
 export async function POST(request: Request) {
   const body = (await request.json()) as {
     addr?: string;
@@ -178,6 +198,12 @@ export async function POST(request: Request) {
       if (discordProbe.guildId && existingServer && !existingServer.discordGuildId) {
         await updateServerDiscordGuildId(existingServer.seed, discordProbe.guildId);
       }
+      await persistProbeSample({
+        serverId: existingServer?.seed,
+        online: discordProbe.online,
+        players: discordProbe.players,
+        max: discordProbe.max,
+      });
       return NextResponse.json({
         success: true,
         platform: 'discord',
@@ -198,7 +224,7 @@ export async function POST(request: Request) {
     }
     const minecraftProbe = await probeMinecraftAddress(normalized, core);
     if (Number.isFinite(Number(body.serverId))) {
-      await updateServerLiveStatus({
+      await persistProbeSample({
         serverId: Number(body.serverId),
         online: minecraftProbe.online,
         players: minecraftProbe.players,

@@ -21,6 +21,7 @@
     "db:verify": "npm run db:generate && prisma validate && prisma migrate status && npm run db:audit && npm run db:smoke",
     "db:import-nebula": "node scripts/import-nebula.cjs",
     "db:migrate-user-slugs": "node scripts/migrate-imported-user-slugs.cjs",
+    "stats:collector": "tsx scripts/server-stats-collector.ts",
     "deploy:vps": "bash ./deploy.sh"
   },
   "dependencies": {
