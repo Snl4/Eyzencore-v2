@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import Image from 'next/image'
 import Link from 'next/link'
 import { Nav } from '@/components/layout/Nav'
 import { Footer } from '@/components/layout/Footer'
@@ -114,12 +115,16 @@ export default async function LandingPage() {
               </div>
               <div className="home-platform-links">
                 <Link href="/servers/minecraft">
-                  <span className="home-platform-icon">M</span>
+                  <span className="home-platform-icon">
+                    <Image src="/platforms/minecraft-creeper-face.jpg" alt="" width={34} height={34} />
+                  </span>
                   <span><b>Minecraft</b><small>{minecraftServers.length} у каталозі</small></span>
                   <span aria-hidden="true">→</span>
                 </Link>
                 <Link href="/servers/discord">
-                  <span className="home-platform-icon home-platform-discord">D</span>
+                  <span className="home-platform-icon home-platform-discord">
+                    <Image src="/platforms/discord-logo-icon.jpg" alt="" width={34} height={34} />
+                  </span>
                   <span><b>Discord</b><small>{discordServers.length} у каталозі</small></span>
                   <span aria-hidden="true">→</span>
                 </Link>

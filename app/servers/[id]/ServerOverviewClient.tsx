@@ -45,6 +45,7 @@ const PERIOD_OPTIONS: { value: PeriodKey; label: string }[] = [
 
 export function ServerOverviewClient({ server: s, cluster, canEdit, initialUser }: Props) {
   const isDiscord = isDiscordServer(s);
+  const canVote = Boolean(initialUser);
   const [tab, setTab] = useState<Tab>('about');
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [chartData, setChartData] = useState<ChartPoint[]>([]);
@@ -310,6 +311,10 @@ export function ServerOverviewClient({ server: s, cluster, canEdit, initialUser 
     return () => window.clearTimeout(timeoutId)
   }, [reviewMessage])
   const handleVote = async () => {
+    if (!canVote) {
+      setVoteMessage('Увійдіть в акаунт, щоб голосувати за сервер')
+      return
+    }
     const normalizedNickname = nickname.trim()
     if (!isValidNickname(normalizedNickname)) {
       setVoteMessage('Нікнейм: 3-16 символів, лише англійські літери, цифри або _')
@@ -831,11 +836,17 @@ export function ServerOverviewClient({ server: s, cluster, canEdit, initialUser 
                   type="text"
                   value={nickname}
                   onChange={(event) => setNickname(event.target.value)}
+                  disabled={!canVote}
                   placeholder="Нікнейм у Minecraft"
                 />
-                <button className="btn btn-primary so-vote-submit" type="button" onClick={handleVote}>
+                <button className="btn btn-primary so-vote-submit" type="button" onClick={handleVote} disabled={!canVote}>
                   {Icons.pulse} Голосувати
                 </button>
+                {!canVote && (
+                  <div className="so-vote-feedback">
+                    Увійдіть в акаунт, щоб голосувати за сервер. <Link href="/login">Увійти</Link>
+                  </div>
+                )}
                 {voteMessage && <div className="so-vote-feedback">{voteMessage}</div>}
                 {lastVoteAt && <div className="so-vote-meta">Останній голос: {lastVoteAt}</div>}
               </div>

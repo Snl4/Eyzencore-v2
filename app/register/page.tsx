@@ -6,6 +6,7 @@ import { RegisterForm } from '@/components/auth/RegisterForm'
 import { AuthIcons } from '@/components/auth/AuthIcons'
 import { BrandMark } from '@/components/ui/BrandMark'
 import { getCurrentUser } from '@/lib/auth-server'
+import { getCachedPublicStats } from '@/lib/public-cache'
 import { prisma } from '@/lib/prisma'
 
 export const metadata: Metadata = {
@@ -41,13 +42,7 @@ async function getRegisterSpotlight() {
   })
 
   if (!review) {
-    return {
-      text: 'Додав сервер, отримав відгуки та нормальну аналітику без зайвого шуму. Для української спільноти це реально зручна платформа.',
-      author: '@serverowner',
-      serverName: 'сервер Eyzencore',
-      serverAvatarUrl: '/project-default-logo.png',
-      rating: 5,
-    }
+    return null
   }
 
   return {
@@ -65,6 +60,13 @@ export default async function RegisterPage() {
   }
 
   const spotlight = await getRegisterSpotlight()
+  const stats = await getCachedPublicStats()
+  const authBullets = [
+    `${stats.totalServers.toLocaleString('uk-UA')} серверів у каталозі`,
+    `${stats.totalUsers.toLocaleString('uk-UA')} користувачів на платформі`,
+    `${stats.totalVotes.toLocaleString('uk-UA')} голосів за сервери`,
+    `${stats.totalReviews.toLocaleString('uk-UA')} відгуків від спільноти`,
+  ]
 
   return (
     <div className="auth-page">
@@ -77,12 +79,7 @@ export default async function RegisterPage() {
           <h2>Приєднуйтесь до<br /><span className="grad">спільноти.</span></h2>
           <p>Створіть безкоштовний акаунт, додавайте сервери, спілкуйтеся у форумі та отримуйте оновлення.</p>
           <div className="auth-bullets">
-            {[
-              'Безкоштовний моніторинг 24/7 для будь-якого сервера',
-              'Власна сторінка автора з рейтингом і відгуками',
-              'Без реклами на сторінках серверів',
-              'API для інтеграції з власним сайтом',
-            ].map((bullet, index) => (
+            {authBullets.map((bullet, index) => (
               <div className="auth-bullet" key={index}>
                 <span className="check">{AuthIcons.check}</span>
                 <span>{bullet}</span>
@@ -91,39 +88,61 @@ export default async function RegisterPage() {
           </div>
         </div>
 
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'flex-start',
-            gap: 12,
-            padding: 16,
-            background: 'color-mix(in oklab, var(--bg-2) 70%, transparent)',
-            border: '1px solid var(--line)',
-            borderRadius: 'var(--radius)',
-            backdropFilter: 'blur(8px)',
-          }}
-        >
-          <Image
-            src={spotlight.serverAvatarUrl}
-            alt={spotlight.serverName}
-            width={42}
-            height={42}
-            unoptimized
-            style={{ borderRadius: 12, flexShrink: 0, objectFit: 'cover' }}
-          />
-          <div style={{ fontSize: 13, lineHeight: 1.5, color: 'var(--fg-1)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
-              <span style={{ color: 'var(--accent)', fontFamily: 'var(--font-mono)', fontSize: 11 }}>Відгук про сервер</span>
-              <span style={{ color: 'var(--amber)', fontFamily: 'var(--font-mono)', fontSize: 11 }}>
-                {'★'.repeat(spotlight.rating)}{'☆'.repeat(Math.max(0, 5 - spotlight.rating))}
-              </span>
-            </div>
-            <span style={{ color: 'var(--fg-2)', fontStyle: 'italic' }}>“{spotlight.text}”</span>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--fg-3)', marginTop: 6 }}>
-              — {spotlight.author} · сервер {spotlight.serverName}
+        {spotlight ? (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: 12,
+              padding: 16,
+              background: 'color-mix(in oklab, var(--bg-2) 70%, transparent)',
+              border: '1px solid var(--line)',
+              borderRadius: 'var(--radius)',
+              backdropFilter: 'blur(8px)',
+            }}
+          >
+            <Image
+              src={spotlight.serverAvatarUrl}
+              alt={spotlight.serverName}
+              width={42}
+              height={42}
+              unoptimized
+              style={{ borderRadius: 12, flexShrink: 0, objectFit: 'cover' }}
+            />
+            <div style={{ fontSize: 13, lineHeight: 1.5, color: 'var(--fg-1)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
+                <span style={{ color: 'var(--accent)', fontFamily: 'var(--font-mono)', fontSize: 11 }}>Відгук про сервер</span>
+                <span style={{ color: 'var(--amber)', fontFamily: 'var(--font-mono)', fontSize: 11 }}>
+                  {'★'.repeat(spotlight.rating)}{'☆'.repeat(Math.max(0, 5 - spotlight.rating))}
+                </span>
+              </div>
+              <span style={{ color: 'var(--fg-2)', fontStyle: 'italic' }}>“{spotlight.text}”</span>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--fg-3)', marginTop: 6 }}>
+                — {spotlight.author} · сервер {spotlight.serverName}
+              </div>
             </div>
           </div>
-        </div>
+        ) : (
+          <div
+            style={{
+              display: 'grid',
+              gap: 10,
+              padding: 16,
+              background: 'color-mix(in oklab, var(--bg-2) 70%, transparent)',
+              border: '1px solid var(--line)',
+              borderRadius: 'var(--radius)',
+              backdropFilter: 'blur(8px)',
+            }}
+          >
+            <span style={{ color: 'var(--accent)', fontFamily: 'var(--font-mono)', fontSize: 11 }}>Дані платформи</span>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10 }}>
+              <b>{stats.totalServers.toLocaleString('uk-UA')} серверів</b>
+              <b>{stats.totalUsers.toLocaleString('uk-UA')} користувачів</b>
+              <b>{stats.totalVotes.toLocaleString('uk-UA')} голосів</b>
+              <b>{stats.totalNews.toLocaleString('uk-UA')} новин</b>
+            </div>
+          </div>
+        )}
       </aside>
       <div className="auth-main">
         <div className="auth-top">

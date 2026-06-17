@@ -5,6 +5,7 @@ import { LoginForm } from '@/components/auth/LoginForm'
 import { AuthIcons } from '@/components/auth/AuthIcons'
 import { BrandMark } from '@/components/ui/BrandMark'
 import { getCurrentUser } from '@/lib/auth-server'
+import { getCachedPublicStats } from '@/lib/public-cache'
 
 export const metadata: Metadata = {
   title: 'Увійти',
@@ -15,6 +16,12 @@ export default async function LoginPage() {
   if (await getCurrentUser()) {
     redirect('/settings')
   }
+  const stats = await getCachedPublicStats()
+  const authBullets = [
+    `${stats.totalServers.toLocaleString('uk-UA')} серверів у моніторингу`,
+    `${stats.totalVotes.toLocaleString('uk-UA')} голосів від спільноти`,
+    `${stats.totalReviews.toLocaleString('uk-UA')} відгуків на серверах`,
+  ]
   return (
     <div className="auth-page">
       <aside className="auth-aside">
@@ -26,7 +33,7 @@ export default async function LoginPage() {
           <h2>Вітаємо знову<br /><span className="grad">у спільноті.</span></h2>
           <p>Заходьте, щоб керувати своїми серверами, читати форум і отримувати сповіщення про активність.</p>
           <div className="auth-bullets">
-            {['248 активних серверів у моніторингу', 'Live-статистика та повідомлення про падіння', 'Pro-функції: розширена аналітика та брендинг'].map((bullet, index) => (
+            {authBullets.map((bullet, index) => (
               <div className="auth-bullet" key={index}>
                 <span className="check">{AuthIcons.check}</span>
                 <span>{bullet}</span>
