@@ -1,0 +1,219 @@
+import type { Metadata } from 'next'
+import type { NewsPost } from '@/lib/auth-db'
+import type { Server } from '@/lib/types'
+
+export const SITE_URL = 'https://eyzencore.com'
+export const SITE_NAME = 'Eyzencore'
+
+export const SEO_KEYWORDS = [
+  'Eyzencore',
+  'Minecraft сервери',
+  'Minecraft servers',
+  'моніторинг Minecraft серверів',
+  'Minecraft server list',
+  'українські Minecraft сервери',
+  'украинские Minecraft сервера',
+  'best Minecraft servers',
+  'Minecraft survival server',
+  'Minecraft Bedrock servers',
+  'Minecraft Java servers',
+  'Minecraft Ukraine',
+  'Discord сервери',
+  'Discord servers',
+  'українські Discord спільноти',
+  'Discord communities Ukraine',
+  'моніторинг Discord серверів',
+  'рейтинг серверів',
+  'голосування за сервер',
+  'Minecraft рейтинг',
+  'сервери майнкрафт',
+  'майнкрафт сервери',
+  'сервер майнкрафт Україна',
+  'ігрові сервери',
+  'gaming communities',
+]
+
+export function absoluteUrl(path = '/') {
+  if (/^https?:\/\//i.test(path)) return path
+  return `${SITE_URL}${path.startsWith('/') ? path : `/${path}`}`
+}
+
+export function truncateSeo(value: string, max = 155) {
+  const normalized = String(value || '').replace(/\s+/g, ' ').trim()
+  if (normalized.length <= max) return normalized
+  return `${normalized.slice(0, max - 1).trim()}…`
+}
+
+export function buildPageMetadata(input: {
+  title: string
+  description: string
+  path?: string
+  image?: string | null
+  keywords?: string[]
+  type?: 'website' | 'article'
+  publishedTime?: string
+  modifiedTime?: string
+}): Metadata {
+  const url = absoluteUrl(input.path || '/')
+  const image = absoluteUrl(input.image || '/icon.png')
+  const description = truncateSeo(input.description)
+  const title = input.title.includes(SITE_NAME) ? input.title : `${input.title} — ${SITE_NAME}`
+
+  return {
+    title,
+    description,
+    keywords: Array.from(new Set([...(input.keywords || []), ...SEO_KEYWORDS])),
+    alternates: {
+      canonical: url,
+      languages: {
+        uk: url,
+        en: url,
+        'x-default': url,
+      },
+    },
+    openGraph: {
+      title,
+      description,
+      url,
+      siteName: SITE_NAME,
+      locale: 'uk_UA',
+      type: input.type || 'website',
+      images: [{ url: image, width: 1200, height: 630, alt: title }],
+      ...(input.publishedTime ? { publishedTime: input.publishedTime } : {}),
+      ...(input.modifiedTime ? { modifiedTime: input.modifiedTime } : {}),
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      images: [image],
+    },
+  }
+}
+
+export function buildServerMetadata(server: Server): Metadata {
+  const platform = server.platform === 'discord' || server.core === 'discord' ? 'Discord' : 'Minecraft'
+  const online = server.on ? `${server.players}/${server.max} онлайн` : 'статус оновлюється'
+  const description = truncateSeo(
+    server.fullDesc ||
+      server.shortDesc ||
+      server.desc ||
+      `${server.name}: ${platform} сервер у каталозі Eyzencore. Онлайн, рейтинг, голоси, відгуки та інформація для гравців.`
+  )
+
+  return buildPageMetadata({
+    title: `${server.name} — ${platform} сервер`,
+    description: `${description} ${online}. Рейтинг: ${Math.round(server.ratingScore || 0)}.`,
+    path: `/servers/${server.seed}`,
+    image: server.bannerUrl || server.avatarUrl || '/icon.png',
+    keywords: [
+      server.name,
+      server.addr,
+      platform,
+      `${platform} server`,
+      `${platform} сервер`,
+      server.mode,
+      server.ver,
+      ...(server.tags || []),
+    ],
+  })
+}
+
+export function buildNewsMetadata(post: NewsPost): Metadata {
+  return buildPageMetadata({
+    title: `${post.title} — Новини Eyzencore`,
+    description: post.excerpt || post.content,
+    path: `/news/${post.id}`,
+    image: post.coverUrl || '/icon.png',
+    type: 'article',
+    publishedTime: post.createdAt,
+    modifiedTime: post.updatedAt,
+    keywords: [post.title, post.category, 'новини Minecraft', 'Minecraft news', 'Discord news'],
+  })
+}
+
+export function siteJsonLd() {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'WebSite',
+    name: SITE_NAME,
+    url: SITE_URL,
+    inLanguage: ['uk-UA', 'en'],
+    description: 'Моніторинг Minecraft і Discord серверів, рейтинг, голосування, відгуки, новини та форум спільноти.',
+    potentialAction: {
+      '@type': 'SearchAction',
+      target: `${SITE_URL}/servers/minecraft?search={search_term_string}`,
+      'query-input': 'required name=search_term_string',
+    },
+  }
+}
+
+export function organizationJsonLd() {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Organization',
+    name: SITE_NAME,
+    url: SITE_URL,
+    logo: `${SITE_URL}/icon.png`,
+    sameAs: [
+      'https://discord.gg/5ENJnx8GVR',
+    ],
+  }
+}
+
+export function serverJsonLd(server: Server) {
+  const platform = server.platform === 'discord' || server.core === 'discord' ? 'Discord' : 'Minecraft'
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    name: server.name,
+    url: `${SITE_URL}/servers/${server.seed}`,
+    image: absoluteUrl(server.avatarUrl || server.bannerUrl || '/icon.png'),
+    description: truncateSeo(server.fullDesc || server.shortDesc || server.desc || `${platform} server on Eyzencore`, 500),
+    category: `${platform} server`,
+    brand: {
+      '@type': 'Brand',
+      name: SITE_NAME,
+    },
+    aggregateRating: server.reviewsCount
+      ? {
+          '@type': 'AggregateRating',
+          ratingValue: Number(server.averageRating || 0).toFixed(1),
+          reviewCount: server.reviewsCount,
+          bestRating: '5',
+          worstRating: '1',
+        }
+      : undefined,
+    additionalProperty: [
+      { '@type': 'PropertyValue', name: 'Platform', value: platform },
+      { '@type': 'PropertyValue', name: 'Mode', value: server.mode },
+      { '@type': 'PropertyValue', name: 'Address', value: server.addr },
+      { '@type': 'PropertyValue', name: 'Online players', value: String(server.players || 0) },
+    ],
+  }
+}
+
+export function newsJsonLd(post: NewsPost) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'NewsArticle',
+    headline: post.title,
+    description: truncateSeo(post.excerpt || post.content),
+    image: [absoluteUrl(post.coverUrl || '/icon.png')],
+    datePublished: post.createdAt,
+    dateModified: post.updatedAt,
+    author: {
+      '@type': 'Person',
+      name: post.authorName || SITE_NAME,
+    },
+    publisher: {
+      '@type': 'Organization',
+      name: SITE_NAME,
+      logo: {
+        '@type': 'ImageObject',
+        url: `${SITE_URL}/icon.png`,
+      },
+    },
+    mainEntityOfPage: `${SITE_URL}/news/${post.id}`,
+  }
+}

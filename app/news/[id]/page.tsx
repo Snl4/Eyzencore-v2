@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth-server'
 import { getNewsPostById, resolveUserRole } from '@/lib/auth-db'
+import { buildNewsMetadata, newsJsonLd } from '@/lib/seo'
 import { NewsDetailsClient } from './NewsDetailsClient'
 
 type NewsDetailsPageProps = {
@@ -26,10 +27,7 @@ export async function generateMetadata({ params }: NewsDetailsPageProps) {
   if (!post) {
     return { title: 'Новину не знайдено' }
   }
-  return {
-    title: `${post.title} — Новини Eyzencore`,
-    description: post.excerpt || post.content.slice(0, 160),
-  }
+  return buildNewsMetadata(post)
 }
 
 export default async function NewsDetailsPage({ params }: NewsDetailsPageProps) {
@@ -51,6 +49,10 @@ export default async function NewsDetailsPage({ params }: NewsDetailsPageProps) 
   const canManage = Boolean(currentUser && (currentUser.id === post.authorUserId || role === 'ADMIN'))
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(newsJsonLd(post)) }}
+      />
       <div className="bg-aurora" />
       <NewsDetailsClient
         initialUser={currentUser}

@@ -49,6 +49,8 @@ export interface Server {
   ownerSlug?: string | null;
   createdAt?: string;
   projectId?: number | null;
+  projectName?: string | null;
+  projectCount?: number | null;
   discordGuildId?: string | null;
   discordBotVerified?: boolean;
   discordVerifyCode?: string | null;

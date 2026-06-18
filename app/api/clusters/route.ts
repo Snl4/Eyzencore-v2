@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json() as Record<string, unknown>
     const name = String(body.name || '').trim()
-    if (!name) return NextResponse.json({ error: 'Вкажіть назву кластера' }, { status: 400 })
+    if (!name) return NextResponse.json({ error: 'Вкажіть назву проєкту серверів' }, { status: 400 })
     const cluster = await createCluster({
       ownerId: auth.user.id,
       name,
@@ -27,6 +27,6 @@ export async function POST(request: NextRequest) {
     })
     return NextResponse.json({ cluster }, { status: 201 })
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : 'Не вдалося створити кластер' }, { status: 400 })
+    return NextResponse.json({ error: error instanceof Error ? error.message : 'Не вдалося створити проєкт серверів' }, { status: 400 })
   }
 }

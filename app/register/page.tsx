@@ -12,6 +12,10 @@ import { prisma } from '@/lib/prisma'
 export const metadata: Metadata = {
   title: 'Реєстрація',
   description: 'Створіть акаунт Eyzencore',
+  robots: {
+    index: false,
+    follow: true,
+  },
 }
 
 async function getRegisterSpotlight() {
@@ -159,7 +163,7 @@ export default async function RegisterPage() {
           <p className="sub">Безкоштовно. Налаштування за 2 хвилини.</p>
           <RegisterForm />
           <div className="auth-footer">
-            Реєструючись, ви приймаєте наші <a href="#">Умови</a> та <a href="#">Конфіденційність</a>
+            Реєструючись, ви приймаєте наші <Link href="/terms">Умови</Link> та <Link href="/privacy">Конфіденційність</Link>
           </div>
         </div>
         <div style={{ fontSize: 12, color: 'var(--fg-3)', textAlign: 'center', fontFamily: 'var(--font-mono)' }}>

@@ -19,6 +19,7 @@ export function ServerCard({ s }: Props) {
   const router = useRouter();
   const { copied, copy } = useCopyToClipboard();
   const isDiscord = isDiscordServer(s);
+  const projectCount = s.projectCount || s.cluster || 0;
   const [live, setLive] = useState({
     online: s.on,
     players: s.players,
@@ -94,8 +95,8 @@ export function ServerCard({ s }: Props) {
           <span className="dot"/>
           {live.online ? 'Онлайн' : 'Офлайн'}
         </span>
-        {s.cluster && !s.boosted && (
-          <span className="sc-cluster">⊞ {s.cluster} серв.</span>
+        {projectCount > 1 && !s.boosted && (
+          <span className="sc-cluster">Проєкт · {projectCount} серв.</span>
         )}
       </div>
 

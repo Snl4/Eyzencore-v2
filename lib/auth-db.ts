@@ -95,6 +95,8 @@ type DbServerRow = {
   cluster_name: string | null;
   cluster_slug: string | null;
   project_id: number | null;
+  project_name: string | null;
+  project_count: number | null;
   discord_guild_id?: string | null;
   discord_bot_verified?: number | null;
   discord_verify_code?: string | null;
@@ -325,7 +327,9 @@ const SERVER_SELECT_COLUMNS = `
   COALESCE((SELECT AVG(sr.rating) FROM app_server_reviews sr WHERE sr.server_id = s.id), 0) AS average_rating,
   s.cluster_id, c.name AS cluster_name, c.slug AS cluster_slug,
   CASE WHEN s.cluster_id IS NULL THEN NULL ELSE (SELECT COUNT(*) FROM app_servers cs WHERE cs.cluster_id = s.cluster_id) END AS cluster,
-  s.project_id, s.discord_guild_id, s.discord_bot_verified, s.discord_verify_code, s.created_at, s.updated_at
+  s.project_id, p.name AS project_name,
+  CASE WHEN s.project_id IS NULL THEN NULL ELSE (SELECT COUNT(*) FROM app_servers ps WHERE ps.project_id = s.project_id) END AS project_count,
+  s.discord_guild_id, s.discord_bot_verified, s.discord_verify_code, s.created_at, s.updated_at
 `;
 
 function slugify(value: string) {
@@ -486,6 +490,8 @@ function mapServerRow(row: DbServerRow): Server {
     ownerSlug: row.owner_slug || null,
     createdAt: row.created_at,
     projectId: row.project_id ?? null,
+    projectName: row.project_name || null,
+    projectCount: row.project_count ?? null,
     discordGuildId: row.discord_guild_id || null,
     discordBotVerified: Boolean(row.discord_bot_verified),
     discordVerifyCode: row.discord_verify_code || null,
@@ -1062,6 +1068,7 @@ export async function listServersByOwner(userId: string) {
        FROM app_servers s
        JOIN app_users u ON u.id = s.owner_id
        LEFT JOIN app_clusters c ON c.id = s.cluster_id
+       LEFT JOIN app_projects p ON p.id = s.project_id
        WHERE s.owner_id = ?
        ORDER BY s.id ASC`
     )
@@ -1076,6 +1083,7 @@ export async function listServers() {
      FROM app_servers s
      JOIN app_users u ON u.id = s.owner_id
      LEFT JOIN app_clusters c ON c.id = s.cluster_id
+     LEFT JOIN app_projects p ON p.id = s.project_id
      ORDER BY s.id ASC`
   ).all() as DbServerRow[];
 
@@ -1171,6 +1179,7 @@ export async function getServerById(id: number) {
      FROM app_servers s
      JOIN app_users u ON u.id = s.owner_id
      LEFT JOIN app_clusters c ON c.id = s.cluster_id
+     LEFT JOIN app_projects p ON p.id = s.project_id
      WHERE s.id = ?
      LIMIT 1`
   ).get(id) as DbServerRow | undefined;
@@ -1186,6 +1195,7 @@ export async function findServerByAddress(addr: string, platform: ServerPlatform
      FROM app_servers s
      JOIN app_users u ON u.id = s.owner_id
      LEFT JOIN app_clusters c ON c.id = s.cluster_id
+     LEFT JOIN app_projects p ON p.id = s.project_id
      WHERE lower(s.addr) = lower(?)
      LIMIT 1`
   ).get(normalizedAddr) as DbServerRow | undefined;

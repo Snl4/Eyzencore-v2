@@ -64,7 +64,8 @@ const CORE_LABELS: Record<CoreType, string> = {
   java_bedrock: 'Java + Bedrock',
   discord: 'Discord',
 }
-const TAG_OPTIONS = ['Survival', 'Economy', 'PvP', 'PvE', 'RP', 'SkyBlock', 'Events', 'No P2W', 'Custom mobs', 'WorldEdit', 'Plots', 'Factions', 'Mini-games', 'Quests', 'Raids', 'One-life']
+const MINECRAFT_TAG_OPTIONS = ['Survival', 'Economy', 'PvP', 'PvE', 'RP', 'SkyBlock', 'Events', 'No P2W', 'Custom mobs', 'WorldEdit', 'Plots', 'Factions', 'Mini-games', 'Quests', 'Raids', 'One-life']
+const DISCORD_TAG_OPTIONS = ['Gaming', 'Minecraft', 'Community', 'News', 'Giveaways', 'Voice chat', 'Events', 'Support', 'Marketplace', 'Moderation', 'Memes', 'Ukrainian', 'Looking for team', 'Dev talk', 'Roleplay', 'Content creators']
 const MODES = GAME_MODES.filter((mode) => mode !== 'Всі')
 const DISCORD_MODES = DISCORD_CATEGORIES.filter((category) => category !== 'Всі')
 const VERS = VERSIONS.filter((version) => version !== 'Всі')
@@ -156,6 +157,8 @@ export function AddServerClient(input: {
   const [checked, setChecked] = useState(Boolean(initialServer))
   const [error, setError] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
+  const [newProjectName, setNewProjectName] = useState('')
+  const [creatingProject, setCreatingProject] = useState(false)
   const [isPending, startTransition] = useTransition()
   const avatarInputRef = useRef<HTMLInputElement>(null)
   const bannerInputRef = useRef<HTMLInputElement>(null)
@@ -165,6 +168,7 @@ export function AddServerClient(input: {
   const [projects, setProjects] = useState<Project[]>([])
   const isEditMode = Boolean(initialServer)
   const isDiscordForm = form.platform === 'discord'
+  const tagOptions = isDiscordForm ? DISCORD_TAG_OPTIONS : MINECRAFT_TAG_OPTIONS
 
   useEffect(() => {
     void fetch('/api/projects')
@@ -294,6 +298,37 @@ export function AddServerClient(input: {
   const goNext = (next: Step) => { setStep(next); window.scrollTo({ top: 0, behavior: 'smooth' }) }
   const goBack = (prev: Step) => { setStep(prev); window.scrollTo({ top: 0, behavior: 'smooth' }) }
   const goToStep = (target: Step) => { setStep(target); window.scrollTo({ top: 0, behavior: 'smooth' }) }
+  const currentStepLabel = isDiscordForm && step === 2 ? 'Спільнота' : STEP_LABELS[step]
+  const currentStepHint = isDiscordForm && step === 2
+    ? 'Назва, категорія, мова, проєкт і короткий опис Discord-спільноти'
+    : STEP_HINTS[step]
+  const handleCreateProject = async () => {
+    const name = newProjectName.trim()
+    if (!name) return
+    setCreatingProject(true)
+    setError(null)
+    try {
+      const response = await fetch('/api/projects', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name,
+          description: `Проєкт для ${isDiscordForm ? 'Discord-спільнот' : 'серверів'} ${name}`,
+        }),
+      })
+      const data = (await response.json()) as { project?: Project; error?: string }
+      if (!response.ok || !data.project) {
+        setError(data.error || 'Не вдалося створити проєкт')
+        return
+      }
+      setProjects((current) => [data.project!, ...current])
+      setField('projectId', data.project.id)
+      setNewProjectName('')
+      setSuccessMessage(`Проєкт «${data.project.name}» створено і вибрано`)
+    } finally {
+      setCreatingProject(false)
+    }
+  }
 
   if (submitted) {
     return (
@@ -343,7 +378,12 @@ export function AddServerClient(input: {
             <div className="add-steps">
               {([1, 2, 3, 4, 5, 6, 7] as Step[]).map((currentStep, index) => (
                 <div key={currentStep} className="add-step-wrap">
-                  <StepIndicator step={currentStep} current={step} label={STEP_LABELS[currentStep]} onSelectStep={goToStep} />
+                  <StepIndicator
+                    step={currentStep}
+                    current={step}
+                    label={isDiscordForm && currentStep === 2 ? 'Спільнота' : STEP_LABELS[currentStep]}
+                    onSelectStep={goToStep}
+                  />
                   {index < 6 && <div className={`add-step-line${step > currentStep ? ' done' : ''}`} />}
                 </div>
               ))}
@@ -363,17 +403,17 @@ export function AddServerClient(input: {
                       {form.avatarUrl ? '' : form.name ? form.name.slice(0, 2).toUpperCase() : '??'}
                     </div>
                     <div className="sc-info">
-                      <div className="sc-name">{form.name || 'Назва серверу'}</div>
+                      <div className="sc-name">{form.name || (isDiscordForm ? 'Назва спільноти' : 'Назва серверу')}</div>
                       <div className="sc-mode">
                         {isDiscordForm ? `${form.mode} · Discord` : `${form.mode} · ${CORE_LABELS[form.core]}`}
                       </div>
                     </div>
                     <div className="sc-rank">#{isEditMode ? 'ред.' : 'нов.'}</div>
                   </div>
-                  <p className="sc-desc">{form.shortDesc || form.desc || 'Тут буде короткий опис вашого серверу.'}</p>
+                  <p className="sc-desc">{form.shortDesc || form.desc || (isDiscordForm ? 'Тут буде короткий опис вашої Discord-спільноти.' : 'Тут буде короткий опис вашого серверу.')}</p>
                   <div className="sc-footer">
-                    <span className="sc-ip-text">{form.addr || 'play.example.com'}</span>
-                    <span className="sc-ver">{buildVersionRange(form.minVer, form.maxVer)}</span>
+                    <span className="sc-ip-text">{form.addr || (isDiscordForm ? 'discord.gg/example' : 'play.example.com')}</span>
+                    <span className="sc-ver">{isDiscordForm ? 'Discord' : buildVersionRange(form.minVer, form.maxVer)}</span>
                   </div>
                 </div>
               </div>
@@ -396,8 +436,8 @@ export function AddServerClient(input: {
             <div className="add-form">
               <div className="add-form-head">
                 <div className="add-form-head-step">Крок {step} з 7</div>
-                <h3 className="add-form-head-title">{STEP_LABELS[step]}</h3>
-                <p className="add-form-head-hint">{STEP_HINTS[step]}</p>
+                <h3 className="add-form-head-title">{currentStepLabel}</h3>
+                <p className="add-form-head-hint">{currentStepHint}</p>
                 {isCheckSkipped && <span className="tag tag-old">Перевірку пропущено</span>}
               </div>
 
@@ -437,6 +477,7 @@ export function AddServerClient(input: {
                                 maxVer: option.value === 'discord' ? 'Discord' : VERS[0],
                                 ver: option.value === 'discord' ? 'Discord' : VERS[0],
                                 core: option.value === 'discord' ? 'discord' : 'java',
+                                tags: [],
                               }))
                               setChecked(false)
                               setSuccessMessage(null)
@@ -495,8 +536,8 @@ export function AddServerClient(input: {
               {step === 2 && (
                 <div className="add-form-section">
                   <label className="auth-field">
-                    <span>Назва серверу *</span>
-                    <input type="text" placeholder="Напр. SkyMine Reborn" value={form.name} onChange={(event) => setField('name', event.target.value)} />
+                    <span>{isDiscordForm ? 'Назва Discord-спільноти *' : 'Назва серверу *'}</span>
+                    <input type="text" placeholder={isDiscordForm ? 'Напр. Eyzencore Community' : 'Напр. SkyMine Reborn'} value={form.name} onChange={(event) => setField('name', event.target.value)} />
                   </label>
                   <div className="add-grid-2">
                     <div className="auth-field">
@@ -509,27 +550,37 @@ export function AddServerClient(input: {
                     </div>
                     <label className="auth-field">
                       <span>Країна</span>
-                      <input type="text" placeholder="Україна" value={form.country} onChange={(event) => setField('country', event.target.value)} />
+                      <input type="text" placeholder={isDiscordForm ? 'Україна / UA' : 'Україна'} value={form.country} onChange={(event) => setField('country', event.target.value)} />
                     </label>
                   </div>
-                  {projects.length > 0 && (
-                    <div className="auth-field">
-                      <span>Проект <span style={{ color: 'var(--fg-3)', fontWeight: 400 }}>(необов&apos;язково)</span></span>
-                      <Select
-                        value={form.projectId === null ? '' : String(form.projectId)}
-                        onChange={(value) => setField('projectId', value ? Number(value) : null)}
-                        options={[
-                          { value: '', label: 'Без проєкту' },
-                          ...projects.map((project) => ({ value: String(project.id), label: project.name })),
-                        ]}
-                        ariaLabel="Проєкт"
+                  <div className="auth-field">
+                    <span>Проєкт серверів <span style={{ color: 'var(--fg-3)', fontWeight: 400 }}>(необов&apos;язково)</span></span>
+                    <Select
+                      value={form.projectId === null ? '' : String(form.projectId)}
+                      onChange={(value) => setField('projectId', value ? Number(value) : null)}
+                      options={[
+                        { value: '', label: 'Без проєкту' },
+                        ...projects.map((project) => ({ value: String(project.id), label: project.name })),
+                      ]}
+                      ariaLabel="Проєкт серверів"
+                    />
+                    <small style={{ color: 'var(--fg-3)', fontSize: 12 }}>
+                      Об&apos;єднуйте Minecraft і Discord сервери в один проєкт або мережу.{' '}
+                      <a href="/dashboard/projects" target="_blank" rel="noreferrer" style={{ color: 'var(--accent)' }}>Керувати проєктами →</a>
+                    </small>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: 8, marginTop: 10 }}>
+                      <input
+                        className="input"
+                        type="text"
+                        placeholder="Новий проєкт, напр. My Network"
+                        value={newProjectName}
+                        onChange={(event) => setNewProjectName(event.target.value)}
                       />
-                      <small style={{ color: 'var(--fg-3)', fontSize: 12 }}>
-                        Згрупуйте кілька серверів в один проект (мережу).{' '}
-                        <a href="/dashboard/projects" target="_blank" rel="noreferrer" style={{ color: 'var(--accent)' }}>Керувати проектами →</a>
-                      </small>
+                      <button className="btn btn-secondary" type="button" onClick={() => void handleCreateProject()} disabled={!newProjectName.trim() || creatingProject}>
+                        {creatingProject ? 'Створення...' : '+ Створити'}
+                      </button>
                     </div>
-                  )}
+                  </div>
                   {!isDiscordForm && (
                     <div className="add-grid-3">
                       <div className="auth-field">
@@ -547,11 +598,11 @@ export function AddServerClient(input: {
                     </div>
                   )}
                   <label className="auth-field">
-                    <span>{isDiscordForm ? 'Короткий опис *' : 'MOTD (короткий опис) *'}</span>
+                    <span>{isDiscordForm ? 'Короткий опис спільноти *' : 'MOTD (короткий опис) *'}</span>
                     <textarea
                       rows={3}
                       maxLength={160}
-                      placeholder={isDiscordForm ? 'Спільнота для українських геймерів...' : 'Привіт! Заходь до нас і отримай VIP на 7 днів...'}
+                      placeholder={isDiscordForm ? 'Спільнота для новин, голосових каналів, івентів та пошуку команди...' : 'Привіт! Заходь до нас і отримай VIP на 7 днів...'}
                       value={form.motd}
                       onChange={(event) => { setField('motd', event.target.value); setField('shortDesc', event.target.value) }}
                     />
@@ -567,8 +618,13 @@ export function AddServerClient(input: {
               {step === 3 && (
                 <div className="add-form-section">
                   <label className="auth-field">
-                    <span>Повний опис серверу *</span>
-                    <textarea rows={12} placeholder="Розкажи про особливості серверу, що чекає на гравців, які режими доступні, події, плагіни тощо..." value={form.fullDesc} onChange={(event) => setField('fullDesc', event.target.value)} />
+                    <span>{isDiscordForm ? 'Повний опис Discord-спільноти *' : 'Повний опис серверу *'}</span>
+                    <textarea
+                      rows={12}
+                      placeholder={isDiscordForm ? 'Розкажи про тематику спільноти, правила, голосові канали, ролі, івенти, модерацію та для кого цей Discord...' : 'Розкажи про особливості серверу, що чекає на гравців, які режими доступні, події, плагіни тощо...'}
+                      value={form.fullDesc}
+                      onChange={(event) => setField('fullDesc', event.target.value)}
+                    />
                     <small className="add-field-counter">{form.fullDesc.length} символів</small>
                   </label>
                   <div className="add-actions">
@@ -699,11 +755,11 @@ export function AddServerClient(input: {
               {step === 6 && (
                 <div className="add-form-section">
                   <div className="add-list-head">
-                    <b>Обери теги</b>
+                    <b>{isDiscordForm ? 'Обери теги Discord-спільноти' : 'Обери теги'}</b>
                     <span>{form.tags.length}/{MAX_TAGS}</span>
                   </div>
                   <div className="add-tags-grid">
-                    {TAG_OPTIONS.map((tag) => (
+                    {tagOptions.map((tag) => (
                       <Toggle
                         key={tag}
                         type="button"
@@ -727,12 +783,12 @@ export function AddServerClient(input: {
               {step === 7 && (
                 <div className="add-form-section">
                   <div className="add-summary">
-                    <div className="add-summary-row"><span>Адреса</span><b>{form.addr || '—'}</b></div>
-                    <div className="add-summary-row"><span>Назва</span><b>{form.name || '—'}</b></div>
-                    <div className="add-summary-row"><span>Ядро</span><b>{CORE_LABELS[form.core]}</b></div>
-                    <div className="add-summary-row"><span>Версія</span><b>{buildVersionRange(form.minVer, form.maxVer)}</b></div>
+                    <div className="add-summary-row"><span>{isDiscordForm ? 'Інвайт' : 'Адреса'}</span><b>{form.addr || '—'}</b></div>
+                    <div className="add-summary-row"><span>{isDiscordForm ? 'Спільнота' : 'Назва'}</span><b>{form.name || '—'}</b></div>
+                    <div className="add-summary-row"><span>{isDiscordForm ? 'Платформа' : 'Ядро'}</span><b>{CORE_LABELS[form.core]}</b></div>
+                    <div className="add-summary-row"><span>{isDiscordForm ? 'Тип' : 'Версія'}</span><b>{isDiscordForm ? form.mode : buildVersionRange(form.minVer, form.maxVer)}</b></div>
                     <div className="add-summary-row"><span>Країна</span><b>{form.country || '—'}</b></div>
-                    <div className="add-summary-row"><span>MOTD</span><b>{form.motd || '—'}</b></div>
+                    <div className="add-summary-row"><span>{isDiscordForm ? 'Короткий опис' : 'MOTD'}</span><b>{form.motd || '—'}</b></div>
                     {form.projectId && <div className="add-summary-row"><span>Проект</span><b>{projects.find((p) => p.id === form.projectId)?.name || '—'}</b></div>}
                     <div className="add-summary-row"><span>Відео</span><b>{form.videos.length}</b></div>
                     <div className="add-summary-row"><span>Галерея</span><b>{form.gallery.length}</b></div>

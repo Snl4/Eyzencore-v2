@@ -8,8 +8,8 @@ import { ClustersClient } from './ClustersClient'
 export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
-  title: 'Кластери серверів - Eyzencore',
-  description: 'Об’єднуйте Minecraft і Discord сервери у спільні кластери',
+  title: 'Проєкти серверів - Eyzencore',
+  description: 'Обʼєднуйте Minecraft і Discord сервери у спільні проєкти',
 }
 
 export default async function ClustersPage() {

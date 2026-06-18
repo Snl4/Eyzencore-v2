@@ -68,7 +68,7 @@ export function ClustersClient({
       : [...current.serverIds, id],
   }))
   const save = async () => {
-    if (!form.name.trim()) return setError('Вкажіть назву кластера')
+    if (!form.name.trim()) return setError('Вкажіть назву проєкту серверів')
     setBusy(true)
     setError(null)
     const response = await fetch(editing ? `/api/clusters/${editing.id}` : '/api/clusters', {
@@ -78,7 +78,7 @@ export function ClustersClient({
     })
     const payload = await response.json() as { cluster?: Cluster; error?: string }
     setBusy(false)
-    if (!response.ok || !payload.cluster) return setError(payload.error || 'Не вдалося зберегти кластер')
+    if (!response.ok || !payload.cluster) return setError(payload.error || 'Не вдалося зберегти проєкт серверів')
     setClusters((current) => editing
       ? current.map((cluster) => cluster.id === payload.cluster!.id ? payload.cluster! : cluster)
       : [payload.cluster!, ...current])
@@ -86,9 +86,9 @@ export function ClustersClient({
   }
   const remove = async (cluster: Cluster) => {
     if (!await confirmAction({
-      title: `Видалити кластер «${cluster.name}»?`,
-      description: 'Сервери залишаться на сайті, але більше не будуть обʼєднані цим кластером.',
-      confirmLabel: 'Видалити кластер',
+      title: `Видалити проєкт «${cluster.name}»?`,
+      description: 'Сервери залишаться на сайті, але більше не будуть обʼєднані цим проєктом.',
+      confirmLabel: 'Видалити проєкт',
     })) return
     const response = await fetch(`/api/clusters/${cluster.id}`, { method: 'DELETE' })
     if (response.ok) setClusters((current) => current.filter((item) => item.id !== cluster.id))
@@ -99,20 +99,20 @@ export function ClustersClient({
       <div className="page-main">
         <div className="page-topbar">
           <div>
-            <Breadcrumbs items={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Кластери' }]} />
-            <h1 className="page-title">Кластери серверів</h1>
+            <Breadcrumbs items={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Проєкти серверів' }]} />
+            <h1 className="page-title">Проєкти серверів</h1>
             <p style={{ color: 'var(--fg-3)', marginTop: 8, maxWidth: 650 }}>
-              Обʼєднуйте повʼязані Minecraft і Discord сервери. Кластер показується на сторінці кожного учасника.
+              Обʼєднуйте повʼязані Minecraft і Discord сервери в один проєкт або мережу. Проєкт показується на сторінці кожного учасника.
             </p>
           </div>
-          <button className="btn btn-primary" style={{ marginLeft: 'auto' }} onClick={showCreate}>+ Створити кластер</button>
+          <button className="btn btn-primary" style={{ marginLeft: 'auto' }} onClick={showCreate}>+ Створити проєкт</button>
         </div>
 
         {clusters.length === 0 ? (
           <div className="set-card" style={{ padding: 48, textAlign: 'center' }}>
-            <h2 style={{ marginBottom: 10 }}>Кластерів ще немає</h2>
-            <p style={{ color: 'var(--fg-3)', marginBottom: 20 }}>Створіть кластер і виберіть сервери, які до нього входять.</p>
-            <button className="btn btn-primary" onClick={showCreate}>Створити перший кластер</button>
+            <h2 style={{ marginBottom: 10 }}>Проєктів ще немає</h2>
+            <p style={{ color: 'var(--fg-3)', marginBottom: 20 }}>Створіть проєкт і виберіть сервери, які до нього входять.</p>
+            <button className="btn btn-primary" onClick={showCreate}>Створити перший проєкт</button>
           </div>
         ) : (
           <div className="projects-grid">
@@ -156,7 +156,7 @@ export function ClustersClient({
       {open && (
         <div className="project-form-overlay" role="dialog" aria-modal="true" onClick={(event) => event.target === event.currentTarget && setOpen(false)}>
           <div className="project-form-modal" style={{ maxWidth: 720 }}>
-            <h2 className="project-form-title">{editing ? 'Редагування кластера' : 'Новий кластер'}</h2>
+            <h2 className="project-form-title">{editing ? 'Редагування проєкту серверів' : 'Новий проєкт серверів'}</h2>
             {error && <div className="verify-error">{error}</div>}
             <label className="auth-field"><span>Назва *</span><input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="Eyzencore Network" autoFocus /></label>
             <label className="auth-field"><span>Опис</span><textarea rows={3} value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} /></label>
@@ -169,7 +169,7 @@ export function ClustersClient({
               ))}
             </div>
             <div className="auth-field">
-              <span>Сервери кластера</span>
+              <span>Сервери проєкту</span>
               <div style={{ display: 'grid', gap: 8, maxHeight: 230, overflowY: 'auto', padding: 4 }}>
                 {servers.length === 0 && <p style={{ color: 'var(--fg-3)' }}>Спочатку додайте та дочекайтеся схвалення сервера.</p>}
                 {servers.map((server) => (

@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import Image from 'next/image'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { LoginForm } from '@/components/auth/LoginForm'
@@ -6,10 +7,57 @@ import { AuthIcons } from '@/components/auth/AuthIcons'
 import { BrandMark } from '@/components/ui/BrandMark'
 import { getCurrentUser } from '@/lib/auth-server'
 import { getCachedPublicStats } from '@/lib/public-cache'
+import { prisma } from '@/lib/prisma'
+
+async function getLoginReviewTicker() {
+  const reviews = await prisma.app_server_reviews.findMany({
+    where: {
+      text: { not: '' },
+    },
+    orderBy: [
+      { updated_at: 'desc' },
+      { rating: 'desc' },
+    ],
+    take: 8,
+    select: {
+      id: true,
+      text: true,
+      rating: true,
+      author_name: true,
+      app_servers: {
+        select: {
+          name: true,
+          avatar_url: true,
+          platform: true,
+          core: true,
+        },
+      },
+      app_users: {
+        select: {
+          full_name: true,
+        },
+      },
+    },
+  })
+
+  return reviews.map((review) => ({
+    id: review.id,
+    text: review.text,
+    rating: Math.max(1, Math.min(5, Number(review.rating || 5))),
+    author: review.app_users?.full_name || review.author_name || 'Гість',
+    serverName: review.app_servers?.name || 'сервер спільноти',
+    serverAvatarUrl: review.app_servers?.avatar_url || '/project-default-logo.png',
+    platform: review.app_servers?.platform === 'discord' || review.app_servers?.core === 'discord' ? 'Discord' : 'Minecraft',
+  }))
+}
 
 export const metadata: Metadata = {
   title: 'Увійти',
   description: 'Увійдіть в акаунт Eyzencore',
+  robots: {
+    index: false,
+    follow: true,
+  },
 }
 
 export default async function LoginPage() {
@@ -17,6 +65,8 @@ export default async function LoginPage() {
     redirect('/settings')
   }
   const stats = await getCachedPublicStats()
+  const reviews = await getLoginReviewTicker()
+  const tickerReviews = reviews.length > 1 ? [...reviews, ...reviews] : reviews
   const authBullets = [
     `${stats.totalServers.toLocaleString('uk-UA')} серверів у моніторингу`,
     `${stats.totalVotes.toLocaleString('uk-UA')} голосів від спільноти`,
@@ -45,6 +95,26 @@ export default async function LoginPage() {
           <span>● status: operational</span>
           <span>v2.0.4</span>
         </div>
+        {tickerReviews.length > 0 && (
+          <div className="auth-review-ticker" aria-label="Відгуки серверів">
+            <div className="auth-review-track">
+              {tickerReviews.map((review, index) => (
+                <div className="auth-review-card" key={`${review.id}-${index}`}>
+                  <Image src={review.serverAvatarUrl} alt="" width={42} height={42} unoptimized />
+                  <div>
+                    <div className="auth-review-top">
+                      <span>Відгук про сервер</span>
+                      <b>{'★'.repeat(review.rating)}{'☆'.repeat(Math.max(0, 5 - review.rating))}</b>
+                      <em>{review.platform}</em>
+                    </div>
+                    <p>“{review.text}”</p>
+                    <small>— {review.author} · сервер {review.serverName}</small>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </aside>
       <div className="auth-main">
         <div className="auth-top">
@@ -61,7 +131,7 @@ export default async function LoginPage() {
           <p className="sub">Введіть свої дані, щоб продовжити роботу.</p>
           <LoginForm />
           <div className="auth-footer">
-            Захищено reCAPTCHA · <a href="#">Умови</a> · <a href="#">Конфіденційність</a>
+            Захищено reCAPTCHA · <Link href="/terms">Умови</Link> · <Link href="/privacy">Конфіденційність</Link>
           </div>
         </div>
         <div style={{ fontSize: 12, color: 'var(--fg-3)', textAlign: 'center', fontFamily: 'var(--font-mono)' }}>

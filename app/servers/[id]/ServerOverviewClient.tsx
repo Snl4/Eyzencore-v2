@@ -438,7 +438,7 @@ export function ServerOverviewClient({ server: s, cluster, canEdit, initialUser 
             <div className="so-tabs">
               {(['about','stats', ...(cluster ? ['cluster' as const] : [])] as Tab[]).map(t=>(
                 <button key={t} className={`so-tab${tab===t?' active':''}`} onClick={()=>setTab(t)}>
-                  {{ about:'Про сервер', stats:'Статистика', cluster:'Кластер' }[t]}
+                  {{ about:'Про сервер', stats:'Статистика', cluster:'Проєкт' }[t]}
                 </button>
               ))}
             </div>
@@ -711,7 +711,7 @@ export function ServerOverviewClient({ server: s, cluster, canEdit, initialUser 
 
             {tab === 'cluster' && cluster && (
               <>
-                <div className="so-block-title">{cluster.name}</div>
+                <div className="so-block-title">Сервери проєкту · {cluster.name}</div>
                 <div className="so-section">
                   {cluster.description && <p className="so-text" style={{ marginBottom: 16 }}>{cluster.description}</p>}
                   {cluster.servers.map((server) => (

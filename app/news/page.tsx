@@ -3,12 +3,26 @@ import { NewsPageClient } from './NewsPageClient'
 import { getCurrentUser } from '@/lib/auth-server'
 import { resolveUserRole } from '@/lib/auth-db'
 import { getCachedPublicNews } from '@/lib/public-cache'
+import { buildPageMetadata } from '@/lib/seo'
 
 export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
-  title: 'Новини — Eyzencore',
-  description: 'Офіційні новини, оновлення платформи та анонси серверів Eyzencore.',
+  ...buildPageMetadata({
+    title: 'Новини Minecraft, Discord і серверів',
+    description:
+      'Новини Eyzencore: оновлення Minecraft і Discord серверів, анонси спільнот, гайди, огляди, події, ресурси та новини української gaming-спільноти.',
+    path: '/news',
+    keywords: [
+      'новини Minecraft',
+      'Minecraft news',
+      'Discord news',
+      'анонси серверів',
+      'гайди Minecraft',
+      'ресурси Minecraft',
+      'новини серверів',
+    ],
+  }),
 }
 
 export default async function NewsPage() {

@@ -10,13 +10,26 @@ import {
   getCachedPublicStats,
 } from '@/lib/public-cache'
 import { IMAGE_PLACEHOLDER } from '@/lib/placeholders'
+import { SITE_URL, buildPageMetadata, serverJsonLd } from '@/lib/seo'
 
 export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
-  title: 'Eyzencore — моніторинг Minecraft та Discord серверів',
-  description:
-    'Живий каталог Minecraft і Discord серверів, реальна статистика онлайну, новини спільноти та інструменти для власників проєктів.',
+  ...buildPageMetadata({
+    title: 'Minecraft і Discord сервери України',
+    description:
+      'Eyzencore — live каталог Minecraft і Discord серверів: онлайн, рейтинги, голосування, відгуки, новини, форум, API та інструменти для власників проєктів. Ukrainian Minecraft servers and Discord communities.',
+    path: '/',
+    keywords: [
+      'minecraft сервери україна',
+      'українські майнкрафт сервери',
+      'minecraft servers Ukraine',
+      'discord сервери україна',
+      'discord communities Ukraine',
+      'моніторинг серверів',
+      'server list',
+    ],
+  }),
 }
 
 const numberFormat = new Intl.NumberFormat('uk-UA')
@@ -82,9 +95,26 @@ export default async function LandingPage() {
     { value: discordMembers, label: 'учасників Discord', detail: `${discordOnline} зараз онлайн` },
     { value: verifiedServers, label: 'перевірених серверів', detail: `${siteStats.totalUsers} користувачів` },
   ]
+  const topServersJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'ItemList',
+    name: 'Minecraft and Discord servers on Eyzencore',
+    url: SITE_URL,
+    numberOfItems: servers.slice(0, 12).length,
+    itemListElement: servers.slice(0, 12).map((server, index) => ({
+      '@type': 'ListItem',
+      position: index + 1,
+      url: `${SITE_URL}/servers/${server.seed}`,
+      item: serverJsonLd(server),
+    })),
+  }
 
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(topServersJsonLd) }}
+      />
       <div className="bg-aurora" />
       <div className="bg-grid" />
       <Nav />

@@ -2658,11 +2658,26 @@ button { cursor: pointer; }
     box-shadow: none;
   }
   .sc-cluster {
-    position: absolute; top: 10px; right: 10px; display: inline-flex; align-items: center; gap: 4px;
-    padding: 4px 10px 4px 8px; font-size: 11px; font-family: var(--font-mono);
-    background: rgba(123,140,255,0.18); backdrop-filter: blur(8px);
-    border: 1px solid color-mix(in oklab, var(--accent) 40%, transparent);
-    border-radius: 999px; color: var(--accent); text-transform: uppercase; letter-spacing: 0.04em;
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    display: inline-flex;
+    align-items: center;
+    max-width: calc(100% - 20px);
+    padding: 5px 10px;
+    font-size: 10px;
+    font-family: var(--font-mono);
+    font-weight: 800;
+    background: rgba(8, 10, 18, 0.82);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    border-radius: 999px;
+    color: #fff;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.4);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.28);
+    white-space: nowrap;
   }
   .sc-sponsored {
     position: absolute; top: 10px; right: 10px; z-index: 2;
@@ -2751,6 +2766,82 @@ button { cursor: pointer; }
   .social-btn:hover { background: var(--bg-2); border-color: var(--line-strong); }
   .auth-footer { text-align: center; font-size: 13px; color: var(--fg-2); margin-top: 24px; }
   .auth-footer a { color: var(--accent); font-weight: 500; }
+  .auth-review-ticker {
+    width: min(860px, 100%);
+    overflow: hidden;
+    margin-top: 18px;
+    border: 1px solid color-mix(in oklab, var(--accent) 22%, var(--line));
+    border-radius: 10px;
+    background:
+      linear-gradient(90deg, var(--bg-1), transparent 10%, transparent 90%, var(--bg-1)),
+      color-mix(in oklab, var(--bg-2) 78%, transparent);
+    box-shadow: 0 14px 36px rgba(0,0,0,0.18);
+  }
+  .auth-review-track {
+    display: flex;
+    width: max-content;
+    gap: 12px;
+    padding: 12px;
+    animation: auth-review-marquee 36s linear infinite;
+  }
+  .auth-review-ticker:hover .auth-review-track { animation-play-state: paused; }
+  .auth-review-card {
+    width: min(520px, 72vw);
+    min-height: 76px;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px 14px;
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    background: color-mix(in oklab, var(--bg-1) 76%, transparent);
+  }
+  .auth-review-card img {
+    width: 42px;
+    height: 42px;
+    border-radius: 10px;
+    object-fit: cover;
+    flex: 0 0 auto;
+  }
+  .auth-review-top {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    flex-wrap: wrap;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    line-height: 1.2;
+  }
+  .auth-review-top span {
+    color: #dfe6ff;
+    background: color-mix(in oklab, var(--accent) 30%, transparent);
+    padding: 1px 4px;
+    border-radius: 3px;
+  }
+  .auth-review-top b { color: #dfe6ff; letter-spacing: 1px; }
+  .auth-review-top em {
+    color: var(--fg-3);
+    font-style: normal;
+  }
+  .auth-review-card p {
+    margin: 8px 0 6px;
+    color: var(--fg-1);
+    font-size: 14px;
+    line-height: 1.45;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .auth-review-card small {
+    color: var(--fg-3);
+    font-family: var(--font-mono);
+    font-size: 11px;
+  }
+  @keyframes auth-review-marquee {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+  }
   .auth-top { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 18px; font-size: 13px; color: var(--fg-2); }
   .auth-top .right { margin-left: auto; }
   @media (max-width: 640px) {
@@ -7330,6 +7421,7 @@ svg {
   .home-server-meter { grid-column: 1 / -1; }
   .sc-status { top: 9px; left: 9px; }
   .sc-sponsored { top: 9px; right: 9px; padding: 4px 8px; font-size: 9px; }
+  .sc-cluster { top: 9px; right: 9px; padding: 4px 8px; font-size: 9px; }
   .sc-platform-badge { display: none; }
   .sc-stats { gap: 4px; padding: 9px 5px; }
   .sc-copy { padding-inline: 9px; }
