@@ -17,6 +17,7 @@ previous_commit=""
 database_path=""
 release_activated=0
 app_was_running=0
+stats_was_running=0
 
 log() {
   printf '\n\033[1;36m[%s]\033[0m %s\n' "$(date +%H:%M:%S)" "$*"
@@ -40,10 +41,45 @@ on_error() {
     if [[ "$app_was_running" -eq 1 ]]; then
       PORT="$PORT" pm2 restart "$PM2_APP" --update-env >&2 || true
     fi
+    if [[ "$stats_was_running" -eq 1 ]]; then
+      PORT="$PORT" STATS_COLLECTOR_BASE_URL="$HEALTH_URL" pm2 restart "$PM2_STATS_APP" --update-env >&2 || true
+    fi
   fi
   exit "$exit_code"
 }
 trap on_error ERR
+
+show_sqlite_lock_holders() {
+  if [[ -z "$database_path" || ! -f "$database_path" ]]; then
+    return 0
+  fi
+
+  if command -v fuser >/dev/null 2>&1; then
+    fuser -v "$database_path" 2>/dev/null || true
+  elif command -v lsof >/dev/null 2>&1; then
+    lsof "$database_path" || true
+  fi
+}
+
+run_migrations_with_retry() {
+  local attempt
+  local max_attempts="${MIGRATE_MAX_ATTEMPTS:-6}"
+
+  for attempt in $(seq 1 "$max_attempts"); do
+    if npm run db:deploy; then
+      return 0
+    fi
+
+    printf '\nPrisma migrate failed on attempt %s/%s.\n' "$attempt" "$max_attempts" >&2
+    if [[ "$attempt" -lt "$max_attempts" ]]; then
+      printf 'Waiting for SQLite lock to clear...\n' >&2
+      show_sqlite_lock_holders
+      sleep $((attempt * 5))
+    fi
+  done
+
+  return 1
+}
 
 command -v git >/dev/null || fail "git is not installed"
 command -v npm >/dev/null || fail "npm is not installed"
@@ -98,9 +134,15 @@ if pm2 describe "$PM2_APP" >/dev/null 2>&1; then
   log "Stopping application to unlock SQLite"
   pm2 stop "$PM2_APP"
 fi
+if pm2 describe "$PM2_STATS_APP" >/dev/null 2>&1; then
+  stats_was_running=1
+  log "Stopping stats collector to unlock SQLite"
+  pm2 stop "$PM2_STATS_APP"
+fi
+sleep 3
 
 log "Applying database migrations"
-npm run db:deploy
+run_migrations_with_retry
 
 log "Running typecheck"
 npm run typecheck
