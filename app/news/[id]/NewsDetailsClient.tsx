@@ -7,6 +7,7 @@ import { PageShell } from '@/components/layout/PageShell'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
 import type { AuthUser, NewsContentBlock, NewsPost } from '@/lib/auth-db'
 import { IMAGE_PLACEHOLDER } from '@/lib/placeholders'
+import { toYoutubeEmbedUrl } from '@/lib/youtube'
 
 type NewsDetailsClientProps = {
   initialUser: AuthUser | null
@@ -16,15 +17,6 @@ type NewsDetailsClientProps = {
 
 function isVideoFileUrl(url: string): boolean {
   return /\.(mp4|webm|ogg)(\?.*)?$/i.test(url)
-}
-
-function toYoutubeEmbedUrl(url: string): string | null {
-  const normalized = String(url || '').trim()
-  const watchMatch = normalized.match(/(?:youtube\.com\/watch\?v=)([\w-]{6,})/i)
-  if (watchMatch) return `https://www.youtube.com/embed/${watchMatch[1]}`
-  const shortMatch = normalized.match(/(?:youtu\.be\/)([\w-]{6,})/i)
-  if (shortMatch) return `https://www.youtube.com/embed/${shortMatch[1]}`
-  return null
 }
 
 function parseInline(raw: string): ReactNode {
@@ -99,15 +91,15 @@ function renderNewsBlock(block: NewsContentBlock): ReactNode {
     const youtubeEmbed = toYoutubeEmbedUrl(block.url)
     return (
       <figure className="na-figure">
-        {isVideoFileUrl(block.url) ? (
-          <video src={block.url} controls preload="metadata" className="news-media-content" />
-        ) : youtubeEmbed ? (
+        {youtubeEmbed ? (
           <iframe
             src={youtubeEmbed}
             title={block.caption || 'Відео до новини'}
             className="news-media-content"
             allowFullScreen
           />
+        ) : isVideoFileUrl(block.url) ? (
+          <video src={block.url} controls preload="metadata" className="news-media-content" />
         ) : (
           <a href={block.url} target="_blank" rel="noreferrer" className="na-external-media">
             Відкрити відео <span aria-hidden="true">↗</span>

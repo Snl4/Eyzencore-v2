@@ -14,6 +14,7 @@ import {
 import { IMAGE_PLACEHOLDER } from '@/lib/placeholders';
 import type { Server } from '@/lib/types';
 import { formatPlural } from '@/lib/format-plural';
+import { toYoutubeEmbedUrl } from '@/lib/youtube';
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import type { AuthUser } from '@/lib/auth-db';
 import type { Cluster } from '@/lib/cluster-db';
@@ -185,13 +186,7 @@ export function ServerOverviewClient({ server: s, cluster, canEdit, initialUser 
     { label: 'Сер. рейтинг', value: engagement.averageRating > 0 ? `${engagement.averageRating.toFixed(1)}★` : '—' },
     { label: 'Позиція', value: `#${s.rank}` },
   ]
-  const getEmbedVideoUrl = (url: string): string | null => {
-    const normalized = String(url || '').trim()
-    if (!normalized) return null
-    const youtubeMatch = normalized.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&?/]+)/i)
-    if (youtubeMatch?.[1]) return `https://www.youtube.com/embed/${youtubeMatch[1]}`
-    return null
-  }
+  const getEmbedVideoUrl = (url: string): string | null => toYoutubeEmbedUrl(url)
   useEffect(() => {
     let isMounted = true
     const loadLiveStatus = async () => {
