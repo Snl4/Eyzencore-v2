@@ -169,6 +169,7 @@ export function AddServerClient(input: {
   const isEditMode = Boolean(initialServer)
   const isDiscordForm = form.platform === 'discord'
   const tagOptions = isDiscordForm ? DISCORD_TAG_OPTIONS : MINECRAFT_TAG_OPTIONS
+  const visibleTagOptions = Array.from(new Set([...form.tags, ...tagOptions])).filter(Boolean)
 
   useEffect(() => {
     void fetch('/api/projects')
@@ -195,6 +196,7 @@ export function AddServerClient(input: {
   }
   const setField = <Key extends keyof ServerForm>(key: Key, value: ServerForm[Key]) => setForm((current) => ({ ...current, [key]: value }))
   const toggleTag = (tag: string) => setForm((current) => ({ ...current, tags: current.tags.includes(tag) ? current.tags.filter((item) => item !== tag) : [...current.tags, tag] }))
+  const clearTags = () => setField('tags', [])
   const upsertArrayUrl = (key: 'gallery' | 'videos', index: number, value: string) => setForm((current) => {
     const nextArray = [...current[key]]
     nextArray[index] = value
@@ -434,6 +436,22 @@ export function AddServerClient(input: {
             </aside>
 
             <div className="add-form">
+              {isEditMode && (
+                <div className="add-quick-edit">
+                  <div>
+                    <b>Швидке редагування</b>
+                    <span>Перейди одразу до потрібного блоку без проходження всіх кроків.</span>
+                  </div>
+                  <div className="add-quick-edit-actions">
+                    <button type="button" className="btn btn-secondary" onClick={() => goToStep(5)}>Банер / лого</button>
+                    <button type="button" className="btn btn-secondary" onClick={() => goToStep(3)}>Опис</button>
+                    <button type="button" className="btn btn-secondary" onClick={() => goToStep(6)}>Теги</button>
+                    <button type="button" className="btn btn-primary" onClick={() => void submitServer()} disabled={isPending}>
+                      {isPending ? 'Збереження...' : 'Зберегти'}
+                    </button>
+                  </div>
+                </div>
+              )}
               <div className="add-form-head">
                 <div className="add-form-head-step">Крок {step} з 7</div>
                 <h3 className="add-form-head-title">{currentStepLabel}</h3>
@@ -758,8 +776,24 @@ export function AddServerClient(input: {
                     <b>{isDiscordForm ? 'Обери теги Discord-спільноти' : 'Обери теги'}</b>
                     <span>{form.tags.length}/{MAX_TAGS}</span>
                   </div>
+                  {form.tags.length > 0 && (
+                    <div className="add-selected-tags">
+                      <div className="add-selected-tags-head">
+                        <span>Вибрані теги</span>
+                        <button type="button" onClick={clearTags}>Очистити всі</button>
+                      </div>
+                      <div className="add-selected-tags-list">
+                        {form.tags.map((tag) => (
+                          <button type="button" key={tag} onClick={() => toggleTag(tag)} title="Прибрати тег">
+                            {tag}
+                            <span aria-hidden="true">×</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   <div className="add-tags-grid">
-                    {tagOptions.map((tag) => (
+                    {visibleTagOptions.map((tag) => (
                       <Toggle
                         key={tag}
                         type="button"

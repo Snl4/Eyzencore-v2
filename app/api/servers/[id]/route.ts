@@ -50,7 +50,7 @@ export async function PATCH(request: NextRequest, context: { params: { id: strin
       platform,
       mode: String(body.mode || (platform === 'discord' ? 'Community' : 'Survival')),
       ver: String(body.ver || (platform === 'discord' ? 'Discord' : '1.21.11')),
-      core: platform === 'discord' ? 'java' : (body.core === 'bedrock' || body.core === 'java_bedrock' ? body.core : 'java'),
+      core: platform === 'discord' ? 'discord' : (body.core === 'bedrock' || body.core === 'java_bedrock' ? body.core : 'java'),
       country: String(body.country || ''),
       motd: String(body.motd || ''),
       shortDesc: String(body.shortDesc || ''),
