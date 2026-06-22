@@ -36,7 +36,7 @@ function normalizeAttachments(value: unknown): ForumAttachment[] {
     const url = cleanText(input.url, 1000)
     const mime = cleanText(input.mime, 120).toLowerCase()
     const kind = input.kind === 'video' ? 'video' : 'image'
-    if (!url.startsWith('/uploads/forum/')) return []
+    if (!url.startsWith('/uploads/forum/') && !url.startsWith('/api/uploads/forum/')) return []
     if (kind === 'image' && !mime.startsWith('image/')) return []
     if (kind === 'video' && !mime.startsWith('video/')) return []
     return [{

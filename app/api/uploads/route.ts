@@ -3,6 +3,7 @@ import { writeFile, mkdir } from 'node:fs/promises'
 import path from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { AUTH_COOKIE_NAME, getAuthSessionFromToken, resolveUserRole } from '@/lib/auth-db'
+import { buildUploadUrl, getUploadsRoot } from '@/lib/upload-store'
 
 export const runtime = 'nodejs'
 
@@ -91,7 +92,7 @@ export async function POST(request: NextRequest) {
   const ext = safeExtension(file.name || '', mime)
   const filename = `${randomUUID()}${ext}`
 
-  const baseDir = path.join(process.cwd(), 'public', 'uploads', kind, subdir)
+  const baseDir = path.join(getUploadsRoot(), kind, subdir)
   try {
     await mkdir(baseDir, { recursive: true })
     const buffer = Buffer.from(await file.arrayBuffer())
@@ -101,7 +102,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: message }, { status: 500 })
   }
 
-  const url = `/uploads/${kind}/${subdir}/${filename}`
+  const url = buildUploadUrl(kind, subdir, filename)
   return NextResponse.json({
     url,
     kind: isImage ? 'image' : 'video',

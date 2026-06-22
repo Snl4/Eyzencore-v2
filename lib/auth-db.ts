@@ -1744,15 +1744,18 @@ export async function getServerEngagementSummary(serverId: number) {
   const viewsRow = await db
     .prepare('SELECT COUNT(*) AS c FROM app_server_views WHERE server_id = ?')
     .get(serverId) as { c: number } | undefined;
-  const votesRow = await db
+  const nicknameVotesRow = await db
     .prepare('SELECT COUNT(*) AS c FROM app_server_nickname_votes WHERE server_id = ?')
+    .get(serverId) as { c: number } | undefined;
+  const accountVotesRow = await db
+    .prepare('SELECT COUNT(*) AS c FROM app_server_votes WHERE server_id = ?')
     .get(serverId) as { c: number } | undefined;
   const reviewsRow = await db
     .prepare('SELECT COUNT(*) AS c, AVG(rating) AS avg_rating FROM app_server_reviews WHERE server_id = ?')
     .get(serverId) as { c: number; avg_rating: number | null } | undefined;
   return {
     views: Number(viewsRow?.c || 0),
-    votes: Number(votesRow?.c || 0),
+    votes: Number(nicknameVotesRow?.c || 0) + Number(accountVotesRow?.c || 0),
     reviews: Number(reviewsRow?.c || 0),
     averageRating: Number(reviewsRow?.avg_rating || 0),
   };
@@ -2450,6 +2453,30 @@ async function countSince(table: 'app_server_views' | 'app_server_nickname_votes
   return Number(row?.c || 0);
 }
 
+async function countVotesSince(serverId: number, sinceDays: number, untilDays?: number) {
+  const db = getDb();
+  const params: Array<number | string> = [serverId, `-${sinceDays} days`, serverId, `-${sinceDays} days`];
+  let upperBound = '';
+  if (typeof untilDays === 'number') {
+    upperBound = ` AND datetime(created_at) < datetime('now', ?)`;
+    params.splice(2, 0, `-${untilDays} days`);
+    params.push(`-${untilDays} days`);
+  }
+  const row = await db.prepare(
+    `SELECT SUM(c) AS c
+     FROM (
+       SELECT COUNT(*) AS c
+       FROM app_server_nickname_votes
+       WHERE server_id = ? AND datetime(created_at) >= datetime('now', ?)${upperBound}
+       UNION ALL
+       SELECT COUNT(*) AS c
+       FROM app_server_votes
+       WHERE server_id = ? AND datetime(created_at) >= datetime('now', ?)${upperBound}
+     )`
+  ).get(...params) as { c: number } | undefined;
+  return Number(row?.c || 0);
+}
+
 async function avgRatingSince(serverId: number, sinceDays: number) {
   const db = getDb();
   const row = await db
@@ -2476,8 +2503,8 @@ export async function getServerDashboardSnapshot(input: { serverId: number; user
     ratingPrior,
     summary,
   ] = await Promise.all([
-    countSince('app_server_nickname_votes', input.serverId, days),
-    countSince('app_server_nickname_votes', input.serverId, days * 2, days),
+    countVotesSince(input.serverId, days),
+    countVotesSince(input.serverId, days * 2, days),
     countSince('app_server_views', input.serverId, days),
     countSince('app_server_views', input.serverId, days * 2, days),
     countSince('app_server_reviews', input.serverId, days),
@@ -2536,9 +2563,21 @@ export async function getServerDashboardSnapshot(input: { serverId: number; user
       `SELECT fingerprint, created_at
        FROM app_server_views
        WHERE server_id = ? AND datetime(created_at) >= datetime('now', ?)
-       ORDER BY datetime(created_at) ASC`
+       ORDER BY created_at ASC`
     )
     .all(input.serverId, `-${days} days`) as Array<{ fingerprint: string; created_at: string }>;
+  const voteRowsForChart = await db
+    .prepare(
+      `SELECT created_at
+       FROM app_server_nickname_votes
+       WHERE server_id = ? AND datetime(created_at) >= datetime('now', ?)
+       UNION ALL
+       SELECT created_at
+       FROM app_server_votes
+       WHERE server_id = ? AND datetime(created_at) >= datetime('now', ?)
+       ORDER BY created_at ASC`
+    )
+    .all(input.serverId, `-${days} days`, input.serverId, `-${days} days`) as Array<{ created_at: string }>;
   const playerBuckets = new Map<number, { total: number; count: number; peak: number }>();
   for (const row of sampleRows) {
     const time = new Date(row.recorded_at).getTime();
@@ -2552,6 +2591,7 @@ export async function getServerDashboardSnapshot(input: { serverId: number; user
     playerBuckets.set(key, current);
   }
   const visitorBuckets = new Map<number, Set<string>>();
+  const viewBuckets = new Map<number, number>();
   for (const row of viewRowsForChart) {
     const time = new Date(row.created_at).getTime();
     if (!Number.isFinite(time)) continue;
@@ -2559,8 +2599,16 @@ export async function getServerDashboardSnapshot(input: { serverId: number; user
     const set = visitorBuckets.get(key) || new Set<string>();
     set.add(String(row.fingerprint || 'guest'));
     visitorBuckets.set(key, set);
+    viewBuckets.set(key, (viewBuckets.get(key) || 0) + 1);
   }
-  const chart: Array<{ date: string; online: number; peak: number; visitors: number }> = [];
+  const voteBuckets = new Map<number, number>();
+  for (const row of voteRowsForChart) {
+    const time = new Date(row.created_at).getTime();
+    if (!Number.isFinite(time)) continue;
+    const key = Math.floor(time / bucketMs) * bucketMs;
+    voteBuckets.set(key, (voteBuckets.get(key) || 0) + 1);
+  }
+  const chart: Array<{ date: string; online: number; peak: number; visitors: number; views: number; votes: number }> = [];
   for (let cursor = firstBucket; cursor <= lastBucket; cursor += bucketMs) {
     const player = playerBuckets.get(cursor);
     chart.push({
@@ -2568,6 +2616,8 @@ export async function getServerDashboardSnapshot(input: { serverId: number; user
       online: player && player.count > 0 ? Math.round(player.total / player.count) : 0,
       peak: player?.peak || 0,
       visitors: visitorBuckets.get(cursor)?.size || 0,
+      views: viewBuckets.get(cursor) || 0,
+      votes: voteBuckets.get(cursor) || 0,
     });
   }
 

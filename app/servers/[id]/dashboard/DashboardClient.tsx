@@ -22,7 +22,7 @@ type ActivityItem = {
   avatarUrl?: string | null
   profileSlug?: string | null
 }
-type ChartPoint = { date: string; online: number; peak: number; visitors: number }
+type ChartPoint = { date: string; online: number; peak: number; visitors: number; views: number; votes: number }
 type VoteEntry = { id: number; nickname: string; voteCount: number; createdAt: string }
 type ReviewItem = {
   id: number
@@ -212,6 +212,21 @@ function formatDate(iso: string): string {
 
 function formatNumber(value: number): string {
   return Number(value || 0).toLocaleString('uk-UA')
+}
+
+function chartMetricLabel(name: unknown): string {
+  switch (String(name)) {
+    case 'online':
+      return 'Онлайн (середн.)'
+    case 'visitors':
+      return 'Унік. відвідувачі'
+    case 'views':
+      return 'Перегляди'
+    case 'votes':
+      return 'Голоси'
+    default:
+      return String(name || '')
+  }
 }
 
 function pctDelta(current: number, prior: number): { sign: '+' | '-' | ''; text: string; negative: boolean } {
@@ -447,6 +462,8 @@ export function DashboardClient({ initialUser, server, initialSnapshot }: Props)
                 <div className="legend">
                   <span className="dot" style={{ background: 'var(--accent)' }} /> Онлайн
                   <span className="dot" style={{ background: '#5eead4', marginLeft: 14 }} /> Відвідувачі
+                  <span className="dot" style={{ background: '#fbbf24', marginLeft: 14 }} /> Перегляди
+                  <span className="dot" style={{ background: '#a78bfa', marginLeft: 14 }} /> Голоси
                 </div>
               </div>
               <div className="dash-chart-wrap">
@@ -469,7 +486,7 @@ export function DashboardClient({ initialUser, server, initialSnapshot }: Props)
                         cursor={{ stroke: 'var(--accent)', strokeOpacity: 0.45, strokeDasharray: '4 4', strokeWidth: 1.5 }}
                         contentStyle={{ background: 'var(--bg-1)', border: '1px solid var(--line-strong)', borderRadius: 10, color: 'var(--fg)', fontSize: 12.5, boxShadow: '0 8px 24px rgba(0,0,0,0.4)' }}
                         labelFormatter={(label) => new Date(label).toLocaleDateString('uk-UA', { day: 'numeric', month: 'long' })}
-                        formatter={(value, name) => [`${formatNumber(Number(value))}`, name === 'online' ? 'Онлайн (середн.)' : 'Унік. відвідувачі']}
+                        formatter={(value, name) => [`${formatNumber(Number(value))}`, chartMetricLabel(name)]}
                       />
                       <Area
                         yAxisId="left" type="monotone" dataKey="online"
@@ -482,6 +499,18 @@ export function DashboardClient({ initialUser, server, initialSnapshot }: Props)
                         stroke="#5eead4" strokeWidth={1.8} strokeDasharray="4 4"
                         dot={false}
                         activeDot={{ r: 4, fill: '#5eead4', stroke: 'var(--bg-1)', strokeWidth: 2 }}
+                      />
+                      <Line
+                        yAxisId="right" type="monotone" dataKey="views"
+                        stroke="#fbbf24" strokeWidth={1.8}
+                        dot={false}
+                        activeDot={{ r: 4, fill: '#fbbf24', stroke: 'var(--bg-1)', strokeWidth: 2 }}
+                      />
+                      <Line
+                        yAxisId="right" type="monotone" dataKey="votes"
+                        stroke="#a78bfa" strokeWidth={1.8}
+                        dot={false}
+                        activeDot={{ r: 4, fill: '#a78bfa', stroke: 'var(--bg-1)', strokeWidth: 2 }}
                       />
                     </ComposedChart>
                   </ResponsiveContainer>
