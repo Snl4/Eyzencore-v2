@@ -935,7 +935,8 @@ function sanitizeImageUrl(value: unknown, field: string): string | null {
   }
   if (trimmed.startsWith('data:image/')) return trimmed;
   if (/^https?:\/\//i.test(trimmed)) return trimmed.slice(0, 2048);
-  // Site-relative paths produced by /api/uploads (e.g. "/uploads/news/2026-05/abc.png")
+  // Site-relative paths produced by /api/uploads.
+  if (trimmed.startsWith('/api/uploads/')) return trimmed.slice(0, 2048);
   if (trimmed.startsWith('/uploads/')) return trimmed.slice(0, 2048);
   throw new Error(`${field} must be an image URL or data URL`);
 }
@@ -3427,6 +3428,7 @@ function isValidVideoUrl(value: string): boolean {
   if (!trimmed) return false;
   if (/^https?:\/\//i.test(trimmed)) return true;
   // Site-relative paths produced by /api/uploads (locally hosted videos)
+  if (trimmed.startsWith('/api/uploads/')) return true;
   if (trimmed.startsWith('/uploads/')) return true;
   return false;
 }

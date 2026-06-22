@@ -448,7 +448,7 @@ export function NewsEditorPage({ mode, initialUser, initialPost }: NewsEditorPag
                   type="text"
                   inputMode="url"
                   className="news-input"
-                  placeholder="https://… або /uploads/…"
+                  placeholder="https://… або /api/uploads/…"
                   value={form.coverUrl}
                   onChange={(event) => handleField('coverUrl', event.target.value)}
                   maxLength={2048}
@@ -842,16 +842,16 @@ function BlockMedia({
 
       <div className="news-block-media-fields">
         <label className="news-edit-field">
-          <span>Посилання {url && url.startsWith('/uploads/') ? '(збережено локально)' : '(або зовнішнє)'}</span>
+          <span>Посилання {url && (url.startsWith('/uploads/') || url.startsWith('/api/uploads/')) ? '(збережено локально)' : '(або зовнішнє)'}</span>
           <input
             type="text"
             inputMode="url"
             className="news-input"
-            placeholder={isImage ? 'https://… або /uploads/…' : 'https://youtube.com/… або /uploads/…'}
+            placeholder={isImage ? 'https://… або /api/uploads/…' : 'https://youtube.com/… або /api/uploads/…'}
             value={url}
             onChange={(event) => onUpdate({ url: event.target.value })}
           />
-          {url && url.startsWith('/uploads/') && (
+          {url && (url.startsWith('/uploads/') || url.startsWith('/api/uploads/')) && (
             <small className="news-edit-counter news-edit-pill-mini">локальний файл · {formatFileSize(0)}</small>
           )}
         </label>
