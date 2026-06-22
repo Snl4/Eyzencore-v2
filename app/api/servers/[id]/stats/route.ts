@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerById, listServerOnlineSamples } from '@/lib/auth-db'
+import { getServerById, listServerMetricEvents, listServerOnlineSamples } from '@/lib/auth-db'
 
 interface Context {
   params: { id: string }
@@ -25,39 +25,50 @@ export async function GET(_request: NextRequest, context: Context) {
     all: { hours: 24 * 365 * 3, bucketMinutes: 24 * 60 * 7 },
   }
   const selected = periodMap[period] || periodMap.day
-  const samples = await listServerOnlineSamples(server.seed, selected.hours)
+  const [samples, metricEvents] = await Promise.all([
+    listServerOnlineSamples(server.seed, selected.hours),
+    listServerMetricEvents(server.seed, selected.hours),
+  ])
   const now = new Date()
   const bucketSizeMs = selected.bucketMinutes * 60 * 1000
   const rangeStart = new Date(now.getTime() - selected.hours * 60 * 60 * 1000)
-  const bucketMap = new Map<number, { players: number; votes: number; views: number; count: number }>()
+  const bucketMap = new Map<number, { players: number; count: number }>()
   for (const sample of samples) {
     const sampleTime = new Date(sample.recordedAt).getTime()
     if (Number.isNaN(sampleTime)) continue
     const bucketKey = Math.floor(sampleTime / bucketSizeMs) * bucketSizeMs
-    const current = bucketMap.get(bucketKey) || { players: 0, votes: 0, views: 0, count: 0 }
+    const current = bucketMap.get(bucketKey) || { players: 0, count: 0 }
     current.players += sample.players
-    current.votes += sample.votes
-    current.views += sample.views
     current.count += 1
     bucketMap.set(bucketKey, current)
+  }
+  const voteBucketMap = new Map<number, number>()
+  for (const createdAt of metricEvents.votes) {
+    const time = new Date(createdAt).getTime()
+    if (Number.isNaN(time)) continue
+    const bucketKey = Math.floor(time / bucketSizeMs) * bucketSizeMs
+    voteBucketMap.set(bucketKey, (voteBucketMap.get(bucketKey) || 0) + 1)
+  }
+  const viewBucketMap = new Map<number, number>()
+  for (const createdAt of metricEvents.views) {
+    const time = new Date(createdAt).getTime()
+    if (Number.isNaN(time)) continue
+    const bucketKey = Math.floor(time / bucketSizeMs) * bucketSizeMs
+    viewBucketMap.set(bucketKey, (viewBucketMap.get(bucketKey) || 0) + 1)
   }
   const points: Array<{ players: number; votes: number; views: number; recordedAt: string }> = []
   let cursor = Math.floor(rangeStart.getTime() / bucketSizeMs) * bucketSizeMs
   const end = Math.floor(now.getTime() / bucketSizeMs) * bucketSizeMs
-  let previous = { players: 0, votes: 0, views: 0 }
+  let previousPlayers = 0
   while (cursor <= end) {
     const bucket = bucketMap.get(cursor)
     if (bucket && bucket.count > 0) {
-      previous = {
-        players: Math.round(bucket.players / bucket.count),
-        votes: Math.round(bucket.votes / bucket.count),
-        views: Math.round(bucket.views / bucket.count),
-      }
+      previousPlayers = Math.round(bucket.players / bucket.count)
     }
     points.push({
-      players: previous.players,
-      votes: previous.votes,
-      views: previous.views,
+      players: previousPlayers,
+      votes: voteBucketMap.get(cursor) || 0,
+      views: viewBucketMap.get(cursor) || 0,
       recordedAt: new Date(cursor).toISOString(),
     })
     cursor += bucketSizeMs

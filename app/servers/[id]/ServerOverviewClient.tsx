@@ -153,12 +153,8 @@ export function ServerOverviewClient({ server: s, cluster, canEdit, initialUser 
       : 0
     const current = values[values.length - 1] || 0
 
-    // The "Сумарно" card is meaningless as a raw sum because:
-    //   - online: chart values are time-averages of player counts, summing them
-    //     yields "player-bucket units" that depend on bucketing, not reality
-    //   - votes/views: chart values are CUMULATIVE running totals, so summing
-    //     cumulatives is double-counting
-    // We replace with a metric-appropriate stat instead.
+    // Online values are time-averages, while votes/views are bucket event counts.
+    // Use a metric-appropriate total so the cards match what the chart shows.
     let totalLabel = 'Сумарно'
     let totalValue = 0
     let totalSub = ''
@@ -169,11 +165,9 @@ export function ServerOverviewClient({ server: s, cluster, canEdit, initialUser 
       totalValue = Math.round(playerHours)
       totalSub = 'оцінка часу гри'
     } else {
-      // Delta: how many votes/views were gained in the period.
-      const firstNonZero = values.find((value) => value > 0) ?? 0
-      const lastValue = current
-      totalLabel = 'Приріст за період'
-      totalValue = Math.max(0, lastValue - firstNonZero)
+      // Votes/views are bucket counts, so the period total is their sum.
+      totalLabel = 'За період'
+      totalValue = values.reduce((sum, value) => sum + value, 0)
       totalSub = `нових ${METRIC_UNITS[metric]}`
     }
     return { current, peak, average, totalLabel, totalValue, totalSub }

@@ -1845,6 +1845,34 @@ export async function listServerOnlineSamples(serverId: number, hours = 24) {
   }));
 }
 
+export async function listServerMetricEvents(serverId: number, hours = 24) {
+  const db = getDb();
+  const safeHours = Math.max(1, Math.min(hours, 24 * 365 * 3));
+  const views = await db.prepare(
+    `SELECT created_at AS created_at
+     FROM app_server_views
+     WHERE server_id = ?
+       AND datetime(created_at) >= datetime('now', ?)
+     ORDER BY created_at ASC`
+  ).all(serverId, `-${safeHours} hours`) as Array<{ created_at: string }>;
+  const votes = await db.prepare(
+    `SELECT created_at AS created_at
+     FROM app_server_nickname_votes
+     WHERE server_id = ?
+       AND datetime(created_at) >= datetime('now', ?)
+     UNION ALL
+     SELECT updated_at AS created_at
+     FROM app_server_votes
+     WHERE server_id = ?
+       AND datetime(updated_at) >= datetime('now', ?)
+     ORDER BY created_at ASC`
+  ).all(serverId, `-${safeHours} hours`, serverId, `-${safeHours} hours`) as Array<{ created_at: string }>;
+  return {
+    views: views.map((row) => row.created_at).filter(Boolean),
+    votes: votes.map((row) => row.created_at).filter(Boolean),
+  };
+}
+
 export async function getLatestServerOnlineSample(serverId: number) {
   const db = getDb();
   const row = await db.prepare(
