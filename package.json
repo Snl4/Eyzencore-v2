@@ -22,6 +22,8 @@
     "db:import-nebula": "node scripts/import-nebula.cjs",
     "db:migrate-user-slugs": "node scripts/migrate-imported-user-slugs.cjs",
     "stats:collector": "tsx scripts/server-stats-collector.ts",
+    "news:bot": "tsx scripts/news-bot.ts",
+    "news:bot:dry": "tsx scripts/news-bot.ts --dry-run",
     "deploy:vps": "bash ./deploy.sh"
   },
   "dependencies": {
