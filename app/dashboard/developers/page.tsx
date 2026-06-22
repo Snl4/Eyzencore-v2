@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth-server'
-import { listApiTokens, listServers, listServersByOwner, resolveUserRole } from '@/lib/auth-db'
+import { listApiTokens, listServersByOwner, resolveUserRole } from '@/lib/auth-db'
 import { DeveloperHubClient } from './DeveloperHubClient'
 
 interface DevelopersPageProps {
@@ -29,7 +29,7 @@ export default async function DevelopersPage({ searchParams }: DevelopersPagePro
   const role = await resolveUserRole({ userId: user.id, role: user.user_metadata.role })
   if (role !== 'OWNER' && role !== 'ADMIN') redirect('/dashboard')
 
-  const servers = role === 'ADMIN' ? await listServers() : await listServersByOwner(user.id)
+  const servers = await listServersByOwner(user.id)
   const selectedServerId = resolveSelectedServerId(servers.map((server) => server.seed), searchParams?.serverId)
   const initialTokens = selectedServerId ? await listApiTokens(user.id, selectedServerId) : []
 

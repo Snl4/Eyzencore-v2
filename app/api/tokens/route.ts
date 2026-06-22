@@ -8,6 +8,12 @@ export async function GET(request: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const rawServerId = request.nextUrl.searchParams.get('serverId')
   const serverId = rawServerId ? Number(rawServerId) : undefined
+  if (Number.isFinite(serverId)) {
+    const server = await getServerById(serverId as number)
+    if (!server || server.ownerId !== user.id) {
+      return NextResponse.json({ error: 'Server not found' }, { status: 404 })
+    }
+  }
   const tokens = await listApiTokens(user.id, Number.isFinite(serverId) ? serverId : undefined)
   return NextResponse.json(tokens)
 }
@@ -23,8 +29,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Server is required' }, { status: 400 })
   }
   const server = await getServerById(serverId)
-  const isAdmin = String(user.user_metadata.role || '').toUpperCase() === 'ADMIN'
-  if (!server || (!isAdmin && server.ownerId !== user.id)) {
+  if (!server || server.ownerId !== user.id) {
     return NextResponse.json({ error: 'Server not found' }, { status: 404 })
   }
   const validScopes: ApiTokenScope[] = ['servers:read', 'events:read']
