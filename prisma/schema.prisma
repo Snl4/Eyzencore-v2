@@ -9,16 +9,16 @@ datasource db {
 }
 
 model app_api_tokens {
-  id           String    @id
+  id           String       @id
   user_id      String
   server_id    Int?
   name         String
-  token_hash   String    @unique(map: "sqlite_autoindex_app_api_tokens_2")
-  scopes       String    @default("[\"servers:read\"]")
+  token_hash   String       @unique(map: "sqlite_autoindex_app_api_tokens_2")
+  scopes       String       @default("[\"servers:read\"]")
   last_used_at String?
   created_at   String
   revoked_at   String?
-  app_users    app_users @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  app_users    app_users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   app_servers  app_servers? @relation(fields: [server_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([token_hash], map: "idx_api_tokens_token_hash")
@@ -57,6 +57,57 @@ model app_notifications {
 
   @@index([created_at], map: "idx_notifications_created_at")
   @@index([user_id], map: "idx_notifications_user_id")
+}
+
+model app_server_events {
+  id          Int                          @id @default(autoincrement())
+  server_id   Int
+  owner_id    String
+  type        String                       @default("update")
+  title       String
+  description String                       @default("")
+  starts_at   String
+  ends_at     String?
+  location    String?
+  prize       String?
+  image_url   String?
+  status      String                       @default("published")
+  created_at  String
+  updated_at  String
+  app_servers app_servers                  @relation(fields: [server_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  app_users   app_users                    @relation(fields: [owner_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  attendees   app_server_event_attendees[]
+  comments    app_server_event_comments[]
+
+  @@index([server_id], map: "idx_server_events_server_id")
+  @@index([starts_at], map: "idx_server_events_starts_at")
+  @@index([status], map: "idx_server_events_status")
+}
+
+model app_server_event_attendees {
+  id                Int               @id @default(autoincrement())
+  event_id          Int
+  user_id           String
+  reminder_enabled  Int               @default(1)
+  created_at        String
+  app_server_events app_server_events @relation(fields: [event_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  app_users         app_users         @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([event_id, user_id], map: "idx_server_event_attendees_unique")
+  @@index([user_id], map: "idx_server_event_attendees_user")
+}
+
+model app_server_event_comments {
+  id                Int               @id @default(autoincrement())
+  event_id          Int
+  user_id           String
+  text              String
+  created_at        String
+  updated_at        String
+  app_server_events app_server_events @relation(fields: [event_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  app_users         app_users         @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([event_id, created_at], map: "idx_server_event_comments_event")
 }
 
 model app_projects {
@@ -198,18 +249,18 @@ model app_server_verifications {
 }
 
 model app_server_views {
-  id           Int         @id @default(autoincrement())
-  server_id    Int
-  user_id      String?
-  fingerprint  String
-  ip_address   String?
-  country_code String?
-  referrer     String?
+  id             Int         @id @default(autoincrement())
+  server_id      Int
+  user_id        String?
+  fingerprint    String
+  ip_address     String?
+  country_code   String?
+  referrer       String?
   traffic_source String?
-  referral_code String?
-  created_at   String
-  app_users    app_users?  @relation(fields: [user_id], references: [id], onUpdate: NoAction)
-  app_servers  app_servers @relation(fields: [server_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  referral_code  String?
+  created_at     String
+  app_users      app_users?  @relation(fields: [user_id], references: [id], onUpdate: NoAction)
+  app_servers    app_servers @relation(fields: [server_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([fingerprint], map: "idx_server_views_fingerprint")
   @@index([created_at], map: "idx_server_views_created_at")
@@ -291,10 +342,10 @@ model app_servers {
   online                    Int                         @default(0)
   players                   Int                         @default(0)
   max                       Int                         @default(0)
-    uptime                    String                      @default("new")
-    verified                  Int                         @default(0)
-    boosted                   Int                         @default(0)
-    cluster_id                Int?
+  uptime                    String                      @default("new")
+  verified                  Int                         @default(0)
+  boosted                   Int                         @default(0)
+  cluster_id                Int?
   created_at                String
   updated_at                String
   project_id                Int?
@@ -302,6 +353,7 @@ model app_servers {
   discord_bot_verified      Int                         @default(0)
   discord_verify_code       String?
   app_notifications         app_notifications[]
+  app_server_events         app_server_events[]
   app_api_tokens            app_api_tokens[]
   app_server_callback       app_server_callbacks?
   app_callback_events       app_callback_events[]
@@ -320,9 +372,9 @@ model app_servers {
 
   @@index([owner_id], map: "idx_app_servers_owner_id")
   @@index([addr], map: "idx_app_servers_addr")
-    @@index([cluster_id], map: "idx_app_servers_cluster_id")
-    @@index([boosted], map: "idx_app_servers_boosted")
-  }
+  @@index([cluster_id], map: "idx_app_servers_cluster_id")
+  @@index([boosted], map: "idx_app_servers_boosted")
+}
 
 model app_server_callbacks {
   id                  Int                       @id @default(autoincrement())
@@ -375,21 +427,21 @@ model app_callback_events {
 }
 
 model app_callback_deliveries {
-  id               Int                  @id @default(autoincrement())
-  event_id         Int
-  callback_id      Int
-  server_id        Int
-  action           String
-  destination      String
-  payload_json     String
-  status           String               @default("pending")
-  status_code      Int?
-  response_excerpt String?
-  error_message    String?
-  created_at       String
-  delivered_at     String?
+  id                   Int                  @id @default(autoincrement())
+  event_id             Int
+  callback_id          Int
+  server_id            Int
+  action               String
+  destination          String
+  payload_json         String
+  status               String               @default("pending")
+  status_code          Int?
+  response_excerpt     String?
+  error_message        String?
+  created_at           String
+  delivered_at         String?
   app_server_callbacks app_server_callbacks @relation(fields: [callback_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  app_callback_events   app_callback_events   @relation(fields: [event_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  app_callback_events  app_callback_events  @relation(fields: [event_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   app_servers          app_servers          @relation(fields: [server_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([callback_id, created_at], map: "idx_callback_deliveries_callback")
@@ -403,7 +455,7 @@ model app_achievements {
   name                  String
   description           String                  @default("")
   emblem                String                  @default("★")
-  image_url              String?
+  image_url             String?
   trigger_type          String                  @default("manual")
   trigger_value         Int                     @default(0)
   is_active             Int                     @default(1)
@@ -416,11 +468,11 @@ model app_achievements {
 }
 
 model app_user_achievements {
-  id             Int              @id @default(autoincrement())
-  achievement_id Int
-  user_id        String
-  granted_by     String           @default("auto")
-  earned_at      String
+  id               Int              @id @default(autoincrement())
+  achievement_id   Int
+  user_id          String
+  granted_by       String           @default("auto")
+  earned_at        String
   app_achievements app_achievements @relation(fields: [achievement_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   app_users        app_users        @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
@@ -429,48 +481,51 @@ model app_user_achievements {
 }
 
 model app_users {
-  id                       String                     @id
-  email                    String                     @unique(map: "sqlite_autoindex_app_users_2")
-  password_hash            String
-  full_name                String
-  profile_slug             String?                    @unique(map: "sqlite_autoindex_app_users_3")
-  bio                      String?                    @default("")
-  location                 String?                    @default("")
-  website                  String?
-  telegram                 String?
-  telegram_user_id         String?                    @unique(map: "idx_app_users_telegram_user_id", where: raw("telegram_user_id IS NOT NULL"))
-  telegram_username        String?
-  discord                  String?
-  avatar_url               String?
-  banner_url               String?
-  role                     String                     @default("USER")
-  is_legacy                Int                        @default(0)
-  theme                    String?                    @default("dark")
-  created_at               String
-  updated_at               String
-  discord_user_id          String?                    @unique(map: "idx_app_users_discord_user_id", where: raw("discord_user_id IS NOT NULL"))
-  app_api_tokens           app_api_tokens[]
-  app_user_achievements    app_user_achievements[]
-  app_news_posts           app_news_posts[]
-    app_notifications        app_notifications[]
-    notification_preferences app_notification_preferences?
-  app_projects             app_projects[]
-  app_clusters             app_clusters[]
-  app_server_applications  app_server_applications[]
-  app_server_reviews       app_server_reviews[]
-  app_server_likes         app_server_likes[]
-  app_server_referrals     app_server_referrals[]
-  app_server_verifications app_server_verifications[]
-  app_server_views         app_server_views[]
-  app_server_votes         app_server_votes[]
-  app_servers              app_servers[]
-  cms_sessions             cms_sessions[]
-  forum_post_likes         forum_post_likes[]
-  forum_posts              forum_posts[]
-  forum_thread_likes       forum_thread_likes[]
-  forum_threads            forum_threads[]
-  password_reset_tokens    password_reset_tokens[]
-  user_login_sessions      user_login_sessions[]
+  id                         String                        @id
+  email                      String                        @unique(map: "sqlite_autoindex_app_users_2")
+  password_hash              String
+  full_name                  String
+  profile_slug               String?                       @unique(map: "sqlite_autoindex_app_users_3")
+  bio                        String?                       @default("")
+  location                   String?                       @default("")
+  website                    String?
+  telegram                   String?
+  telegram_user_id           String?                       @unique(map: "idx_app_users_telegram_user_id", where: raw("telegram_user_id IS NOT NULL"))
+  telegram_username          String?
+  discord                    String?
+  avatar_url                 String?
+  banner_url                 String?
+  role                       String                        @default("USER")
+  is_legacy                  Int                           @default(0)
+  theme                      String?                       @default("dark")
+  created_at                 String
+  updated_at                 String
+  discord_user_id            String?                       @unique(map: "idx_app_users_discord_user_id", where: raw("discord_user_id IS NOT NULL"))
+  app_api_tokens             app_api_tokens[]
+  app_user_achievements      app_user_achievements[]
+  app_news_posts             app_news_posts[]
+  app_notifications          app_notifications[]
+  app_server_events          app_server_events[]
+  app_server_event_attendees app_server_event_attendees[]
+  app_server_event_comments  app_server_event_comments[]
+  notification_preferences   app_notification_preferences?
+  app_projects               app_projects[]
+  app_clusters               app_clusters[]
+  app_server_applications    app_server_applications[]
+  app_server_reviews         app_server_reviews[]
+  app_server_likes           app_server_likes[]
+  app_server_referrals       app_server_referrals[]
+  app_server_verifications   app_server_verifications[]
+  app_server_views           app_server_views[]
+  app_server_votes           app_server_votes[]
+  app_servers                app_servers[]
+  cms_sessions               cms_sessions[]
+  forum_post_likes           forum_post_likes[]
+  forum_posts                forum_posts[]
+  forum_thread_likes         forum_thread_likes[]
+  forum_threads              forum_threads[]
+  password_reset_tokens      password_reset_tokens[]
+  user_login_sessions        user_login_sessions[]
 
   @@index([email], map: "idx_app_users_email")
 }
@@ -508,7 +563,7 @@ model forum_threads {
   author_user_id     String
   title              String
   content            String
-  attachments_json   String                @default("[]")
+  attachments_json   String               @default("[]")
   is_pinned          Int                  @default(0)
   is_locked          Int                  @default(0)
   is_solved          Int                  @default(0)
@@ -548,12 +603,12 @@ model forum_posts {
 }
 
 model forum_thread_likes {
-  id             Int           @id @default(autoincrement())
-  thread_id      Int
-  user_id        String
-  created_at     String
-  app_users      app_users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  forum_threads  forum_threads @relation(fields: [thread_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  id            Int           @id @default(autoincrement())
+  thread_id     Int
+  user_id       String
+  created_at    String
+  app_users     app_users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  forum_threads forum_threads @relation(fields: [thread_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@unique([thread_id, user_id], map: "idx_forum_thread_likes_unique")
   @@index([thread_id], map: "idx_forum_thread_likes_thread")
@@ -587,12 +642,11 @@ model cms_sessions {
 
 /// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
 model email_verification_codes {
-  email      String  @id
+  email      String @id
   code_hash  String
   expires_at String
   sent_at    String
-  attempts   Int     @default(0)
-
+  attempts   Int    @default(0)
 }
 
 model app_site_settings {

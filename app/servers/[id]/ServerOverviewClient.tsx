@@ -26,6 +26,28 @@ type MetricKey = 'online' | 'votes' | 'views';
 type PeriodKey = 'day' | 'week' | 'month' | 'min_month' | 'year' | 'min_year' | 'all';
 type ReviewItem = { id: number; authorName: string; avatarUrl: string | null; text: string; rating: number; createdAt: string; updatedAt: string };
 type VoteEntry = { id: number; nickname: string; ipAddress: string; voteCount: number; createdAt: string };
+type ServerEventType = 'wipe' | 'tournament' | 'giveaway' | 'update' | 'season';
+type ServerEventItem = {
+  id: number;
+  type: ServerEventType;
+  title: string;
+  description: string;
+  startsAt: string;
+  endsAt: string | null;
+  location: string | null;
+  prize: string | null;
+  imageUrl: string | null;
+  attendeesCount: number;
+  commentsCount: number;
+  userGoing: boolean;
+  userReminder: boolean;
+  comments: Array<{
+    id: number;
+    text: string;
+    createdAt: string;
+    author: { id: string; name: string; avatarUrl: string | null; slug: string | null };
+  }>;
+};
 
 interface Props { server: Server; cluster: Cluster | null; canEdit: boolean; initialUser: AuthUser | null }
 type ChartPoint = { time: string; online: number; votes: number; views: number; rawTime: string }
@@ -45,6 +67,20 @@ const PERIOD_OPTIONS: { value: PeriodKey; label: string }[] = [
   { value: 'min_year', label: 'Мін. рік' },
   { value: 'all', label: 'Весь час' },
 ]
+const EVENT_TYPE_OPTIONS: Array<{ value: ServerEventType; label: string; hint: string }> = [
+  { value: 'wipe', label: 'Вайп', hint: 'Новий старт сезону або карти' },
+  { value: 'tournament', label: 'Турнір', hint: 'PvP, міні-ігри, ліга' },
+  { value: 'giveaway', label: 'Розіграш', hint: 'Призи, ключі, донат' },
+  { value: 'update', label: 'Оновлення', hint: 'Патч, нові режими, реліз' },
+  { value: 'season', label: 'Відкриття сезону', hint: 'Старт нового етапу' },
+];
+const EVENT_TYPE_LABELS: Record<ServerEventType, string> = {
+  wipe: 'Вайп',
+  tournament: 'Турнір',
+  giveaway: 'Розіграш',
+  update: 'Оновлення',
+  season: 'Відкриття сезону',
+};
 
 export function ServerOverviewClient({ server: s, cluster, canEdit, initialUser }: Props) {
   const searchParams = useSearchParams();
@@ -80,6 +116,21 @@ export function ServerOverviewClient({ server: s, cluster, canEdit, initialUser 
   const [topVoters, setTopVoters] = useState<VoteEntry[]>([])
   const [latestVoters, setLatestVoters] = useState<VoteEntry[]>([])
   const [reviews, setReviews] = useState<ReviewItem[]>([])
+  const [events, setEvents] = useState<ServerEventItem[]>([])
+  const [eventBusy, setEventBusy] = useState(false)
+  const [eventMessage, setEventMessage] = useState<string | null>(null)
+  const [eventFormOpen, setEventFormOpen] = useState(false)
+  const [eventForm, setEventForm] = useState({
+    type: 'update' as ServerEventType,
+    title: '',
+    description: '',
+    startsAt: '',
+    endsAt: '',
+    location: '',
+    prize: '',
+    imageUrl: '',
+  })
+  const [eventComments, setEventComments] = useState<Record<number, string>>({})
   const [rating, setRating] = useState<number>(5)
   const [reviewText, setReviewText] = useState<string>('')
   const [reviewMessage, setReviewMessage] = useState<string | null>(null)
@@ -185,6 +236,12 @@ export function ServerOverviewClient({ server: s, cluster, canEdit, initialUser 
     { label: 'Позиція', value: `#${s.rank}` },
   ]
   const getEmbedVideoUrl = (url: string): string | null => toYoutubeEmbedUrl(url)
+  const loadEvents = async () => {
+    const response = await fetch(`/api/servers/${s.seed}/events`, { cache: 'no-store' })
+    if (!response.ok) return
+    const payload = await response.json() as { events?: ServerEventItem[] }
+    setEvents(Array.isArray(payload.events) ? payload.events : [])
+  }
   useEffect(() => {
     let isMounted = true
     const loadLiveStatus = async () => {
@@ -228,6 +285,9 @@ export function ServerOverviewClient({ server: s, cluster, canEdit, initialUser 
       window.clearInterval(intervalId)
     }
   }, [s.addr, s.core, s.ver])
+  useEffect(() => {
+    void loadEvents()
+  }, [s.seed])
   useEffect(() => {
     let isMounted = true
     const loadStats = async () => {
@@ -304,6 +364,80 @@ export function ServerOverviewClient({ server: s, cluster, canEdit, initialUser 
     const timeoutId = window.setTimeout(() => setReviewMessage(null), 2600)
     return () => window.clearTimeout(timeoutId)
   }, [reviewMessage])
+  useEffect(() => {
+    if (!eventMessage) return
+    const timeoutId = window.setTimeout(() => setEventMessage(null), 2600)
+    return () => window.clearTimeout(timeoutId)
+  }, [eventMessage])
+  const handleCreateEvent = async () => {
+    if (!canEdit) return
+    setEventBusy(true)
+    try {
+      const response = await fetch(`/api/servers/${s.seed}/events`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(eventForm),
+      })
+      const payload = await response.json() as { events?: ServerEventItem[]; error?: string }
+      if (!response.ok) {
+        setEventMessage(payload.error || 'Не вдалося створити подію')
+        return
+      }
+      setEvents(Array.isArray(payload.events) ? payload.events : events)
+      setEventForm({
+        type: 'update',
+        title: '',
+        description: '',
+        startsAt: '',
+        endsAt: '',
+        location: '',
+        prize: '',
+        imageUrl: '',
+      })
+      setEventFormOpen(false)
+      setEventMessage('Подію опубліковано')
+    } finally {
+      setEventBusy(false)
+    }
+  }
+  const handleEventRsvp = async (event: ServerEventItem) => {
+    if (!initialUser) {
+      setEventMessage('Увійдіть в акаунт, щоб записатися на подію')
+      return
+    }
+    const response = await fetch(`/api/server-events/${event.id}/rsvp`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reminderEnabled: true }),
+    })
+    const payload = await response.json() as { events?: ServerEventItem[]; going?: boolean; error?: string }
+    if (!response.ok) {
+      setEventMessage(payload.error || 'Не вдалося оновити участь')
+      return
+    }
+    setEvents(Array.isArray(payload.events) ? payload.events : events)
+    setEventMessage(payload.going ? 'Готово, ти в списку учасників. Нагадування увімкнено.' : 'Участь скасовано')
+  }
+  const handleEventComment = async (event: ServerEventItem) => {
+    if (!initialUser) {
+      setEventMessage('Увійдіть в акаунт, щоб коментувати')
+      return
+    }
+    const text = String(eventComments[event.id] || '').trim()
+    if (text.length < 2) return
+    const response = await fetch(`/api/server-events/${event.id}/comments`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }),
+    })
+    const payload = await response.json() as { events?: ServerEventItem[]; error?: string }
+    if (!response.ok) {
+      setEventMessage(payload.error || 'Не вдалося додати коментар')
+      return
+    }
+    setEvents(Array.isArray(payload.events) ? payload.events : events)
+    setEventComments((current) => ({ ...current, [event.id]: '' }))
+  }
   const handleVote = async () => {
     if (!canVote) {
       setVoteMessage('Увійдіть в акаунт, щоб голосувати за сервер')
@@ -482,6 +616,135 @@ export function ServerOverviewClient({ server: s, cluster, canEdit, initialUser 
                     </div>
                   </>
                 )}
+
+                <div className="so-block-title">Події сервера</div>
+                <div className="so-section server-events-section">
+                  <div className="server-events-head">
+                    <div>
+                      <h3>Івенти, вайпи, турніри й оновлення</h3>
+                      <p>Слідкуй за активністю сервера, записуйся на події та обговорюй деталі з іншими гравцями.</p>
+                    </div>
+                    {canEdit && (
+                      <button type="button" className="btn btn-primary" onClick={() => setEventFormOpen((value) => !value)}>
+                        {eventFormOpen ? 'Закрити форму' : '+ Створити подію'}
+                      </button>
+                    )}
+                  </div>
+
+                  {eventFormOpen && canEdit && (
+                    <div className="server-event-form">
+                      <div className="server-event-type-grid">
+                        {EVENT_TYPE_OPTIONS.map((option) => (
+                          <button
+                            key={option.value}
+                            type="button"
+                            className={`server-event-type${eventForm.type === option.value ? ' active' : ''}`}
+                            onClick={() => setEventForm({ ...eventForm, type: option.value })}
+                          >
+                            <b>{option.label}</b>
+                            <span>{option.hint}</span>
+                          </button>
+                        ))}
+                      </div>
+                      <div className="server-event-form-grid">
+                        <label>
+                          <span>Назва *</span>
+                          <input value={eventForm.title} onChange={(event) => setEventForm({ ...eventForm, title: event.target.value })} placeholder="Наприклад: Відкриття нового сезону" />
+                        </label>
+                        <label>
+                          <span>Початок *</span>
+                          <input type="datetime-local" value={eventForm.startsAt} onChange={(event) => setEventForm({ ...eventForm, startsAt: event.target.value })} />
+                        </label>
+                        <label>
+                          <span>Кінець</span>
+                          <input type="datetime-local" value={eventForm.endsAt} onChange={(event) => setEventForm({ ...eventForm, endsAt: event.target.value })} />
+                        </label>
+                        <label>
+                          <span>Місце</span>
+                          <input value={eventForm.location} onChange={(event) => setEventForm({ ...eventForm, location: event.target.value })} placeholder="Discord, spawn, /warp event" />
+                        </label>
+                        <label>
+                          <span>Приз або нагорода</span>
+                          <input value={eventForm.prize} onChange={(event) => setEventForm({ ...eventForm, prize: event.target.value })} placeholder="Ключі, донат, роль, монети" />
+                        </label>
+                        <label>
+                          <span>Зображення URL</span>
+                          <input value={eventForm.imageUrl} onChange={(event) => setEventForm({ ...eventForm, imageUrl: event.target.value })} placeholder="https://..." />
+                        </label>
+                      </div>
+                      <label className="server-event-full">
+                        <span>Опис</span>
+                        <textarea rows={4} value={eventForm.description} onChange={(event) => setEventForm({ ...eventForm, description: event.target.value })} placeholder="Що буде, як взяти участь, правила, час збору..." />
+                      </label>
+                      <div className="server-event-form-actions">
+                        <button type="button" className="btn btn-secondary" onClick={() => setEventFormOpen(false)}>Скасувати</button>
+                        <button type="button" className="btn btn-primary" disabled={eventBusy} onClick={() => void handleCreateEvent()}>
+                          {eventBusy ? 'Публікуємо...' : 'Опублікувати подію'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {eventMessage && <div className="so-vote-feedback">{eventMessage}</div>}
+
+                  <div className="server-events-list">
+                    {events.length === 0 && (
+                      <div className="server-events-empty">
+                        <b>Подій поки немає</b>
+                        <span>Коли власник оголосить вайп, турнір, розіграш або оновлення, воно з’явиться тут.</span>
+                      </div>
+                    )}
+                    {events.map((event) => (
+                      <article className="server-event-card" key={event.id}>
+                        {event.imageUrl && <div className="server-event-cover" style={{ backgroundImage: `url(${event.imageUrl})` }} />}
+                        <div className="server-event-body">
+                          <div className="server-event-meta">
+                            <span className={`server-event-badge type-${event.type}`}>{EVENT_TYPE_LABELS[event.type]}</span>
+                            <span>{new Date(event.startsAt).toLocaleString('uk-UA', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}</span>
+                          </div>
+                          <h3>{event.title}</h3>
+                          {event.description && <p>{event.description}</p>}
+                          <div className="server-event-details">
+                            {event.location && <span>Місце: <b>{event.location}</b></span>}
+                            {event.prize && <span>Приз: <b>{event.prize}</b></span>}
+                            <span>Учасників: <b>{event.attendeesCount}</b></span>
+                            <span>Коментарів: <b>{event.commentsCount}</b></span>
+                          </div>
+                          <div className="server-event-actions">
+                            <button type="button" className={`btn ${event.userGoing ? 'btn-primary' : 'btn-secondary'}`} onClick={() => void handleEventRsvp(event)}>
+                              {event.userGoing ? '✓ Я піду' : 'Я піду'}
+                            </button>
+                            {event.userGoing && event.userReminder && <span className="server-event-reminder">нагадування увімкнено</span>}
+                          </div>
+                          <div className="server-event-comments">
+                            {event.comments.slice(0, 4).map((comment) => (
+                              <div className="server-event-comment" key={comment.id}>
+                                <div className="server-event-comment-avatar" style={comment.author.avatarUrl ? { backgroundImage: `url(${comment.author.avatarUrl})` } : undefined}>
+                                  {!comment.author.avatarUrl && comment.author.name.slice(0, 2).toUpperCase()}
+                                </div>
+                                <div>
+                                  <b>{comment.author.name}</b>
+                                  <p>{comment.text}</p>
+                                </div>
+                              </div>
+                            ))}
+                            <div className="server-event-comment-form">
+                              <input
+                                value={eventComments[event.id] || ''}
+                                onChange={(changeEvent) => setEventComments((current) => ({ ...current, [event.id]: changeEvent.target.value }))}
+                                placeholder={initialUser ? 'Написати коментар...' : 'Увійдіть, щоб коментувати'}
+                                disabled={!initialUser}
+                              />
+                              <button type="button" className="btn btn-secondary" disabled={!initialUser || !String(eventComments[event.id] || '').trim()} onClick={() => void handleEventComment(event)}>
+                                Надіслати
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                </div>
 
                 <div className="so-block-title">Теги</div>
                 <div className="so-section">

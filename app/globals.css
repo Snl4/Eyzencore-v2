@@ -7961,3 +7961,276 @@ svg {
   .not-found-actions .btn { width: 100%; }
   .not-found-scene { transform: scale(0.88); margin-bottom: 8px; }
 }
+
+/* ── Server events ───────────────────────────────────────────── */
+.server-events-section {
+  display: grid;
+  gap: 16px;
+}
+
+.server-events-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.server-events-head h3 {
+  margin: 0 0 6px;
+  color: var(--fg);
+  font-size: 20px;
+  letter-spacing: -0.03em;
+}
+
+.server-events-head p {
+  margin: 0;
+  color: var(--fg-2);
+  max-width: 620px;
+  line-height: 1.55;
+}
+
+.server-event-form {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: color-mix(in oklab, var(--accent) 5%, var(--bg-1));
+}
+
+.server-event-type-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.server-event-type {
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--bg);
+  color: var(--fg);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color .15s, background .15s, transform .15s;
+}
+
+.server-event-type:hover { transform: translateY(-1px); border-color: var(--accent); }
+.server-event-type.active {
+  border-color: var(--accent);
+  background: color-mix(in oklab, var(--accent) 14%, var(--bg-1));
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 14%, transparent);
+}
+.server-event-type b { display: block; font-size: 13px; margin-bottom: 4px; }
+.server-event-type span { display: block; color: var(--fg-3); font-size: 11px; line-height: 1.35; }
+
+.server-event-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.server-event-form label,
+.server-event-full {
+  display: grid;
+  gap: 6px;
+  color: var(--fg-2);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.server-event-form input,
+.server-event-form textarea,
+.server-event-comment-form input {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg);
+  color: var(--fg);
+  padding: 11px 12px;
+  outline: none;
+  font: inherit;
+}
+
+.server-event-form textarea { resize: vertical; min-height: 96px; }
+.server-event-form input:focus,
+.server-event-form textarea:focus,
+.server-event-comment-form input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 16%, transparent);
+}
+
+.server-event-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.server-events-list {
+  display: grid;
+  gap: 14px;
+}
+
+.server-events-empty {
+  display: grid;
+  gap: 6px;
+  padding: 22px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 18px;
+  color: var(--fg-2);
+  background: color-mix(in oklab, var(--bg-2) 70%, transparent);
+}
+
+.server-events-empty b { color: var(--fg); }
+
+.server-event-card {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--bg-1);
+  box-shadow: var(--shadow-sm);
+}
+
+.server-event-cover {
+  min-height: 170px;
+  background-size: cover;
+  background-position: center;
+  border-bottom: 1px solid var(--line);
+}
+
+.server-event-body {
+  display: grid;
+  gap: 12px;
+  padding: 18px;
+}
+
+.server-event-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  color: var(--fg-3);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.server-event-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 5px 9px;
+  border: 1px solid color-mix(in oklab, var(--accent) 38%, transparent);
+  background: color-mix(in oklab, var(--accent) 13%, var(--bg));
+  color: var(--accent);
+}
+
+.server-event-badge.type-wipe { color: #f97316; border-color: color-mix(in oklab, #f97316 40%, transparent); background: color-mix(in oklab, #f97316 12%, var(--bg)); }
+.server-event-badge.type-tournament { color: #22c55e; border-color: color-mix(in oklab, #22c55e 40%, transparent); background: color-mix(in oklab, #22c55e 12%, var(--bg)); }
+.server-event-badge.type-giveaway { color: #eab308; border-color: color-mix(in oklab, #eab308 40%, transparent); background: color-mix(in oklab, #eab308 12%, var(--bg)); }
+.server-event-badge.type-season { color: #06b6d4; border-color: color-mix(in oklab, #06b6d4 40%, transparent); background: color-mix(in oklab, #06b6d4 12%, var(--bg)); }
+
+.server-event-body h3 {
+  margin: 0;
+  color: var(--fg);
+  font-size: clamp(20px, 3vw, 28px);
+  letter-spacing: -0.04em;
+}
+
+.server-event-body p {
+  margin: 0;
+  color: var(--fg-2);
+  line-height: 1.65;
+}
+
+.server-event-details {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.server-event-details span,
+.server-event-reminder {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 5px 9px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--fg-2);
+  background: var(--bg);
+  font-size: 12px;
+}
+
+.server-event-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.server-event-reminder {
+  color: var(--green);
+  border-color: color-mix(in oklab, var(--green) 35%, transparent);
+  background: color-mix(in oklab, var(--green) 10%, var(--bg));
+}
+
+.server-event-comments {
+  display: grid;
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.server-event-comment {
+  display: grid;
+  grid-template-columns: 34px 1fr;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.server-event-comment-avatar {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, var(--accent), var(--chart-2));
+  background-size: cover;
+  background-position: center;
+  color: var(--primary-foreground);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.server-event-comment b {
+  display: block;
+  color: var(--fg);
+  font-size: 13px;
+  margin-bottom: 2px;
+}
+
+.server-event-comment p {
+  color: var(--fg-2);
+  font-size: 13px;
+}
+
+.server-event-comment-form {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+}
+
+@media (max-width: 800px) {
+  .server-events-head { flex-direction: column; }
+  .server-event-type-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .server-event-form-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 560px) {
+  .server-event-type-grid { grid-template-columns: 1fr; }
+  .server-event-comment-form { grid-template-columns: 1fr; }
+  .server-event-comment-form .btn { width: 100%; justify-content: center; }
+}
