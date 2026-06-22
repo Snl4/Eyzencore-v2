@@ -17,6 +17,7 @@ import { buildServerPublicPath } from '@/lib/server-slug';
 import type { Server } from '@/lib/types';
 import { formatPlural } from '@/lib/format-plural';
 import { toYoutubeEmbedUrl } from '@/lib/youtube';
+import { formatFileSize, uploadFile } from '@/lib/upload';
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import type { AuthUser } from '@/lib/auth-db';
 import type { Cluster } from '@/lib/cluster-db';
@@ -82,6 +83,127 @@ const EVENT_TYPE_LABELS: Record<ServerEventType, string> = {
   season: 'Відкриття сезону',
 };
 
+function toLocalDateTimeValue(date: Date): string {
+  const yyyy = date.getFullYear()
+  const mm = String(date.getMonth() + 1).padStart(2, '0')
+  const dd = String(date.getDate()).padStart(2, '0')
+  const hh = String(date.getHours()).padStart(2, '0')
+  const min = String(date.getMinutes()).padStart(2, '0')
+  return `${yyyy}-${mm}-${dd}T${hh}:${min}`
+}
+
+function parseLocalDateTime(value: string): Date {
+  const date = value ? new Date(value) : new Date()
+  return Number.isNaN(date.getTime()) ? new Date() : date
+}
+
+function formatEventDateValue(value: string): string {
+  if (!value) return 'Оберіть дату і час'
+  const date = parseLocalDateTime(value)
+  return date.toLocaleString('uk-UA', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+function EventDateTimePicker({
+  label,
+  value,
+  required,
+  onChange,
+}: {
+  label: string
+  value: string
+  required?: boolean
+  onChange: (value: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const current = parseLocalDateTime(value)
+  const [viewDate, setViewDate] = useState(() => new Date(current.getFullYear(), current.getMonth(), 1))
+  const selectedDay = new Date(current.getFullYear(), current.getMonth(), current.getDate()).getTime()
+  const monthStart = new Date(viewDate.getFullYear(), viewDate.getMonth(), 1)
+  const startOffset = (monthStart.getDay() + 6) % 7
+  const gridStart = new Date(viewDate.getFullYear(), viewDate.getMonth(), 1 - startOffset)
+  const days = Array.from({ length: 42 }, (_, index) => {
+    const day = new Date(gridStart)
+    day.setDate(gridStart.getDate() + index)
+    return day
+  })
+  const setPart = (updates: { day?: Date; hours?: number; minutes?: number }) => {
+    const next = parseLocalDateTime(value)
+    if (updates.day) {
+      next.setFullYear(updates.day.getFullYear(), updates.day.getMonth(), updates.day.getDate())
+    }
+    if (typeof updates.hours === 'number') next.setHours(updates.hours)
+    if (typeof updates.minutes === 'number') next.setMinutes(updates.minutes)
+    next.setSeconds(0, 0)
+    onChange(toLocalDateTimeValue(next))
+  }
+  return (
+    <div className="event-date-field">
+      <span>{label}{required ? ' *' : ''}</span>
+      <button type="button" className={`event-date-trigger${open ? ' open' : ''}`} onClick={() => setOpen((state) => !state)}>
+        <b>{formatEventDateValue(value)}</b>
+        <span>▾</span>
+      </button>
+      {open && (
+        <div className="event-date-popover">
+          <div className="event-date-head">
+            <button type="button" onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() - 1, 1))}>‹</button>
+            <strong>{viewDate.toLocaleDateString('uk-UA', { month: 'long', year: 'numeric' })}</strong>
+            <button type="button" onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1))}>›</button>
+          </div>
+          <div className="event-date-grid">
+            {['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'].map((day) => <em key={day}>{day}</em>)}
+            {days.map((day) => {
+              const dayKey = new Date(day.getFullYear(), day.getMonth(), day.getDate()).getTime()
+              const isMuted = day.getMonth() !== viewDate.getMonth()
+              const isSelected = dayKey === selectedDay
+              return (
+                <button
+                  key={day.toISOString()}
+                  type="button"
+                  className={`${isMuted ? ' muted' : ''}${isSelected ? ' selected' : ''}`}
+                  onClick={() => setPart({ day })}
+                >
+                  {day.getDate()}
+                </button>
+              )
+            })}
+          </div>
+          <div className="event-time-row">
+            <label>
+              <span>Година</span>
+              <select value={current.getHours()} onChange={(event) => setPart({ hours: Number(event.target.value) })}>
+                {Array.from({ length: 24 }, (_, hour) => <option key={hour} value={hour}>{String(hour).padStart(2, '0')}</option>)}
+              </select>
+            </label>
+            <label>
+              <span>Хвилини</span>
+              <select value={Math.floor(current.getMinutes() / 5) * 5} onChange={(event) => setPart({ minutes: Number(event.target.value) })}>
+                {Array.from({ length: 12 }, (_, index) => index * 5).map((minute) => <option key={minute} value={minute}>{String(minute).padStart(2, '0')}</option>)}
+              </select>
+            </label>
+          </div>
+          <div className="event-date-actions">
+            <button type="button" onClick={() => onChange('')}>Очистити</button>
+            <button type="button" onClick={() => {
+              const now = new Date()
+              now.setMinutes(Math.ceil(now.getMinutes() / 5) * 5, 0, 0)
+              setViewDate(new Date(now.getFullYear(), now.getMonth(), 1))
+              onChange(toLocalDateTimeValue(now))
+            }}>Сьогодні</button>
+            <button type="button" className="primary" onClick={() => setOpen(false)}>Готово</button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function ServerOverviewClient({ server: s, cluster, canEdit, initialUser }: Props) {
   const searchParams = useSearchParams();
   const isDiscord = isDiscordServer(s);
@@ -120,6 +242,9 @@ export function ServerOverviewClient({ server: s, cluster, canEdit, initialUser 
   const [eventBusy, setEventBusy] = useState(false)
   const [eventMessage, setEventMessage] = useState<string | null>(null)
   const [eventFormOpen, setEventFormOpen] = useState(false)
+  const [eventImageUploading, setEventImageUploading] = useState(false)
+  const [eventImageDragOver, setEventImageDragOver] = useState(false)
+  const [eventImageInfo, setEventImageInfo] = useState<{ name: string; size: number } | null>(null)
   const [eventForm, setEventForm] = useState({
     type: 'update' as ServerEventType,
     title: '',
@@ -394,10 +519,30 @@ export function ServerOverviewClient({ server: s, cluster, canEdit, initialUser 
         prize: '',
         imageUrl: '',
       })
+      setEventImageInfo(null)
       setEventFormOpen(false)
       setEventMessage('Подію опубліковано')
     } finally {
       setEventBusy(false)
+    }
+  }
+  const handleEventImagePick = async (file: File | null) => {
+    if (!file) return
+    setEventMessage(null)
+    setEventImageUploading(true)
+    try {
+      const uploaded = await uploadFile(file, 'news')
+      if (uploaded.kind !== 'image') {
+        setEventMessage('Для події можна завантажити тільки зображення')
+        return
+      }
+      setEventForm((current) => ({ ...current, imageUrl: uploaded.url }))
+      setEventImageInfo({ name: uploaded.name, size: uploaded.size })
+    } catch (error) {
+      setEventMessage(error instanceof Error ? error.message : 'Не вдалося завантажити зображення')
+    } finally {
+      setEventImageUploading(false)
+      setEventImageDragOver(false)
     }
   }
   const handleEventRsvp = async (event: ServerEventItem) => {
@@ -651,14 +796,17 @@ export function ServerOverviewClient({ server: s, cluster, canEdit, initialUser 
                           <span>Назва *</span>
                           <input value={eventForm.title} onChange={(event) => setEventForm({ ...eventForm, title: event.target.value })} placeholder="Наприклад: Відкриття нового сезону" />
                         </label>
-                        <label>
-                          <span>Початок *</span>
-                          <input type="datetime-local" value={eventForm.startsAt} onChange={(event) => setEventForm({ ...eventForm, startsAt: event.target.value })} />
-                        </label>
-                        <label>
-                          <span>Кінець</span>
-                          <input type="datetime-local" value={eventForm.endsAt} onChange={(event) => setEventForm({ ...eventForm, endsAt: event.target.value })} />
-                        </label>
+                        <EventDateTimePicker
+                          label="Початок"
+                          required
+                          value={eventForm.startsAt}
+                          onChange={(startsAt) => setEventForm({ ...eventForm, startsAt })}
+                        />
+                        <EventDateTimePicker
+                          label="Кінець"
+                          value={eventForm.endsAt}
+                          onChange={(endsAt) => setEventForm({ ...eventForm, endsAt })}
+                        />
                         <label>
                           <span>Місце</span>
                           <input value={eventForm.location} onChange={(event) => setEventForm({ ...eventForm, location: event.target.value })} placeholder="Discord, spawn, /warp event" />
@@ -667,10 +815,51 @@ export function ServerOverviewClient({ server: s, cluster, canEdit, initialUser 
                           <span>Приз або нагорода</span>
                           <input value={eventForm.prize} onChange={(event) => setEventForm({ ...eventForm, prize: event.target.value })} placeholder="Ключі, донат, роль, монети" />
                         </label>
-                        <label>
-                          <span>Зображення URL</span>
-                          <input value={eventForm.imageUrl} onChange={(event) => setEventForm({ ...eventForm, imageUrl: event.target.value })} placeholder="https://..." />
-                        </label>
+                      </div>
+                      <div className="server-event-image-field">
+                        <span>Зображення події</span>
+                        {eventForm.imageUrl ? (
+                          <div className="server-event-image-preview" style={{ backgroundImage: `url(${eventForm.imageUrl})` }}>
+                            <div className="server-event-image-actions">
+                              <label className="btn btn-secondary">
+                                Замінити
+                                <input type="file" accept="image/*" hidden onChange={(event) => void handleEventImagePick(event.target.files?.[0] || null)} />
+                              </label>
+                              <button type="button" className="btn btn-secondary" onClick={() => {
+                                setEventForm({ ...eventForm, imageUrl: '' })
+                                setEventImageInfo(null)
+                              }}>
+                                Прибрати
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <label
+                            className={`server-event-image-drop${eventImageDragOver ? ' drag' : ''}`}
+                            onDragOver={(event) => {
+                              event.preventDefault()
+                              setEventImageDragOver(true)
+                            }}
+                            onDragLeave={() => setEventImageDragOver(false)}
+                            onDrop={(event) => {
+                              event.preventDefault()
+                              void handleEventImagePick(event.dataTransfer.files?.[0] || null)
+                            }}
+                          >
+                            <input type="file" accept="image/*" hidden onChange={(event) => void handleEventImagePick(event.target.files?.[0] || null)} />
+                            <b>{eventImageUploading ? 'Завантаження...' : 'Завантажити фото'}</b>
+                            <small>PNG, JPG, WEBP, GIF або AVIF до 8 MB</small>
+                          </label>
+                        )}
+                        {eventImageInfo && (
+                          <small className="server-event-image-info">{eventImageInfo.name} · {formatFileSize(eventImageInfo.size)}</small>
+                        )}
+                        <input
+                          className="server-event-image-url"
+                          value={eventForm.imageUrl}
+                          onChange={(event) => setEventForm({ ...eventForm, imageUrl: event.target.value })}
+                          placeholder="Або вставте https://... чи /api/uploads/..."
+                        />
                       </div>
                       <label className="server-event-full">
                         <span>Опис</span>

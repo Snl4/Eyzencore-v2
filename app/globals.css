@@ -8052,6 +8052,243 @@ svg {
   font: inherit;
 }
 
+.event-date-field {
+  position: relative;
+  display: grid;
+  gap: 6px;
+  color: var(--fg-2);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.event-date-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 43px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background:
+    linear-gradient(180deg, color-mix(in oklab, var(--card) 94%, white), var(--bg));
+  color: var(--fg);
+  padding: 10px 12px;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color .15s, box-shadow .15s, background .15s;
+}
+
+.event-date-trigger b { font-size: 13px; font-weight: 700; }
+.event-date-trigger span { color: var(--fg-3); font-size: 14px; }
+.event-date-trigger:hover,
+.event-date-trigger.open {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 15%, transparent);
+}
+
+.event-date-popover {
+  position: absolute;
+  z-index: 35;
+  top: calc(100% + 8px);
+  left: 0;
+  width: min(360px, calc(100vw - 34px));
+  padding: 14px;
+  border: 1px solid color-mix(in oklab, var(--accent) 28%, var(--line));
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 20% 0%, color-mix(in oklab, var(--accent) 16%, transparent), transparent 42%),
+    var(--card);
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.28);
+}
+
+.event-date-head {
+  display: grid;
+  grid-template-columns: 36px 1fr 36px;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.event-date-head strong {
+  color: var(--fg);
+  text-align: center;
+  font-size: 13px;
+  text-transform: capitalize;
+}
+
+.event-date-head button,
+.event-date-actions button {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--fg);
+  min-height: 34px;
+  cursor: pointer;
+}
+
+.event-date-head button:hover,
+.event-date-actions button:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.event-date-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 5px;
+}
+
+.event-date-grid em {
+  color: var(--fg-3);
+  text-align: center;
+  font-style: normal;
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.event-date-grid button {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  border: 1px solid transparent;
+  border-radius: 11px;
+  background: transparent;
+  color: var(--fg);
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.event-date-grid button:hover {
+  border-color: var(--line);
+  background: var(--bg);
+}
+
+.event-date-grid button.muted {
+  color: var(--fg-3);
+  opacity: 0.55;
+}
+
+.event-date-grid button.selected {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--primary-foreground);
+  box-shadow: 0 10px 24px color-mix(in oklab, var(--accent) 34%, transparent);
+}
+
+.event-time-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.event-time-row label {
+  display: grid;
+  gap: 5px;
+  color: var(--fg-3);
+  font-size: 11px;
+}
+
+.event-time-row select {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg);
+  color: var(--fg);
+  padding: 10px;
+  outline: none;
+}
+
+.event-date-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.event-date-actions button {
+  padding: 0 10px;
+  color: var(--fg-2);
+}
+
+.event-date-actions button.primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--primary-foreground);
+}
+
+.server-event-image-field {
+  display: grid;
+  gap: 8px;
+  color: var(--fg-2);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.server-event-image-preview {
+  min-height: 190px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background-size: cover;
+  background-position: center;
+  overflow: hidden;
+  position: relative;
+}
+
+.server-event-image-actions {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  display: flex;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid color-mix(in oklab, white 25%, transparent);
+  border-radius: 14px;
+  background: color-mix(in oklab, var(--card) 86%, transparent);
+  backdrop-filter: blur(14px);
+}
+
+.server-event-image-actions label {
+  cursor: pointer;
+}
+
+.server-event-image-drop {
+  display: grid;
+  place-items: center;
+  gap: 5px;
+  min-height: 132px;
+  border: 1px dashed color-mix(in oklab, var(--accent) 42%, var(--line));
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 50% 0%, color-mix(in oklab, var(--accent) 14%, transparent), transparent 55%),
+    color-mix(in oklab, var(--accent) 5%, var(--bg));
+  color: var(--fg);
+  cursor: pointer;
+  text-align: center;
+  transition: border-color .15s, transform .15s, background .15s;
+}
+
+.server-event-image-drop:hover,
+.server-event-image-drop.drag {
+  transform: translateY(-1px);
+  border-color: var(--accent);
+  background: color-mix(in oklab, var(--accent) 10%, var(--bg));
+}
+
+.server-event-image-drop b {
+  font-size: 14px;
+}
+
+.server-event-image-drop small,
+.server-event-image-info {
+  color: var(--fg-3);
+  font-weight: 500;
+}
+
+.server-event-image-url {
+  margin-top: 2px;
+}
+
 .server-event-form textarea { resize: vertical; min-height: 96px; }
 .server-event-form input:focus,
 .server-event-form textarea:focus,
