@@ -2,7 +2,7 @@ import { createHash, createHmac, randomBytes, randomUUID, scryptSync, timingSafe
 import bcrypt from 'bcryptjs';
 import { normalizeServerAddress, type ServerPlatform } from '@/lib/discord';
 import { prisma } from '@/lib/prisma';
-import { buildServerPublicPath } from '@/lib/server-slug';
+import { buildServerDashboardSlug, buildServerPublicPath } from '@/lib/server-slug';
 import type { Server } from '@/lib/types';
 import { ADMIN_EMAIL } from '@/lib/constants';
 
@@ -2039,6 +2039,7 @@ export type UserDashboardPayload = {
 export type OwnerServerListItem = {
   serverId: number;
   serverName: string;
+  dashboardSlug: string;
   status: 'active' | 'pending';
   totalViews: number;
   totalVotes: number;
@@ -2404,6 +2405,7 @@ export async function getOwnerDashboard(userId: string) {
   const ownedServers: OwnerServerListItem[] = rows.map((row) => ({
     serverId: Number(row.id),
     serverName: String(row.name || ''),
+    dashboardSlug: buildServerDashboardSlug(String(row.name || '')),
     status: Number(row.verified) > 0 ? 'active' : 'pending',
     totalViews: Number(row.views_count || 0),
     totalVotes: Number(row.votes_count || 0),
@@ -2422,7 +2424,7 @@ export async function getOwnerDashboard(userId: string) {
       reviews: reviewsCount,
       averageRating: reviewsCount > 0 ? weightedRating / reviewsCount : 0,
     },
-    notifications: listNotificationsByUser({ userId, limit: 20 }),
+    notifications: await listNotificationsByUser({ userId, limit: 20 }),
   };
 }
 

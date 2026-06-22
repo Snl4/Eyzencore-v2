@@ -60,51 +60,52 @@ export function DashboardClient({ initialUser, initialRole }: DashboardClientPro
 
   useEffect(() => {
     let isMounted = true
-    const loadDashboard = async () => {
-      if (!userDashboard) {
-        setLoading(true)
-      }
-      const userResponse = await fetch('/api/dashboard/user', { cache: 'no-store' })
-      if (userResponse.ok) {
-        const userPayload = await userResponse.json() as UserDashboardPayload
-        if (isMounted) {
-          setUserDashboard(userPayload)
-        }
-      }
-      if (isOwner) {
-        const [ownerResponse, projectsResponse] = await Promise.all([
-          fetch('/api/dashboard/owner', { cache: 'no-store' }),
-          fetch('/api/projects', { cache: 'no-store' }),
-        ])
-        if (ownerResponse.ok) {
-          const ownerPayload = await ownerResponse.json() as OwnerDashboardPayload
+    const loadDashboard = async (silent = false) => {
+      if (!silent) setLoading(true)
+      try {
+        const userResponse = await fetch('/api/dashboard/user', { cache: 'no-store' })
+        if (userResponse.ok) {
+          const userPayload = await userResponse.json() as UserDashboardPayload
           if (isMounted) {
-            setOwnerDashboard(ownerPayload)
-            if (ownerPayload.ownedServers.length > 0) {
-              setSelectedServerId((current) => current || ownerPayload.ownedServers[0].serverId)
+            setUserDashboard(userPayload)
+          }
+        }
+        if (isOwner) {
+          const [ownerResponse, projectsResponse] = await Promise.all([
+            fetch('/api/dashboard/owner', { cache: 'no-store' }),
+            fetch('/api/projects', { cache: 'no-store' }),
+          ])
+          if (ownerResponse.ok) {
+            const ownerPayload = await ownerResponse.json() as OwnerDashboardPayload
+            if (isMounted) {
+              setOwnerDashboard(ownerPayload)
+              if (ownerPayload.ownedServers.length > 0) {
+                setSelectedServerId((current) => current || ownerPayload.ownedServers[0].serverId)
+              }
+            }
+          }
+          if (projectsResponse.ok) {
+            const projectsPayload = await projectsResponse.json() as { projects: Project[] }
+            if (isMounted) {
+              setProjects(Array.isArray(projectsPayload.projects) ? projectsPayload.projects : [])
             }
           }
         }
-        if (projectsResponse.ok) {
-          const projectsPayload = await projectsResponse.json() as { projects: Project[] }
-          if (isMounted) {
-            setProjects(projectsPayload.projects)
-          }
+      } finally {
+        if (isMounted) {
+          setLoading(false)
         }
-      }
-      if (isMounted) {
-        setLoading(false)
       }
     }
     void loadDashboard()
     const intervalId = window.setInterval(() => {
-      void loadDashboard()
+      void loadDashboard(true)
     }, 5000)
     return () => {
       isMounted = false
       window.clearInterval(intervalId)
     }
-  }, [isOwner, userDashboard])
+  }, [isOwner])
 
   useEffect(() => {
     if (!isOwner || !selectedServerId) {
@@ -464,7 +465,7 @@ function OwnerServersCard(input: {
         <button type="button" className="btn btn-secondary" onClick={() => onSelectServer(server.serverId)}>
           Аналітика
         </button>
-        <Link className="btn btn-secondary" href={`/dashboard/servers/${server.serverId}`}>Керувати</Link>
+        <Link className="btn btn-secondary" href={`/dashboard/servers/${server.dashboardSlug}`}>Керувати</Link>
       </td>
     </tr>
   )
