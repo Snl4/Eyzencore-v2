@@ -22,6 +22,7 @@ type ServersPageClientProps = {
   crumb?: string
   breadcrumbs?: BreadcrumbItem[]
   addHref?: string
+  seoVariant?: LockedPlatform
 }
 
 const SORT_LABELS: Record<SortOption, string> = {
@@ -40,6 +41,7 @@ export function ServersPageClient({
   crumb = 'простір / сервери',
   breadcrumbs,
   addHref = '/add-server',
+  seoVariant,
 }: ServersPageClientProps) {
   const {
     filtered,
@@ -139,7 +141,56 @@ export function ServersPageClient({
             {filtered.map((server) => <ServerCard key={server.seed} s={server} />)}
           </div>
         )}
+
+        {seoVariant && <ServersSeoBlock variant={seoVariant} count={initialServers.length} />}
       </div>
     </PageShell>
+  )
+}
+
+function ServersSeoBlock({ variant, count }: { variant: LockedPlatform; count: number }) {
+  const isMinecraft = variant === 'Minecraft'
+  const links = isMinecraft
+    ? [
+        ['Survival сервери', '/servers/minecraft?mode=Survival'],
+        ['Java сервери', '/servers/minecraft?version=Java'],
+        ['Bedrock сервери', '/servers/minecraft?version=Bedrock'],
+        ['PvP сервери', '/servers/minecraft?mode=PvP'],
+        ['SkyBlock сервери', '/servers/minecraft?mode=SkyBlock'],
+      ]
+    : [
+        ['Gaming Discord', '/servers/discord?mode=Gaming'],
+        ['Minecraft Discord', '/servers/discord?mode=Minecraft'],
+        ['Community сервери', '/servers/discord?mode=Community'],
+        ['Support спільноти', '/servers/discord?mode=Support'],
+      ]
+
+  return (
+    <section className="seo-panel" aria-labelledby="seo-catalog-title">
+      <div>
+        <p className="seo-kicker">Пошук і моніторинг</p>
+        <h2 id="seo-catalog-title">
+          {isMinecraft ? 'Моніторинг Minecraft серверів України та світу' : 'Каталог Discord серверів і спільнот'}
+        </h2>
+        <p>
+          {isMinecraft
+            ? `Eyzencore допомагає знайти Minecraft сервер за онлайном, версією, режимом, рейтингом, голосами та відгуками. У каталозі зараз ${count} проєктів: Java, Bedrock, Survival, SMP, SkyBlock, RPG, PvP і mini-games.`
+            : `Eyzencore збирає Discord сервери та українські спільноти для gaming, Minecraft, support, giveaways і voice chat. У каталозі зараз ${count} спільнот із рейтингом, активністю та описом.`}
+        </p>
+      </div>
+      <div className="seo-link-cloud">
+        {links.map(([label, href]) => (
+          <Link key={href} href={href}>{label}</Link>
+        ))}
+      </div>
+      <div className="seo-faq">
+        <h3>{isMinecraft ? 'Як вибрати Minecraft сервер?' : 'Як вибрати Discord сервер?'}</h3>
+        <p>
+          {isMinecraft
+            ? 'Дивіться онлайн, версію Minecraft, тип ядра Java або Bedrock, теги режимів, відгуки гравців і позицію в рейтингу. Для власників доступні API, callback і статистика.'
+            : 'Перевіряйте тематику спільноти, активність, опис, теги, рейтинг і відгуки. Для власників серверів доступні сторінка проєкту, новини та інструменти просування.'}
+        </p>
+      </div>
+    </section>
   )
 }

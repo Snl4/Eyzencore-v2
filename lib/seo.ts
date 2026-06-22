@@ -10,9 +10,17 @@ export const SEO_KEYWORDS = [
   'Minecraft сервери',
   'Minecraft servers',
   'моніторинг Minecraft серверів',
+  'мониторинг майнкрафт серверов',
   'Minecraft server list',
   'українські Minecraft сервери',
   'украинские Minecraft сервера',
+  'майнкрафт сервери',
+  'сервери майнкрафт',
+  'сервера майнкрафт',
+  'топ майнкрафт серверів',
+  'рейтинг майнкрафт серверів',
+  'моніторинг серверів',
+  'мониторинг серверов',
   'best Minecraft servers',
   'Minecraft survival server',
   'Minecraft Bedrock servers',
@@ -26,9 +34,9 @@ export const SEO_KEYWORDS = [
   'рейтинг серверів',
   'голосування за сервер',
   'Minecraft рейтинг',
-  'сервери майнкрафт',
-  'майнкрафт сервери',
   'сервер майнкрафт Україна',
+  'minecraft сервер без донату',
+  'minecraft survival україна',
   'ігрові сервери',
   'gaming communities',
 ]
@@ -190,6 +198,55 @@ export function serverJsonLd(server: Server) {
       { '@type': 'PropertyValue', name: 'Address', value: server.addr },
       { '@type': 'PropertyValue', name: 'Online players', value: String(server.players || 0) },
     ],
+  }
+}
+
+export function itemListJsonLd(input: {
+  name: string
+  path: string
+  items: Array<{ name: string; url: string; item?: Record<string, unknown> }>
+}) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'ItemList',
+    name: input.name,
+    url: absoluteUrl(input.path),
+    numberOfItems: input.items.length,
+    itemListElement: input.items.map((item, index) => ({
+      '@type': 'ListItem',
+      position: index + 1,
+      name: item.name,
+      url: absoluteUrl(item.url),
+      ...(item.item ? { item: item.item } : {}),
+    })),
+  }
+}
+
+export function breadcrumbJsonLd(items: Array<{ name: string; path: string }>) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: items.map((item, index) => ({
+      '@type': 'ListItem',
+      position: index + 1,
+      name: item.name,
+      item: absoluteUrl(item.path),
+    })),
+  }
+}
+
+export function faqJsonLd(items: Array<{ question: string; answer: string }>) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: items.map((item) => ({
+      '@type': 'Question',
+      name: item.question,
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: item.answer,
+      },
+    })),
   }
 }
 

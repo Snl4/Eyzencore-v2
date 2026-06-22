@@ -1,4 +1,5 @@
 import type { MetadataRoute } from 'next'
+import { listForumThreads } from '@/lib/forum-db'
 import { getCachedPublicNews, getCachedPublicServers } from '@/lib/public-cache'
 import { SITE_URL } from '@/lib/seo'
 
@@ -9,9 +10,10 @@ function url(path: string) {
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const [servers, news] = await Promise.all([
+  const [servers, news, forumThreads] = await Promise.all([
     getCachedPublicServers(),
     getCachedPublicNews(100),
+    listForumThreads({ limit: 100 }),
   ])
 
   const staticRoutes: MetadataRoute.Sitemap = [
@@ -79,5 +81,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.68,
   }))
 
-  return [...staticRoutes, ...serverRoutes, ...newsRoutes]
+  const forumRoutes: MetadataRoute.Sitemap = forumThreads.map((thread) => ({
+    url: url(`/forum/${thread.id}`),
+    lastModified: thread.updatedAt ? new Date(thread.updatedAt) : now,
+    changeFrequency: 'weekly',
+    priority: thread.isPinned ? 0.66 : 0.58,
+  }))
+
+  return [...staticRoutes, ...serverRoutes, ...newsRoutes, ...forumRoutes]
 }

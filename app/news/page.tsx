@@ -3,7 +3,7 @@ import { NewsPageClient } from './NewsPageClient'
 import { getCurrentUser } from '@/lib/auth-server'
 import { resolveUserRole } from '@/lib/auth-db'
 import { getCachedPublicNews } from '@/lib/public-cache'
-import { buildPageMetadata } from '@/lib/seo'
+import { buildPageMetadata, itemListJsonLd, newsJsonLd } from '@/lib/seo'
 
 export const dynamic = 'force-dynamic'
 
@@ -37,8 +37,21 @@ export default async function NewsPage() {
       })
     : null
   const canCreateNews = role === 'OWNER' || role === 'ADMIN'
+  const jsonLd = itemListJsonLd({
+    name: 'Новини Eyzencore',
+    path: '/news',
+    items: initialPosts.slice(0, 20).map((post) => ({
+      name: post.title,
+      url: `/news/${post.id}`,
+      item: newsJsonLd(post),
+    })),
+  })
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <div className="bg-aurora" />
       <NewsPageClient initialUser={initialUser} initialPosts={initialPosts} canCreateNews={canCreateNews} />
     </>

@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation';
 import { getServerById } from '@/lib/auth-db';
 import { getCurrentUser } from '@/lib/auth-server';
 import { getClusterForServer } from '@/lib/cluster-db';
-import { buildServerMetadata, serverJsonLd } from '@/lib/seo';
+import { breadcrumbJsonLd, buildServerMetadata, serverJsonLd } from '@/lib/seo';
 import { ServerOverviewClient } from './ServerOverviewClient';
 
 interface Props {
@@ -24,13 +24,26 @@ export default async function ServerPage({ params }: Props) {
     getCurrentUser(),
     getClusterForServer(server.seed),
   ]);
+  const platformName = server.platform === 'discord' || server.core === 'discord' ? 'Discord сервери' : 'Minecraft сервери';
+  const platformPath = server.platform === 'discord' || server.core === 'discord' ? '/servers/discord' : '/servers/minecraft';
+  const jsonLd = [
+    serverJsonLd(server),
+    breadcrumbJsonLd([
+      { name: 'Eyzencore', path: '/' },
+      { name: platformName, path: platformPath },
+      { name: server.name, path: `/servers/${server.seed}` },
+    ]),
+  ];
 
   return (
     <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(serverJsonLd(server)) }}
-      />
+      {jsonLd.map((entry, index) => (
+        <script
+          key={index}
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(entry) }}
+        />
+      ))}
       <div className="bg-aurora" />
       <ServerOverviewClient server={server} cluster={cluster} canEdit={user?.id === server.ownerId} initialUser={user} />
     </>
