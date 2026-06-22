@@ -6,6 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import { PageShell } from '@/components/layout/PageShell';
 import { Icons, CheckBadgeIcon } from '@/components/ui/Icons';
 import { Select } from '@/components/ui/Select';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
 import { buildDiscordInviteUrl } from '@/lib/discord';
 import {
@@ -205,6 +206,7 @@ function EventDateTimePicker({
 }
 
 export function ServerOverviewClient({ server: s, cluster, canEdit, initialUser }: Props) {
+  const confirmAction = useConfirm();
   const searchParams = useSearchParams();
   const isDiscord = isDiscordServer(s);
   const canVote = Boolean(initialUser);
@@ -242,6 +244,7 @@ export function ServerOverviewClient({ server: s, cluster, canEdit, initialUser 
   const [eventBusy, setEventBusy] = useState(false)
   const [eventMessage, setEventMessage] = useState<string | null>(null)
   const [eventFormOpen, setEventFormOpen] = useState(false)
+  const [editingEventId, setEditingEventId] = useState<number | null>(null)
   const [eventImageUploading, setEventImageUploading] = useState(false)
   const [eventImageDragOver, setEventImageDragOver] = useState(false)
   const [eventImageInfo, setEventImageInfo] = useState<{ name: string; size: number } | null>(null)
@@ -366,6 +369,20 @@ export function ServerOverviewClient({ server: s, cluster, canEdit, initialUser 
     if (!response.ok) return
     const payload = await response.json() as { events?: ServerEventItem[] }
     setEvents(Array.isArray(payload.events) ? payload.events : [])
+  }
+  const resetEventForm = () => {
+    setEditingEventId(null)
+    setEventForm({
+      type: 'update',
+      title: '',
+      description: '',
+      startsAt: '',
+      endsAt: '',
+      location: '',
+      prize: '',
+      imageUrl: '',
+    })
+    setEventImageInfo(null)
   }
   useEffect(() => {
     let isMounted = true
@@ -498,8 +515,8 @@ export function ServerOverviewClient({ server: s, cluster, canEdit, initialUser 
     if (!canEdit) return
     setEventBusy(true)
     try {
-      const response = await fetch(`/api/servers/${s.seed}/events`, {
-        method: 'POST',
+      const response = await fetch(editingEventId ? `/api/server-events/${editingEventId}` : `/api/servers/${s.seed}/events`, {
+        method: editingEventId ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(eventForm),
       })
@@ -509,22 +526,49 @@ export function ServerOverviewClient({ server: s, cluster, canEdit, initialUser 
         return
       }
       setEvents(Array.isArray(payload.events) ? payload.events : events)
-      setEventForm({
-        type: 'update',
-        title: '',
-        description: '',
-        startsAt: '',
-        endsAt: '',
-        location: '',
-        prize: '',
-        imageUrl: '',
-      })
-      setEventImageInfo(null)
+      const wasEditing = Boolean(editingEventId)
+      resetEventForm()
       setEventFormOpen(false)
-      setEventMessage('Подію опубліковано')
+      setEventMessage(wasEditing ? 'Подію оновлено' : 'Подію опубліковано')
     } finally {
       setEventBusy(false)
     }
+  }
+  const handleEditEvent = (event: ServerEventItem) => {
+    setEditingEventId(event.id)
+    setEventForm({
+      type: event.type,
+      title: event.title,
+      description: event.description || '',
+      startsAt: event.startsAt ? toLocalDateTimeValue(new Date(event.startsAt)) : '',
+      endsAt: event.endsAt ? toLocalDateTimeValue(new Date(event.endsAt)) : '',
+      location: event.location || '',
+      prize: event.prize || '',
+      imageUrl: event.imageUrl || '',
+    })
+    setEventImageInfo(null)
+    setEventFormOpen(true)
+  }
+  const handleDeleteEvent = async (event: ServerEventItem) => {
+    if (!canEdit) return
+    const confirmed = await confirmAction({
+      title: 'Видалити подію?',
+      description: `Подію "${event.title}" буде прибрано зі сторінки сервера.`,
+      confirmLabel: 'Видалити',
+    })
+    if (!confirmed) return
+    const response = await fetch(`/api/server-events/${event.id}`, { method: 'DELETE' })
+    const payload = await response.json().catch(() => ({})) as { events?: ServerEventItem[]; error?: string }
+    if (!response.ok) {
+      setEventMessage(payload.error || 'Не вдалося видалити подію')
+      return
+    }
+    setEvents(Array.isArray(payload.events) ? payload.events : events.filter((item) => item.id !== event.id))
+    if (editingEventId === event.id) {
+      resetEventForm()
+      setEventFormOpen(false)
+    }
+    setEventMessage('Подію видалено')
   }
   const handleEventImagePick = async (file: File | null) => {
     if (!file) return
@@ -770,7 +814,14 @@ export function ServerOverviewClient({ server: s, cluster, canEdit, initialUser 
                       <p>Слідкуй за активністю сервера, записуйся на події та обговорюй деталі з іншими гравцями.</p>
                     </div>
                     {canEdit && (
-                      <button type="button" className="btn btn-primary" onClick={() => setEventFormOpen((value) => !value)}>
+                      <button type="button" className="btn btn-primary" onClick={() => {
+                        if (eventFormOpen) {
+                          setEventFormOpen(false)
+                          resetEventForm()
+                        } else {
+                          setEventFormOpen(true)
+                        }
+                      }}>
                         {eventFormOpen ? 'Закрити форму' : '+ Створити подію'}
                       </button>
                     )}
@@ -866,9 +917,12 @@ export function ServerOverviewClient({ server: s, cluster, canEdit, initialUser 
                         <textarea rows={4} value={eventForm.description} onChange={(event) => setEventForm({ ...eventForm, description: event.target.value })} placeholder="Що буде, як взяти участь, правила, час збору..." />
                       </label>
                       <div className="server-event-form-actions">
-                        <button type="button" className="btn btn-secondary" onClick={() => setEventFormOpen(false)}>Скасувати</button>
+                        <button type="button" className="btn btn-secondary" onClick={() => {
+                          setEventFormOpen(false)
+                          resetEventForm()
+                        }}>Скасувати</button>
                         <button type="button" className="btn btn-primary" disabled={eventBusy} onClick={() => void handleCreateEvent()}>
-                          {eventBusy ? 'Публікуємо...' : 'Опублікувати подію'}
+                          {eventBusy ? 'Збереження...' : editingEventId ? 'Зберегти подію' : 'Опублікувати подію'}
                         </button>
                       </div>
                     </div>
@@ -904,6 +958,16 @@ export function ServerOverviewClient({ server: s, cluster, canEdit, initialUser 
                               {event.userGoing ? '✓ Я піду' : 'Я піду'}
                             </button>
                             {event.userGoing && event.userReminder && <span className="server-event-reminder">нагадування увімкнено</span>}
+                            {canEdit && (
+                              <div className="server-event-owner-actions">
+                                <button type="button" className="btn btn-secondary" onClick={() => handleEditEvent(event)}>
+                                  Редагувати
+                                </button>
+                                <button type="button" className="btn btn-secondary danger" onClick={() => void handleDeleteEvent(event)}>
+                                  Видалити
+                                </button>
+                              </div>
+                            )}
                           </div>
                           <div className="server-event-comments">
                             {event.comments.slice(0, 4).map((comment) => (

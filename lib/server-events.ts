@@ -37,6 +37,17 @@ export type ServerEvent = {
   comments: ServerEventComment[]
 }
 
+type ServerEventInput = {
+  type: ServerEventType
+  title: string
+  description?: string
+  startsAt: string
+  endsAt?: string | null
+  location?: string | null
+  prize?: string | null
+  imageUrl?: string | null
+}
+
 type EventRow = {
   id: number
   server_id: number
@@ -230,15 +241,7 @@ export async function getServerEvent(eventId: number) {
 export async function createServerEvent(input: {
   serverId: number
   ownerId: string
-  type: ServerEventType
-  title: string
-  description?: string
-  startsAt: string
-  endsAt?: string | null
-  location?: string | null
-  prize?: string | null
-  imageUrl?: string | null
-}) {
+} & ServerEventInput) {
   await ensureServerEventTables()
   const now = new Date().toISOString()
   await prisma.$executeRawUnsafe(
@@ -262,6 +265,36 @@ export async function createServerEvent(input: {
   )
   const row = await prisma.$queryRawUnsafe<Array<{ id: number }>>(`SELECT last_insert_rowid() AS id`)
   return Number(row[0]?.id || 0)
+}
+
+export async function updateServerEvent(eventId: number, input: ServerEventInput) {
+  await ensureServerEventTables()
+  await prisma.$executeRawUnsafe(
+    `
+      UPDATE app_server_events
+      SET type = ?, title = ?, description = ?, starts_at = ?, ends_at = ?, location = ?, prize = ?, image_url = ?, updated_at = ?
+      WHERE id = ? AND status != 'deleted'
+    `,
+    input.type,
+    input.title,
+    input.description || '',
+    input.startsAt,
+    input.endsAt || null,
+    input.location || null,
+    input.prize || null,
+    input.imageUrl || null,
+    new Date().toISOString(),
+    eventId,
+  )
+}
+
+export async function deleteServerEvent(eventId: number) {
+  await ensureServerEventTables()
+  await prisma.$executeRawUnsafe(
+    `UPDATE app_server_events SET status = 'deleted', updated_at = ? WHERE id = ?`,
+    new Date().toISOString(),
+    eventId,
+  )
 }
 
 export async function toggleEventAttendance(input: { eventId: number; user: AuthUser; reminderEnabled: boolean }) {

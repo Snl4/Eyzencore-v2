@@ -8408,6 +8408,18 @@ svg {
   flex-wrap: wrap;
 }
 
+.server-event-owner-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.server-event-owner-actions .danger {
+  border-color: color-mix(in oklab, var(--red) 38%, var(--line));
+  color: var(--red);
+}
+
 .server-event-reminder {
   color: var(--green);
   border-color: color-mix(in oklab, var(--green) 35%, transparent);
@@ -8464,6 +8476,7 @@ svg {
   .server-events-head { flex-direction: column; }
   .server-event-type-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .server-event-form-grid { grid-template-columns: 1fr; }
+  .server-event-owner-actions { width: 100%; margin-left: 0; }
 }
 
 @media (max-width: 560px) {

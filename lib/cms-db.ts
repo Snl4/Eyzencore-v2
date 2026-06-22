@@ -15,6 +15,7 @@ export const CMS_ENTITIES = [
   'news',
   'projects',
   'reviews',
+  'server_events',
   'forum_categories',
   'forum_threads',
   'forum_posts',
@@ -55,6 +56,7 @@ export async function getCmsStats() {
     news,
     projects,
     reviews,
+    server_events,
     forum_categories,
     forum_threads,
     forum_posts,
@@ -67,6 +69,7 @@ export async function getCmsStats() {
       prisma.app_news_posts.count(),
       prisma.app_projects.count(),
       prisma.app_server_reviews.count(),
+      prisma.app_server_events.count({ where: { status: { not: 'deleted' } } }),
       prisma.forum_categories.count(),
       prisma.forum_threads.count({ where: { is_deleted: 0 } }),
       prisma.forum_posts.count(),
@@ -82,6 +85,7 @@ export async function getCmsStats() {
     news,
     projects,
     reviews,
+    server_events,
     forum_categories,
     forum_threads,
     forum_posts,
@@ -180,6 +184,29 @@ export async function listCmsEntity(entity: CmsEntity) {
           created_at: true,
           app_servers: { select: { name: true } },
           app_users: { select: { full_name: true, email: true } },
+        },
+      })
+    case 'server_events':
+      return prisma.app_server_events.findMany({
+        orderBy: [{ status: 'asc' }, { starts_at: 'desc' }],
+        select: {
+          id: true,
+          server_id: true,
+          owner_id: true,
+          type: true,
+          title: true,
+          description: true,
+          starts_at: true,
+          ends_at: true,
+          location: true,
+          prize: true,
+          image_url: true,
+          status: true,
+          created_at: true,
+          updated_at: true,
+          app_servers: { select: { name: true, addr: true } },
+          app_users: { select: { full_name: true, email: true } },
+          _count: { select: { attendees: true, comments: true } },
         },
       })
     case 'forum_categories':
@@ -449,6 +476,29 @@ export async function updateCmsEntity(
         },
         select: { id: true },
       })
+    case 'server_events':
+      return prisma.app_server_events.update({
+        where: { id: integer(id) },
+        data: {
+          server_id: integer(input.server_id),
+          owner_id: text(input.owner_id, 191),
+          type: ['wipe', 'tournament', 'giveaway', 'update', 'season'].includes(text(input.type))
+            ? text(input.type)
+            : 'update',
+          title: text(input.title, 90),
+          description: text(input.description, 1200),
+          starts_at: text(input.starts_at, 60),
+          ends_at: nullableText(input.ends_at, 60),
+          location: nullableText(input.location, 120),
+          prize: nullableText(input.prize, 160),
+          image_url: nullableText(input.image_url, 1000),
+          status: ['published', 'draft', 'deleted'].includes(text(input.status))
+            ? text(input.status)
+            : 'published',
+          updated_at: now,
+        },
+        select: { id: true },
+      })
     case 'forum_categories':
       return prisma.forum_categories.update({
         where: { id: integer(id) },
@@ -567,6 +617,11 @@ export async function deleteCmsEntity(
       })
     case 'reviews':
       return prisma.app_server_reviews.delete({
+        where: { id: integer(id) },
+        select: { id: true },
+      })
+    case 'server_events':
+      return prisma.app_server_events.delete({
         where: { id: integer(id) },
         select: { id: true },
       })
