@@ -125,6 +125,7 @@ export async function POST(request: NextRequest, context: { params: { id: string
     rating?: number
     nickname?: string
     referrer?: string
+    referralCode?: string
     timezone?: string
   }
   const action = body.action
@@ -146,7 +147,8 @@ export async function POST(request: NextRequest, context: { params: { id: string
       ipAddress: actor.ip,
       countryCode,
       referrer,
-      trafficSource: classifyTrafficSource(referrer, new URL(request.url).origin),
+      trafficSource: body.referralCode ? `ref:${String(body.referralCode).trim().slice(0, 48)}` : classifyTrafficSource(referrer, new URL(request.url).origin),
+      referralCode: body.referralCode,
       cooldownMinutes: body.cooldownMinutes,
     })
     return NextResponse.json({ success: true, counted: result.counted, summary: await getServerEngagementSummary(serverId) })

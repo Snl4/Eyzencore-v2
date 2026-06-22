@@ -1,4 +1,4 @@
-import { createHash, randomBytes, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, randomBytes, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import { normalizeServerAddress, type ServerPlatform } from '@/lib/discord';
 import { prisma } from '@/lib/prisma';
@@ -22,12 +22,15 @@ type DbUserRow = {
   location: string | null;
   website: string | null;
   telegram: string | null;
+  telegram_user_id?: string | null;
+  telegram_username?: string | null;
   discord: string | null;
   discord_user_id?: string | null;
   avatar_url: string | null;
   banner_url: string | null;
   role: string;
   is_legacy?: number | null;
+  theme?: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -225,12 +228,15 @@ export type AuthUser = {
     location: string;
     website: string | null;
     telegram: string | null;
+    telegram_user_id: string | null;
+    telegram_username: string | null;
     discord: string | null;
     discord_user_id: string | null;
     avatar_url: string | null;
     banner_url: string | null;
     role: UserRole;
     is_legacy: boolean;
+    theme: 'dark' | 'light';
   };
 };
 
@@ -310,6 +316,15 @@ const prismaDatabase: PrismaDatabase = {
 
 function nowIso() {
   return new Date().toISOString();
+}
+
+export function normalizeReferralCode(value: string) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 48);
 }
 
 function getDb() {
@@ -405,12 +420,15 @@ function mapUserRow(row: DbUserRow): AuthUser {
       location: row.location || '',
       website: row.website || null,
       telegram: row.telegram || null,
+      telegram_user_id: row.telegram_user_id || null,
+      telegram_username: row.telegram_username || null,
       discord: row.discord || null,
       discord_user_id: row.discord_user_id || null,
       avatar_url: row.avatar_url || null,
       banner_url: row.banner_url || null,
       role: resolveUserRole({ userId: row.id, role: row.role }),
       is_legacy: Boolean(row.is_legacy),
+      theme: row.theme === 'light' ? 'light' : 'dark',
     },
   };
 }
@@ -638,11 +656,14 @@ export async function getCmsSessionFromToken(
        u.location,
        u.website,
        u.telegram,
+       u.telegram_user_id,
+       u.telegram_username,
        u.discord,
        u.discord_user_id,
        u.avatar_url,
        u.banner_url,
        u.role,
+       u.theme,
        u.created_at,
        u.updated_at
      FROM cms_sessions s
@@ -707,11 +728,14 @@ export async function getAuthSessionFromToken(
          u.location,
          u.website,
          u.telegram,
+         u.telegram_user_id,
+         u.telegram_username,
          u.discord,
          u.discord_user_id,
          u.avatar_url,
          u.banner_url,
          u.role,
+         u.theme,
          u.created_at,
          u.updated_at
        FROM user_login_sessions s
@@ -1369,6 +1393,83 @@ export async function unlinkDiscordUserAccount(userId: string) {
   return mapUserRow(user);
 }
 
+function getTelegramLinkSecret() {
+  return String(process.env.TELEGRAM_LINK_SECRET || process.env.TELEGRAM_BOT_TOKEN || process.env.JWT_SECRET || 'eyzencore-telegram-dev').trim();
+}
+
+function signTelegramLinkPayload(payload: string) {
+  return createHmac('sha256', getTelegramLinkSecret()).update(payload).digest('base64url');
+}
+
+export function getTelegramBotUsername() {
+  return String(process.env.VITE_TELEGRAM_BOT_USERNAME || process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || '').trim().replace(/^@/, '');
+}
+
+export function createTelegramLinkToken(userId: string) {
+  const expiresAt = Date.now() + 1000 * 60 * 15;
+  const payload = Buffer.from(JSON.stringify({ userId, exp: expiresAt })).toString('base64url');
+  const signature = signTelegramLinkPayload(payload);
+  return `${payload}.${signature}`;
+}
+
+function parseTelegramLinkToken(token: string) {
+  const [payload, signature] = String(token || '').trim().split('.');
+  if (!payload || !signature) {
+    throw new Error('Некоректний Telegram token');
+  }
+  const expected = signTelegramLinkPayload(payload);
+  const incoming = Buffer.from(signature);
+  const valid = Buffer.from(expected);
+  if (incoming.length !== valid.length || !timingSafeEqual(incoming, valid)) {
+    throw new Error('Telegram token недійсний');
+  }
+  const decoded = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as { userId?: string; exp?: number };
+  if (!decoded.userId || !decoded.exp || decoded.exp < Date.now()) {
+    throw new Error('Telegram token застарів');
+  }
+  return decoded.userId;
+}
+
+export async function linkTelegramUserAccount(input: {
+  token: string;
+  telegramUserId: string;
+  username?: string | null;
+}) {
+  const userId = parseTelegramLinkToken(input.token);
+  const telegramUserId = String(input.telegramUserId || '').trim();
+  const username = String(input.username || '').trim().replace(/^@/, '').slice(0, 80) || null;
+  if (!telegramUserId) {
+    throw new Error('Telegram ID відсутній');
+  }
+  const db = getDb();
+  const occupied = await db
+    .prepare('SELECT id FROM app_users WHERE telegram_user_id = ? AND id != ? LIMIT 1')
+    .get(telegramUserId, userId);
+  if (occupied) {
+    throw new Error('Цей Telegram акаунт вже привʼязаний до іншого користувача');
+  }
+  const timestamp = nowIso();
+  const telegramUrl = username ? `https://t.me/${username}` : `tg://user?id=${telegramUserId}`;
+  await db.prepare(
+    `UPDATE app_users
+     SET telegram_user_id = ?, telegram_username = ?, telegram = ?, updated_at = ?
+     WHERE id = ?`
+  ).run(telegramUserId, username, telegramUrl, timestamp, userId);
+  const user = await db.prepare('SELECT * FROM app_users WHERE id = ? LIMIT 1').get(userId) as DbUserRow;
+  return mapUserRow(user);
+}
+
+export async function unlinkTelegramUserAccount(userId: string) {
+  const db = getDb();
+  await db.prepare(
+    `UPDATE app_users
+     SET telegram_user_id = NULL, telegram_username = NULL, telegram = NULL, updated_at = ?
+     WHERE id = ?`
+  ).run(nowIso(), userId);
+  const user = await db.prepare('SELECT * FROM app_users WHERE id = ? LIMIT 1').get(userId) as DbUserRow;
+  return mapUserRow(user);
+}
+
 export async function verifyDiscordServerByBot(input: { code: string; guildId: string; guildName?: string }) {
   const db = getDb();
   const normalizedCode = String(input.code || '').trim().toUpperCase();
@@ -1546,6 +1647,7 @@ export async function registerServerView(input: {
   countryCode?: string | null;
   referrer?: string | null;
   trafficSource?: string | null;
+  referralCode?: string | null;
   cooldownMinutes?: number;
 }) {
   const db = getDb();
@@ -1579,8 +1681,8 @@ export async function registerServerView(input: {
   await db.prepare(
     `INSERT INTO app_server_views (
        server_id, user_id, fingerprint, ip_address, country_code,
-       referrer, traffic_source, created_at
-     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+       referrer, traffic_source, referral_code, created_at
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     input.serverId,
     input.userId || null,
@@ -1589,6 +1691,7 @@ export async function registerServerView(input: {
     String(input.countryCode || '').trim().toUpperCase() || null,
     String(input.referrer || '').trim().slice(0, 1000) || null,
     String(input.trafficSource || '').trim().slice(0, 120) || 'direct',
+    normalizeReferralCode(input.referralCode || '') || null,
     now
   );
   return { counted: true };
@@ -1987,6 +2090,21 @@ export type OwnerServerActivityPayload = {
   }>;
 };
 
+export type ServerReferralLink = {
+  id: number;
+  serverId: number;
+  label: string;
+  code: string;
+  channel: string;
+  url: string;
+  totalViews: number;
+  uniqueVisitors: number;
+  views7d: number;
+  views30d: number;
+  createdAt: string;
+  disabledAt: string | null;
+};
+
 export function resolveUserRole(input: { userId: string; role?: string | null }): UserRole {
   void input.userId;
   return normalizeUserRole(input.role);
@@ -2316,6 +2434,126 @@ async function assertServerAccess(input: { serverId: number; userId: string; isA
   }
 }
 
+function getPublicOrigin() {
+  return String(process.env.FRONTEND_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://eyzencore.com').replace(/\/+$/, '');
+}
+
+function buildReferralUrl(serverId: number, code: string) {
+  return `${getPublicOrigin()}/servers/${serverId}?ref=${encodeURIComponent(code)}`;
+}
+
+export async function listServerReferralLinks(input: { serverId: number; userId: string; isAdmin?: boolean }) {
+  await assertServerAccess(input);
+  const db = getDb();
+  const rows = await db.prepare(
+    `SELECT
+       r.id,
+       r.server_id,
+       r.label,
+       r.code,
+       r.channel,
+       r.created_at,
+       r.disabled_at,
+       COUNT(v.id) AS total_views,
+       COUNT(DISTINCT v.fingerprint) AS unique_visitors,
+       SUM(CASE WHEN datetime(v.created_at) >= datetime('now', '-7 days') THEN 1 ELSE 0 END) AS views_7d,
+       SUM(CASE WHEN datetime(v.created_at) >= datetime('now', '-30 days') THEN 1 ELSE 0 END) AS views_30d
+     FROM app_server_referrals r
+     LEFT JOIN app_server_views v
+       ON v.server_id = r.server_id
+      AND v.referral_code = r.code
+     WHERE r.server_id = ?
+     GROUP BY r.id
+     ORDER BY r.disabled_at IS NOT NULL ASC, datetime(r.created_at) DESC`
+  ).all(input.serverId) as Array<{
+    id: number;
+    server_id: number;
+    label: string;
+    code: string;
+    channel: string;
+    created_at: string;
+    disabled_at: string | null;
+    total_views: number | null;
+    unique_visitors: number | null;
+    views_7d: number | null;
+    views_30d: number | null;
+  }>;
+  return rows.map<ServerReferralLink>((row) => ({
+    id: Number(row.id),
+    serverId: Number(row.server_id),
+    label: String(row.label || ''),
+    code: String(row.code || ''),
+    channel: String(row.channel || 'custom'),
+    url: buildReferralUrl(Number(row.server_id), String(row.code || '')),
+    totalViews: Number(row.total_views || 0),
+    uniqueVisitors: Number(row.unique_visitors || 0),
+    views7d: Number(row.views_7d || 0),
+    views30d: Number(row.views_30d || 0),
+    createdAt: row.created_at,
+    disabledAt: row.disabled_at || null,
+  }));
+}
+
+export async function createServerReferralLink(input: {
+  serverId: number;
+  userId: string;
+  isAdmin?: boolean;
+  label: string;
+  code?: string | null;
+  channel?: string | null;
+}) {
+  await assertServerAccess(input);
+  const server = await getServerById(input.serverId);
+  if (!server) throw new Error('Server not found');
+  const label = String(input.label || '').trim().slice(0, 80);
+  if (label.length < 2) throw new Error('Label is required');
+  const channel = String(input.channel || 'custom').trim().toLowerCase().replace(/[^a-z0-9_-]+/g, '-').slice(0, 32) || 'custom';
+  const baseCode = normalizeReferralCode(input.code || label);
+  if (baseCode.length < 2) throw new Error('Referral code is required');
+  const db = getDb();
+  const timestamp = nowIso();
+  let code = baseCode;
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    try {
+      const suffix = attempt === 0 ? '' : `-${attempt + 1}`;
+      code = `${baseCode}${suffix}`.slice(0, 48);
+      await db.prepare(
+        `INSERT INTO app_server_referrals (server_id, owner_id, label, code, channel, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`
+      ).run(input.serverId, server.ownerId, label, code, channel, timestamp, timestamp);
+      return {
+        id: Number((await db.prepare('SELECT last_insert_rowid() AS id').get() as { id: number }).id || 0),
+        serverId: input.serverId,
+        label,
+        code,
+        channel,
+        url: buildReferralUrl(input.serverId, code),
+        totalViews: 0,
+        uniqueVisitors: 0,
+        views7d: 0,
+        views30d: 0,
+        createdAt: timestamp,
+        disabledAt: null,
+      } satisfies ServerReferralLink;
+    } catch (error) {
+      if (attempt >= 19) throw error;
+    }
+  }
+  throw new Error('Could not create referral link');
+}
+
+export async function disableServerReferralLink(input: { serverId: number; referralId: number; userId: string; isAdmin?: boolean }) {
+  await assertServerAccess(input);
+  const db = getDb();
+  const timestamp = nowIso();
+  const result = await db.prepare(
+    `UPDATE app_server_referrals
+     SET disabled_at = ?, updated_at = ?
+     WHERE id = ? AND server_id = ? AND disabled_at IS NULL`
+  ).run(timestamp, timestamp, input.referralId, input.serverId) as { changes?: number };
+  return { success: Number(result?.changes || 0) > 0 };
+}
+
 export async function getOwnerServerStats(input: { serverId: number; userId: string; isAdmin?: boolean; days?: number }) {
   await assertServerAccess(input);
   const db = getDb();
@@ -2456,6 +2694,7 @@ export type DashTrafficSource = {
   visitors: number;
   percent: number;
 };
+export type DashReferralLink = ServerReferralLink;
 
 const DASH_RANGE_DAYS: Record<DashRange, number> = {
   '24h': 1,
@@ -2851,6 +3090,11 @@ export async function getServerDashboardSnapshot(input: { serverId: number; user
     visitors: Number(row.visitors || 0),
     percent: trafficTotal > 0 ? (Number(row.visitors || 0) / trafficTotal) * 100 : 0,
   }));
+  const referralLinks = await listServerReferralLinks({
+    serverId: input.serverId,
+    userId: input.userId,
+    isAdmin: input.isAdmin,
+  });
 
   return {
     range,
@@ -2880,6 +3124,7 @@ export async function getServerDashboardSnapshot(input: { serverId: number; user
     ownedServers,
     byCountry,
     trafficSources,
+    referralLinks,
   };
 }
 

@@ -36,6 +36,18 @@ type ReviewItem = {
 type OwnedServer = { seed: number; name: string; ic: string; addr: string; avatarUrl: string | null }
 type CountryEntry = { code: string; visitors: number; percent: number }
 type TrafficSourceEntry = { source: string; visitors: number; percent: number }
+type ReferralLinkEntry = {
+  id: number
+  label: string
+  code: string
+  channel: string
+  url: string
+  totalViews: number
+  uniqueVisitors: number
+  views7d: number
+  views30d: number
+  disabledAt: string | null
+}
 
 const COUNTRY_DICT: Record<string, string> = {
   UA: 'Україна', PL: 'Польща', DE: 'Німеччина', CZ: 'Чехія', SK: 'Словаччина',
@@ -68,7 +80,10 @@ const TRAFFIC_SOURCE_META: Record<string, { label: string; icon: string }> = {
 
 function describeTrafficSource(source: string) {
   const normalized = String(source || 'direct').toLowerCase()
-  return TRAFFIC_SOURCE_META[normalized] || { label: normalized, icon: '↪' }
+  if (normalized.startsWith('ref:')) {
+    return { label: `Ref: ${normalized.slice(4)}`, icon: '↗' }
+  }
+  return TRAFFIC_SOURCE_META[normalized] || { label: normalized, icon: '↗' }
 }
 
 interface DashSnapshot {
@@ -98,6 +113,7 @@ interface DashSnapshot {
   ownedServers: OwnedServer[]
   byCountry: CountryEntry[]
   trafficSources: TrafficSourceEntry[]
+  referralLinks?: ReferralLinkEntry[]
 }
 
 interface Props {
@@ -673,6 +689,37 @@ export function DashboardClient({ initialUser, server, initialSnapshot }: Props)
                 </div>
               )}
             </div>
+          </div>
+
+          <div className="dash-card">
+            <div className="head">
+              <h3>Реферальні кампанії</h3>
+              <Link className="more accent" href={`/dashboard/servers/${server.seed}`}>керувати →</Link>
+            </div>
+            {!snapshot.referralLinks || snapshot.referralLinks.length === 0 ? (
+              <div className="dash-empty small with-icon">
+                <span className="emoji">↗</span>
+                Створи окремі ref-посилання для Telegram, реклами або партнерів, і тут зʼявиться статистика.
+              </div>
+            ) : (
+              <div className="bar-list">
+                {snapshot.referralLinks.slice(0, 8).map((entry) => {
+                  const maxViews = Math.max(...(snapshot.referralLinks || []).map((item) => item.views30d), 1)
+                  return (
+                    <div key={entry.id} className="bar-row" style={{ gridTemplateColumns: '180px 1fr 92px' }}>
+                      <span className="lbl country-row">
+                        <span className="flag">↗</span>
+                        {entry.label}
+                      </span>
+                      <span className="bar">
+                        <span className="fill" style={{ width: `${Math.max(4, (entry.views30d / maxViews) * 100).toFixed(1)}%` }} />
+                      </span>
+                      <span className="v">{entry.views30d.toLocaleString('uk-UA')} / 30д</span>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
 
           {/* Heatmap */}

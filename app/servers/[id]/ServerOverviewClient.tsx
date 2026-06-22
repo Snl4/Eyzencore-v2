@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { PageShell } from '@/components/layout/PageShell';
 import { Icons, CheckBadgeIcon } from '@/components/ui/Icons';
 import { Select } from '@/components/ui/Select';
@@ -45,6 +46,7 @@ const PERIOD_OPTIONS: { value: PeriodKey; label: string }[] = [
 ]
 
 export function ServerOverviewClient({ server: s, cluster, canEdit, initialUser }: Props) {
+  const searchParams = useSearchParams();
   const isDiscord = isDiscordServer(s);
   const canVote = Boolean(initialUser);
   const [tab, setTab] = useState<Tab>('about');
@@ -86,6 +88,7 @@ export function ServerOverviewClient({ server: s, cluster, canEdit, initialUser 
   const [botInviteUrl, setBotInviteUrl] = useState<string | null>(null)
   const isValidNickname = (value: string): boolean => /^[A-Za-z0-9_]{3,16}$/.test(String(value || '').trim())
   const catalogHref = isDiscord ? '/servers/discord' : '/servers/minecraft'
+  const referralCode = searchParams.get('ref') || searchParams.get('utm_source') || ''
 
   useEffect(() => {
     if (!isDiscord || !canEdit) return
@@ -276,6 +279,7 @@ export function ServerOverviewClient({ server: s, cluster, canEdit, initialUser 
             action: 'view',
             cooldownMinutes: 15,
             referrer: document.referrer || '',
+            referralCode,
             timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || '',
           }),
         })
@@ -288,7 +292,7 @@ export function ServerOverviewClient({ server: s, cluster, canEdit, initialUser 
     return () => {
       isMounted = false
     }
-  }, [s.seed])
+  }, [s.seed, referralCode])
   useEffect(() => {
     if (!voteMessage) return
     const timeoutId = window.setTimeout(() => setVoteMessage(null), 2400)

@@ -48,6 +48,21 @@ type ActivityResponse = {
   }>
 }
 
+type ReferralLink = {
+  id: number
+  serverId: number
+  label: string
+  code: string
+  channel: string
+  url: string
+  totalViews: number
+  uniqueVisitors: number
+  views7d: number
+  views30d: number
+  createdAt: string
+  disabledAt: string | null
+}
+
 type ManageChartTooltipProps = {
   active?: boolean
   payload?: ReadonlyArray<{ dataKey?: string | number | ((obj: unknown) => unknown); value?: unknown }>
@@ -60,15 +75,22 @@ export function OwnerServerManageClient({ initialUser, role, serverId }: OwnerSe
   const [server, setServer] = useState<ServerData | null>(null)
   const [stats, setStats] = useState<StatsResponse | null>(null)
   const [activity, setActivity] = useState<ActivityResponse | null>(null)
+  const [referrals, setReferrals] = useState<ReferralLink[]>([])
+  const [refLabel, setRefLabel] = useState('')
+  const [refCode, setRefCode] = useState('')
+  const [refChannel, setRefChannel] = useState('telegram')
+  const [refBusy, setRefBusy] = useState(false)
+  const [refMessage, setRefMessage] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
 
   useEffect(() => {
     let isMounted = true
     const loadData = async () => {
-      const [serverResponse, statsResponse, activityResponse] = await Promise.all([
+      const [serverResponse, statsResponse, activityResponse, referralsResponse] = await Promise.all([
         fetch(`/api/servers/${serverId}`, { cache: 'no-store' }),
         fetch(`/api/server/${serverId}/stats?days=7`, { cache: 'no-store' }),
         fetch(`/api/server/${serverId}/activity?limit=20`, { cache: 'no-store' }),
+        fetch(`/api/server/${serverId}/referrals`, { cache: 'no-store' }),
       ])
       if (serverResponse.ok) {
         const serverPayload = await serverResponse.json() as ServerData
@@ -86,6 +108,12 @@ export function OwnerServerManageClient({ initialUser, role, serverId }: OwnerSe
         const activityPayload = await activityResponse.json() as ActivityResponse
         if (isMounted) {
           setActivity(activityPayload)
+        }
+      }
+      if (referralsResponse.ok) {
+        const referralsPayload = await referralsResponse.json() as { referrals?: ReferralLink[] }
+        if (isMounted) {
+          setReferrals(Array.isArray(referralsPayload.referrals) ? referralsPayload.referrals : [])
         }
       }
     }
@@ -158,6 +186,61 @@ export function OwnerServerManageClient({ initialUser, role, serverId }: OwnerSe
     })
   }
 
+  const handleCreateReferral = async () => {
+    setRefBusy(true)
+    setRefMessage(null)
+    try {
+      const response = await fetch(`/api/server/${serverId}/referrals`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          label: refLabel,
+          code: refCode,
+          channel: refChannel,
+        }),
+      })
+      const payload = await response.json() as { referral?: ReferralLink; error?: string }
+      if (!response.ok || !payload.referral) {
+        setRefMessage(payload.error || 'Не вдалося створити реферальне посилання')
+        return
+      }
+      setReferrals((current) => [payload.referral!, ...current])
+      setRefLabel('')
+      setRefCode('')
+      setRefMessage('Реферальне посилання створено')
+    } catch {
+      setRefMessage('Не вдалося створити реферальне посилання')
+    } finally {
+      setRefBusy(false)
+    }
+  }
+
+  const handleDisableReferral = async (referralId: number) => {
+    const shouldDelete = await confirmAction({
+      title: 'Вимкнути реферальне посилання?',
+      description: 'Посилання перестане бути активним у списку, але історія переходів залишиться у статистиці.',
+      confirmLabel: 'Вимкнути',
+    })
+    if (!shouldDelete) return
+    const response = await fetch(`/api/server/${serverId}/referrals?referralId=${referralId}`, { method: 'DELETE' })
+    if (!response.ok) {
+      setRefMessage('Не вдалося вимкнути посилання')
+      return
+    }
+    setReferrals((current) =>
+      current.map((item) => item.id === referralId ? { ...item, disabledAt: new Date().toISOString() } : item)
+    )
+  }
+
+  const copyReferral = async (url: string) => {
+    try {
+      await navigator.clipboard.writeText(url)
+      setRefMessage('Посилання скопійовано')
+    } catch {
+      setRefMessage('Не вдалося скопіювати посилання')
+    }
+  }
+
   return (
     <PageShell active="my-servers" initialUser={initialUser} sidebarRole={role}>
       <div className="page-main">
@@ -212,6 +295,81 @@ export function OwnerServerManageClient({ initialUser, role, serverId }: OwnerSe
             </div>
           </section>
         )}
+        <section className="set-card">
+          <div className="dashboard-section-head">
+            <div>
+              <h3>Реферальні посилання</h3>
+              <p className="dashboard-empty" style={{ margin: '4px 0 0' }}>
+                Створюй окремі посилання для Telegram, реклами, партнерських сайтів або будь-якої кампанії.
+              </p>
+            </div>
+          </div>
+          <div className="referral-create-grid">
+            <label>
+              <span>Назва</span>
+              <input
+                className="input"
+                placeholder="Telegram пост"
+                value={refLabel}
+                onChange={(event) => setRefLabel(event.target.value)}
+              />
+            </label>
+            <label>
+              <span>Код</span>
+              <input
+                className="input"
+                placeholder="telegram або ads-june"
+                value={refCode}
+                onChange={(event) => setRefCode(event.target.value)}
+              />
+            </label>
+            <label>
+              <span>Канал</span>
+              <select className="input" value={refChannel} onChange={(event) => setRefChannel(event.target.value)}>
+                <option value="telegram">Telegram</option>
+                <option value="ads">Реклама</option>
+                <option value="website">Інший сайт</option>
+                <option value="discord">Discord</option>
+                <option value="youtube">YouTube</option>
+                <option value="custom">Інше</option>
+              </select>
+            </label>
+            <button type="button" className="btn btn-primary" disabled={refBusy} onClick={() => void handleCreateReferral()}>
+              {refBusy ? 'Створення...' : 'Створити реф'}
+            </button>
+          </div>
+          {refMessage && <p className="dashboard-empty" style={{ marginTop: 10 }}>{refMessage}</p>}
+          {referrals.length === 0 ? (
+            <p className="dashboard-empty">Реферальних посилань ще немає.</p>
+          ) : (
+            <div className="referral-list">
+              {referrals.map((referral) => (
+                <article key={referral.id} className={`referral-card${referral.disabledAt ? ' disabled' : ''}`}>
+                  <div>
+                    <h4>{referral.label}</h4>
+                    <p>{referral.url}</p>
+                    <span>{referral.channel} · ref={referral.code}</span>
+                  </div>
+                  <div className="referral-stats">
+                    <b>{referral.views7d.toLocaleString('uk-UA')}</b><span>7 днів</span>
+                    <b>{referral.views30d.toLocaleString('uk-UA')}</b><span>30 днів</span>
+                    <b>{referral.uniqueVisitors.toLocaleString('uk-UA')}</b><span>унік.</span>
+                  </div>
+                  <div className="referral-actions">
+                    <button type="button" className="btn btn-secondary" onClick={() => void copyReferral(referral.url)}>
+                      Копіювати
+                    </button>
+                    {!referral.disabledAt && (
+                      <button type="button" className="btn btn-secondary" onClick={() => void handleDisableReferral(referral.id)}>
+                        Вимкнути
+                      </button>
+                    )}
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
         <section className="set-card">
           <h3>Активність по годинах · останні 7 днів</h3>
           {chartData.length === 0 && <p className="dashboard-empty">No analytics data available yet.</p>}

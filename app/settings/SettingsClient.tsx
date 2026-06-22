@@ -38,6 +38,7 @@ export function SettingsClient({ user: initialUser }: { user: AuthUser }) {
   const [section, setSection] = useState<Section>('security');
   const [integrationMessage, setIntegrationMessage] = useState<string | null>(null);
   const isDiscordLinked = Boolean(initialUser.user_metadata.discord_user_id);
+  const isTelegramLinked = Boolean(initialUser.user_metadata.telegram_user_id || initialUser.user_metadata.telegram);
   const [sessions, setSessions] = useState<AuthSession[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [passwordMessage, setPasswordMessage] = useState<string | null>(null);
@@ -152,6 +153,31 @@ export function SettingsClient({ user: initialUser }: { user: AuthUser }) {
     }
     setSessions((current) => current.filter((session) => session.current));
     setSessionMessage('Інші сеанси завершено');
+  }
+
+  async function beginTelegramLink() {
+    setError(null);
+    setIntegrationMessage(null);
+    const response = await fetch('/api/auth/telegram/link', { cache: 'no-store' });
+    const data = await response.json().catch(() => null) as { url?: string; error?: string } | null;
+    if (!response.ok || !data?.url) {
+      setError(data?.error || 'Не вдалося створити Telegram-посилання');
+      return;
+    }
+    window.open(data.url, '_blank', 'noopener,noreferrer');
+    setIntegrationMessage('Відкрийте Telegram-бота та натисніть Start. Після підтвердження оновіть сторінку.');
+  }
+
+  async function unlinkTelegram() {
+    setError(null);
+    const response = await fetch('/api/auth/telegram/unlink', { method: 'POST' });
+    if (!response.ok) {
+      const data = await response.json().catch(() => null) as { error?: string } | null;
+      setError(data?.error || 'Не вдалося відвʼязати Telegram');
+      return;
+    }
+    setIntegrationMessage('Telegram відвʼязано');
+    router.refresh();
   }
 
   async function updateNotificationPreference(
@@ -351,12 +377,20 @@ export function SettingsClient({ user: initialUser }: { user: AuthUser }) {
                     <div>
                       <div style={{ fontSize: 14, fontWeight: 600 }}>Telegram</div>
                       <div style={{ fontSize: 12, color: 'var(--fg-3)', marginTop: 4 }}>
-                        Telegram ID: {String(initialUser.user_metadata.telegram || '— якщо прив&apos;язав, ID і @nickname будуть тут')}
+                        {isTelegramLinked
+                          ? `Telegram ID: ${initialUser.user_metadata.telegram_user_id || '—'}${initialUser.user_metadata.telegram_username ? ` · @${initialUser.user_metadata.telegram_username}` : ''}`
+                          : 'Привʼяжіть Telegram через бота, щоб отримувати системні повідомлення й швидко підтверджувати акаунт'}
                       </div>
                     </div>
-                    <button className="btn btn-secondary" type="button">
-                      Відв&apos;язати Telegram
-                    </button>
+                    {isTelegramLinked ? (
+                      <button className="btn btn-secondary" type="button" onClick={() => void unlinkTelegram()}>
+                        Відв&apos;язати Telegram
+                      </button>
+                    ) : (
+                      <button className="btn btn-primary" type="button" onClick={() => void beginTelegramLink()}>
+                        Прив&apos;язати Telegram
+                      </button>
+                    )}
                   </div>
                   <div
                     style={{

@@ -106,7 +106,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {/* Prevent flash of incorrect theme — runs synchronously before paint */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem('eyzencore-theme')||'dark';document.documentElement.setAttribute('data-theme',t);}catch(e){}})()`,
+            __html: `(function(){try{var m=document.cookie.match(/(?:^|; )eyzencore-theme=(light|dark)/);var t=localStorage.getItem('eyzencore-theme')||(m&&m[1])||'dark';document.documentElement.setAttribute('data-theme',t);}catch(e){}})()`,
           }}
         />
         <script

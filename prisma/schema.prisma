@@ -206,6 +206,7 @@ model app_server_views {
   country_code String?
   referrer     String?
   traffic_source String?
+  referral_code String?
   created_at   String
   app_users    app_users?  @relation(fields: [user_id], references: [id], onUpdate: NoAction)
   app_servers  app_servers @relation(fields: [server_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
@@ -214,6 +215,7 @@ model app_server_views {
   @@index([created_at], map: "idx_server_views_created_at")
   @@index([server_id], map: "idx_server_views_server_id")
   @@index([traffic_source], map: "idx_server_views_traffic_source")
+  @@index([server_id, referral_code], map: "idx_server_views_referral_code")
 }
 
 model app_notification_preferences {
@@ -308,6 +310,7 @@ model app_servers {
   app_server_online_samples app_server_online_samples[] @ignore
   app_server_reviews        app_server_reviews[]
   app_server_likes          app_server_likes[]
+  app_server_referrals      app_server_referrals[]
   app_server_verifications  app_server_verifications?
   app_server_views          app_server_views[]
   app_server_votes          app_server_votes[]
@@ -339,6 +342,24 @@ model app_server_callbacks {
   callback_deliveries app_callback_deliveries[]
 
   @@index([server_id], map: "idx_server_callbacks_server_id")
+}
+
+model app_server_referrals {
+  id          Int         @id @default(autoincrement())
+  server_id   Int
+  owner_id    String
+  label       String
+  code        String
+  channel     String      @default("custom")
+  created_at  String
+  updated_at  String
+  disabled_at String?
+  app_servers app_servers @relation(fields: [server_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  app_users   app_users   @relation(fields: [owner_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([server_id, code], map: "idx_server_referrals_server_code")
+  @@index([server_id], map: "idx_server_referrals_server_id")
+  @@index([owner_id], map: "idx_server_referrals_owner_id")
 }
 
 model app_callback_events {
@@ -417,11 +438,14 @@ model app_users {
   location                 String?                    @default("")
   website                  String?
   telegram                 String?
+  telegram_user_id         String?                    @unique(map: "idx_app_users_telegram_user_id", where: raw("telegram_user_id IS NOT NULL"))
+  telegram_username        String?
   discord                  String?
   avatar_url               String?
   banner_url               String?
   role                     String                     @default("USER")
   is_legacy                Int                        @default(0)
+  theme                    String?                    @default("dark")
   created_at               String
   updated_at               String
   discord_user_id          String?                    @unique(map: "idx_app_users_discord_user_id", where: raw("discord_user_id IS NOT NULL"))
@@ -435,6 +459,7 @@ model app_users {
   app_server_applications  app_server_applications[]
   app_server_reviews       app_server_reviews[]
   app_server_likes         app_server_likes[]
+  app_server_referrals     app_server_referrals[]
   app_server_verifications app_server_verifications[]
   app_server_views         app_server_views[]
   app_server_votes         app_server_votes[]
