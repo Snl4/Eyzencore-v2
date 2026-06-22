@@ -2,6 +2,7 @@ import { notFound, redirect } from 'next/navigation'
 import { AddServerClient } from '@/app/add-server/AddServerClient'
 import { getServerById } from '@/lib/auth-db'
 import { getCurrentUser } from '@/lib/auth-server'
+import { buildServerPublicPath } from '@/lib/server-slug'
 
 interface Props {
   params: { id: string }
@@ -21,7 +22,7 @@ export default async function EditServerPage({ params }: Props) {
   const server = await getServerById(Number(params.id))
   if (!server) notFound()
   if (server.ownerId !== user.id) {
-    redirect(`/servers/${server.seed}`)
+    redirect(buildServerPublicPath(server))
   }
   return (
     <>

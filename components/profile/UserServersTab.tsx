@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { IMAGE_PLACEHOLDER } from '@/lib/placeholders';
+import { buildServerPublicPath } from '@/lib/server-slug';
 
 export interface UserServerCard {
   seed: number;
@@ -72,7 +73,7 @@ export function UserServersTab({ servers, isOwnerView }: UserServersTabProps) {
                 Редагувати
               </Link>
             )}
-            <Link href={`/servers/${s.seed}`} className="btn btn-primary">
+            <Link href={buildServerPublicPath(s)} className="btn btn-primary">
               Відкрити сервер
             </Link>
           </div>

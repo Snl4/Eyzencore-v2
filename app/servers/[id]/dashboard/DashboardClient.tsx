@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { PageShell } from '@/components/layout/PageShell'
 import { Breadcrumbs } from '@/components/ui/Breadcrumbs'
 import type { AuthUser } from '@/lib/auth-db'
-import { buildServerDashboardSlug } from '@/lib/server-slug'
+import { buildServerDashboardSlug, buildServerPublicPath } from '@/lib/server-slug'
 import { Area, CartesianGrid, Line, ComposedChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 
 type DashRange = '24h' | '7d' | '30d' | '90d' | 'all'
@@ -356,7 +356,7 @@ export function DashboardClient({ initialUser, server, initialSnapshot }: Props)
           {/* Header */}
           <div className="dash-head">
             <div className="dash-head-info">
-              <Link href={`/servers/${server.seed}`} className="dash-back">← {server.name}</Link>
+              <Link href={buildServerPublicPath(server)} className="dash-back">← {server.name}</Link>
               <Breadcrumbs items={[
                 { label: 'Простір', href: '/' },
                 { label: 'Dashboard', href: '/dashboard' },
@@ -601,7 +601,7 @@ export function DashboardClient({ initialUser, server, initialSnapshot }: Props)
             <div className="dash-card">
               <div className="head">
                 <h3>Останні відгуки {snapshot.kpi.rating.overall > 0 && <span className="rating-pill">{snapshot.kpi.rating.overall.toFixed(2)} ★</span>}</h3>
-                <Link className="more accent" href={`/servers/${server.seed}#reviews`}>усі →</Link>
+                <Link className="more accent" href={`${buildServerPublicPath(server)}#reviews`}>усі →</Link>
               </div>
               <div>
                 {snapshot.reviews.length === 0 ? (

@@ -9,6 +9,7 @@ import {
   itemListJsonLd,
   serverJsonLd,
 } from '@/lib/seo'
+import { buildServerPublicPath } from '@/lib/server-slug'
 
 export const metadata: Metadata = {
   ...buildPageMetadata({
@@ -45,7 +46,7 @@ export default async function DiscordServersPage() {
       path: '/servers/discord',
       items: initialServers.slice(0, 20).map((server) => ({
         name: server.name,
-        url: `/servers/${server.seed}`,
+        url: buildServerPublicPath(server),
         item: serverJsonLd(server),
       })),
     }),

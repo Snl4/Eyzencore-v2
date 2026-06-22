@@ -12,6 +12,7 @@ import {
 } from '@/lib/server-platform';
 import type { Server } from '@/lib/types';
 import { IMAGE_PLACEHOLDER } from '@/lib/placeholders';
+import { buildServerPublicPath } from '@/lib/server-slug';
 
 interface Props { s: Server; }
 
@@ -69,7 +70,7 @@ export function ServerCard({ s }: Props) {
   };
 
   return (
-    <div className={`server-card${s.boosted ? ' is-boosted' : ''}`} onClick={() => router.push(`/servers/${s.seed}`)}>
+    <div className={`server-card${s.boosted ? ' is-boosted' : ''}`} onClick={() => router.push(buildServerPublicPath(s))}>
       {/* Banner */}
       <div className="sc-banner" style={{ background: `url(${s.bannerUrl || IMAGE_PLACEHOLDER}) center/cover` }}>
         {s.boosted && (

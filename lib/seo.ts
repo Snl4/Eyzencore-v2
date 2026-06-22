@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import type { NewsPost } from '@/lib/auth-db'
 import type { Server } from '@/lib/types'
+import { buildServerPublicPath } from '@/lib/server-slug'
 
 export const SITE_URL = 'https://eyzencore.com'
 export const SITE_NAME = 'Eyzencore'
@@ -112,7 +113,7 @@ export function buildServerMetadata(server: Server): Metadata {
   return buildPageMetadata({
     title: `${server.name} — ${platform} сервер`,
     description: `${description} ${online}. Рейтинг: ${Math.round(server.ratingScore || 0)}.`,
-    path: `/servers/${server.seed}`,
+    path: buildServerPublicPath(server),
     image: server.bannerUrl || server.avatarUrl || '/icon.png',
     keywords: [
       server.name,
@@ -175,7 +176,7 @@ export function serverJsonLd(server: Server) {
     '@context': 'https://schema.org',
     '@type': 'Product',
     name: server.name,
-    url: `${SITE_URL}/servers/${server.seed}`,
+    url: `${SITE_URL}${buildServerPublicPath(server)}`,
     image: absoluteUrl(server.avatarUrl || server.bannerUrl || '/icon.png'),
     description: truncateSeo(server.fullDesc || server.shortDesc || server.desc || `${platform} server on Eyzencore`, 500),
     category: `${platform} server`,

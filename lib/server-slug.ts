@@ -33,6 +33,25 @@ export function buildServerDashboardSlug(name: string): string {
   return 'server'
 }
 
+export function buildServerPublicSlug(input: { seed?: number; id?: number; name: string }): string {
+  const id = Number(input.seed ?? input.id ?? 0)
+  const name = buildServerDashboardSlug(input.name)
+  return id > 0 ? `${name}-${id}` : name
+}
+
+export function buildServerPublicPath(input: { seed?: number; id?: number; name: string }): string {
+  return `/servers/${buildServerPublicSlug(input)}`
+}
+
+export function parseServerIdFromPublicSlug(value: string): number | null {
+  const raw = String(value || '').trim()
+  if (/^\d+$/.test(raw)) {
+    return Number(raw)
+  }
+  const match = raw.match(/-(\d+)$/)
+  return match ? Number(match[1]) : null
+}
+
 export function isMatchingServerSlug(input: { name: string; slug: string }): boolean {
   return buildServerDashboardSlug(input.name) === normalizeSlugText(input.slug)
 }

@@ -9,6 +9,7 @@ import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { ProjectLogo } from '@/components/ui/ProjectLogo'
 import type { AuthUser, UserRole } from '@/lib/auth-db'
 import type { Cluster } from '@/lib/cluster-db'
+import { buildServerPublicPath } from '@/lib/server-slug'
 import type { Server } from '@/lib/types'
 
 type Form = {
@@ -133,7 +134,7 @@ export function ClustersClient({
                 {cluster.description && <p className="project-card-desc">{cluster.description}</p>}
                 <div style={{ display: 'grid', gap: 8, margin: '16px 0' }}>
                   {cluster.servers.map((server) => (
-                    <Link className="project-cluster" href={`/servers/${server.id}`} key={server.id}>
+                    <Link className="project-cluster" href={buildServerPublicPath(server)} key={server.id}>
                       <div className="ic">{server.platform === 'discord' ? 'DS' : 'MC'}</div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <b>{server.name}</b>

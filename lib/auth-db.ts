@@ -2,6 +2,7 @@ import { createHash, createHmac, randomBytes, randomUUID, scryptSync, timingSafe
 import bcrypt from 'bcryptjs';
 import { normalizeServerAddress, type ServerPlatform } from '@/lib/discord';
 import { prisma } from '@/lib/prisma';
+import { buildServerPublicPath } from '@/lib/server-slug';
 import type { Server } from '@/lib/types';
 import { ADMIN_EMAIL } from '@/lib/constants';
 
@@ -2438,8 +2439,8 @@ function getPublicOrigin() {
   return String(process.env.FRONTEND_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://eyzencore.com').replace(/\/+$/, '');
 }
 
-function buildReferralUrl(serverId: number, code: string) {
-  return `${getPublicOrigin()}/servers/${serverId}?ref=${encodeURIComponent(code)}`;
+function buildReferralUrl(server: { seed?: number; id?: number; name: string }, code: string) {
+  return `${getPublicOrigin()}${buildServerPublicPath(server)}?ref=${encodeURIComponent(code)}`;
 }
 
 export async function listServerReferralLinks(input: { serverId: number; userId: string; isAdmin?: boolean }) {
@@ -2452,6 +2453,7 @@ export async function listServerReferralLinks(input: { serverId: number; userId:
        r.label,
        r.code,
        r.channel,
+       s.name AS server_name,
        r.created_at,
        r.disabled_at,
        COUNT(v.id) AS total_views,
@@ -2459,6 +2461,7 @@ export async function listServerReferralLinks(input: { serverId: number; userId:
        SUM(CASE WHEN datetime(v.created_at) >= datetime('now', '-7 days') THEN 1 ELSE 0 END) AS views_7d,
        SUM(CASE WHEN datetime(v.created_at) >= datetime('now', '-30 days') THEN 1 ELSE 0 END) AS views_30d
      FROM app_server_referrals r
+     JOIN app_servers s ON s.id = r.server_id
      LEFT JOIN app_server_views v
        ON v.server_id = r.server_id
       AND v.referral_code = r.code
@@ -2471,6 +2474,7 @@ export async function listServerReferralLinks(input: { serverId: number; userId:
     label: string;
     code: string;
     channel: string;
+    server_name: string;
     created_at: string;
     disabled_at: string | null;
     total_views: number | null;
@@ -2484,7 +2488,7 @@ export async function listServerReferralLinks(input: { serverId: number; userId:
     label: String(row.label || ''),
     code: String(row.code || ''),
     channel: String(row.channel || 'custom'),
-    url: buildReferralUrl(Number(row.server_id), String(row.code || '')),
+    url: buildReferralUrl({ id: Number(row.server_id), name: String(row.server_name || 'server') }, String(row.code || '')),
     totalViews: Number(row.total_views || 0),
     uniqueVisitors: Number(row.unique_visitors || 0),
     views7d: Number(row.views_7d || 0),
@@ -2527,7 +2531,7 @@ export async function createServerReferralLink(input: {
         label,
         code,
         channel,
-        url: buildReferralUrl(input.serverId, code),
+        url: buildReferralUrl(server, code),
         totalViews: 0,
         uniqueVisitors: 0,
         views7d: 0,

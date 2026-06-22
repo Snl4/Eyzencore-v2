@@ -11,6 +11,7 @@ import {
 } from '@/lib/public-cache'
 import { IMAGE_PLACEHOLDER } from '@/lib/placeholders'
 import { SITE_URL, buildPageMetadata, serverJsonLd } from '@/lib/seo'
+import { buildServerPublicPath } from '@/lib/server-slug'
 
 export const dynamic = 'force-dynamic'
 
@@ -48,7 +49,7 @@ function ServerSpotlight({ server }: { server: Server }) {
   const fill = server.max > 0 ? Math.min(100, Math.round((server.players / server.max) * 100)) : 0
 
   return (
-    <Link href={`/servers/${server.seed}`} className="home-server-row">
+    <Link href={buildServerPublicPath(server)} className="home-server-row">
       <span
         className="home-server-avatar"
         style={{ backgroundImage: `url(${server.avatarUrl || IMAGE_PLACEHOLDER})` }}
@@ -104,7 +105,7 @@ export default async function LandingPage() {
     itemListElement: servers.slice(0, 12).map((server, index) => ({
       '@type': 'ListItem',
       position: index + 1,
-      url: `${SITE_URL}/servers/${server.seed}`,
+      url: `${SITE_URL}${buildServerPublicPath(server)}`,
       item: serverJsonLd(server),
     })),
   }

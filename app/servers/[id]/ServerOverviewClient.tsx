@@ -13,6 +13,7 @@ import {
   isDiscordServer,
 } from '@/lib/server-platform';
 import { IMAGE_PLACEHOLDER } from '@/lib/placeholders';
+import { buildServerPublicPath } from '@/lib/server-slug';
 import type { Server } from '@/lib/types';
 import { formatPlural } from '@/lib/format-plural';
 import { toYoutubeEmbedUrl } from '@/lib/youtube';
@@ -708,7 +709,7 @@ export function ServerOverviewClient({ server: s, cluster, canEdit, initialUser 
                 <div className="so-section">
                   {cluster.description && <p className="so-text" style={{ marginBottom: 16 }}>{cluster.description}</p>}
                   {cluster.servers.map((server) => (
-                    <Link key={server.id} href={`/servers/${server.id}`} className="project-cluster">
+                    <Link key={server.id} href={buildServerPublicPath(server)} className="project-cluster">
                       <div className="ic">{server.platform === 'discord' ? 'DS' : 'MC'}</div>
                       <div style={{flex:1, minWidth: 0}}>
                         <b>{server.name}</b>

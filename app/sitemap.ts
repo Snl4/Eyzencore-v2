@@ -2,6 +2,7 @@ import type { MetadataRoute } from 'next'
 import { listForumThreads } from '@/lib/forum-db'
 import { getCachedPublicNews, getCachedPublicServers } from '@/lib/public-cache'
 import { SITE_URL } from '@/lib/seo'
+import { buildServerPublicPath } from '@/lib/server-slug'
 
 const now = new Date()
 
@@ -68,7 +69,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   ]
 
   const serverRoutes: MetadataRoute.Sitemap = servers.map((server) => ({
-    url: url(`/servers/${server.seed}`),
+    url: url(buildServerPublicPath(server)),
     lastModified: server.createdAt ? new Date(server.createdAt) : now,
     changeFrequency: 'hourly',
     priority: server.boosted ? 0.92 : server.verified ? 0.86 : 0.78,
