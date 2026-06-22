@@ -2633,7 +2633,7 @@ export async function getOwnerServerActivity(input: { serverId: number; userId: 
     .all(input.serverId) as Array<{ country_code: string; visitors: number }>;
   return {
     latestVotes: await listServerVotes(input.serverId, limit),
-    latestReviews: listServerReviews(input.serverId, limit),
+    latestReviews: await listServerReviews(input.serverId, limit),
     geolocation: geolocationRows.map((row) => ({
       countryCode: String(row.country_code || 'UN').toUpperCase(),
       visitors: Number(row.visitors || 0),

@@ -69,6 +69,14 @@ type ManageChartTooltipProps = {
   label?: string | number
 }
 
+function normalizeActivityPayload(payload: Partial<ActivityResponse> | null | undefined): ActivityResponse {
+  return {
+    latestVotes: Array.isArray(payload?.latestVotes) ? payload.latestVotes : [],
+    latestReviews: Array.isArray(payload?.latestReviews) ? payload.latestReviews : [],
+    geolocation: Array.isArray(payload?.geolocation) ? payload.geolocation : [],
+  }
+}
+
 export function OwnerServerManageClient({ initialUser, role, serverId }: OwnerServerManageClientProps) {
   const router = useRouter()
   const confirmAction = useConfirm()
@@ -107,7 +115,7 @@ export function OwnerServerManageClient({ initialUser, role, serverId }: OwnerSe
       if (activityResponse.ok) {
         const activityPayload = await activityResponse.json() as ActivityResponse
         if (isMounted) {
-          setActivity(activityPayload)
+          setActivity(normalizeActivityPayload(activityPayload))
         }
       }
       if (referralsResponse.ok) {
@@ -181,7 +189,7 @@ export function OwnerServerManageClient({ initialUser, role, serverId }: OwnerSe
       }
       return {
         ...current,
-        latestReviews: current.latestReviews.filter((review) => review.id !== reviewId),
+        latestReviews: (Array.isArray(current.latestReviews) ? current.latestReviews : []).filter((review) => review.id !== reviewId),
       }
     })
   }
