@@ -52,7 +52,7 @@ export default async function LoginPage() {
         </div>
         <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--fg-3)', display: 'flex', gap: 16 }}>
           <span>● status: operational</span>
-          <span>v2.0.4</span>
+          <span>v2.0.5</span>
         </div>
         <AuthReviewTicker reviews={reviews} />
       </aside>
