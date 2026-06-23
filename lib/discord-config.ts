@@ -11,7 +11,7 @@ function resolvePublicAppUrl() {
     .filter(Boolean)
 
   const preferred = process.env.NODE_ENV === 'production'
-    ? candidates.find((value) => !/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?/i.test(value)) || candidates[0]
+    ? candidates.find((value) => !/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?/i.test(value)) || 'https://eyzencore.com'
     : candidates[0]
 
   return String(preferred || 'http://localhost:3000').replace(/\/$/, '')

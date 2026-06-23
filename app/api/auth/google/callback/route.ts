@@ -4,9 +4,17 @@ import { setSessionCookie } from '@/lib/auth-server'
 import { getGoogleConfig } from '@/lib/google-config'
 import { exchangeGoogleCode, fetchGoogleUserProfile, parseGoogleOAuthState } from '@/lib/google-oauth'
 
+function getSafeRedirectOrigin(request: NextRequest, fallback: string) {
+  const origin = request.nextUrl.origin
+  if (origin && !/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?/i.test(origin)) {
+    return origin
+  }
+  return fallback
+}
+
 export async function GET(request: NextRequest) {
   const { isOAuthConfigured, appUrl } = getGoogleConfig()
-  const redirectOrigin = request.nextUrl.origin || appUrl
+  const redirectOrigin = getSafeRedirectOrigin(request, appUrl)
   const errorParam = request.nextUrl.searchParams.get('error')
   if (errorParam) {
     return NextResponse.redirect(new URL(`/auth/login?error=${encodeURIComponent(errorParam)}`, redirectOrigin))
