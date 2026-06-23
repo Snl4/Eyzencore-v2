@@ -4,6 +4,7 @@ import {
   createSession,
   createUserFromDiscordProfile,
   getAuthSessionFromToken,
+  getUserByEmail,
   getUserByDiscordId,
   linkDiscordUserAccount,
 } from '@/lib/auth-db'
@@ -54,13 +55,21 @@ export async function GET(request: NextRequest) {
     let user = await getUserByDiscordId(profile.id)
     if (!user) {
       const email = profile.email || `discord_${profile.id}@users.eyzencore.local`
-      user = await createUserFromDiscordProfile({
-        discordUserId: profile.id,
-        email,
-        fullName: profile.globalName || profile.username,
-        avatarUrl: profile.avatarUrl,
-        discordProfileUrl: profileUrl,
-      })
+      const existingByEmail = profile.email ? await getUserByEmail(profile.email) : null
+      user = existingByEmail
+        ? await linkDiscordUserAccount({
+            userId: existingByEmail.id,
+            discordUserId: profile.id,
+            discordProfileUrl: profileUrl,
+            avatarUrl: profile.avatarUrl,
+          })
+        : await createUserFromDiscordProfile({
+            discordUserId: profile.id,
+            email,
+            fullName: profile.globalName || profile.username,
+            avatarUrl: profile.avatarUrl,
+            discordProfileUrl: profileUrl,
+          })
     }
     if (!user) {
       throw new Error('discord_user_creation_failed')

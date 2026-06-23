@@ -600,6 +600,61 @@ export async function authenticateUser(emailInput: string, password: string) {
   return mapUserRow(row);
 }
 
+export async function getUserByEmail(emailInput: string) {
+  const email = normalizeEmail(emailInput);
+  const db = getDb();
+  const row = await db.prepare('SELECT * FROM app_users WHERE email = ? LIMIT 1').get(email) as DbUserRow | undefined;
+  return row ? mapUserRow(row) : null;
+}
+
+export async function createUserFromOAuthProfile(input: {
+  email: string;
+  fullName: string;
+  avatarUrl?: string | null;
+}) {
+  const email = normalizeEmail(input.email);
+  const db = getDb();
+  const existing = await db.prepare('SELECT * FROM app_users WHERE email = ? LIMIT 1').get(email) as DbUserRow | undefined;
+  const timestamp = nowIso();
+
+  if (existing) {
+    if (input.avatarUrl && !existing.avatar_url) {
+      await db.prepare('UPDATE app_users SET avatar_url = ?, updated_at = ? WHERE id = ?').run(
+        String(input.avatarUrl).trim(),
+        timestamp,
+        existing.id,
+      );
+      const updated = await db.prepare('SELECT * FROM app_users WHERE id = ? LIMIT 1').get(existing.id) as DbUserRow;
+      return mapUserRow(updated);
+    }
+    return mapUserRow(existing);
+  }
+
+  const fallbackName = email.split('@')[0] || 'user';
+  const fullName = String(input.fullName || fallbackName).trim().slice(0, 120) || fallbackName;
+  const id = randomUUID();
+  const profileSlug = await ensureUniqueSlug(fullName);
+  const passwordHash = hashPassword(randomBytes(24).toString('hex'));
+
+  await db.prepare(
+    `INSERT INTO app_users (
+      id, email, password_hash, full_name, profile_slug, bio, location, website, telegram, discord, avatar_url, banner_url, role, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, '', '', NULL, NULL, NULL, ?, NULL, 'USER', ?, ?)`
+  ).run(
+    id,
+    email,
+    passwordHash,
+    fullName,
+    profileSlug,
+    String(input.avatarUrl || '').trim() || null,
+    timestamp,
+    timestamp,
+  );
+
+  const user = await db.prepare('SELECT * FROM app_users WHERE id = ? LIMIT 1').get(id) as DbUserRow;
+  return mapUserRow(user);
+}
+
 export async function authenticateCmsAdmin(emailInput: string, password: string) {
   const user = await authenticateUser(emailInput, password);
   if (!user) return null;
