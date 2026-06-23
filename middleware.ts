@@ -8,6 +8,7 @@ const ALWAYS_ALLOWED = [
   '/api/auth/login',
   '/api/auth/logout',
   '/api/auth/discord',
+  '/api/auth/google',
 ]
 
 function isAlwaysAllowed(pathname: string) {
