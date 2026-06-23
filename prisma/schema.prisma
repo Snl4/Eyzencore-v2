@@ -38,9 +38,57 @@ model app_news_posts {
   created_at     String
   updated_at     String
   app_users      app_users @relation(fields: [author_user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  app_news_comments app_news_comments[]
+  app_news_likes    app_news_likes[]
+  app_news_views    app_news_views[]
 
   @@index([author_user_id], map: "idx_news_posts_author")
   @@index([created_at], map: "idx_news_posts_created_at")
+}
+
+model app_news_comments {
+  id             Int            @id @default(autoincrement())
+  news_id        Int
+  user_id        String
+  text           String
+  created_at     String
+  updated_at     String
+  app_news_posts app_news_posts @relation(fields: [news_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  app_users      app_users      @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([news_id, user_id], map: "idx_news_comments_unique_user")
+  @@index([news_id, created_at], map: "idx_news_comments_news")
+  @@index([user_id], map: "idx_news_comments_user")
+}
+
+model app_news_likes {
+  id             Int            @id @default(autoincrement())
+  news_id        Int
+  user_id        String
+  created_at     String
+  app_news_posts app_news_posts @relation(fields: [news_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  app_users      app_users      @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([news_id, user_id], map: "idx_news_likes_unique_user")
+  @@index([news_id], map: "idx_news_likes_news")
+  @@index([user_id], map: "idx_news_likes_user")
+}
+
+model app_news_views {
+  id             Int             @id @default(autoincrement())
+  news_id        Int
+  user_id        String?
+  fingerprint    String
+  ip_address     String?
+  user_agent     String?
+  created_at     String
+  app_news_posts app_news_posts  @relation(fields: [news_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  app_users      app_users?      @relation(fields: [user_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+
+  @@unique([news_id, fingerprint], map: "idx_news_views_unique_fingerprint")
+  @@unique([news_id, user_id], map: "idx_news_views_unique_user", where: raw("user_id IS NOT NULL"))
+  @@index([news_id], map: "idx_news_views_news")
+  @@index([created_at], map: "idx_news_views_created")
 }
 
 model app_notifications {
@@ -503,7 +551,10 @@ model app_users {
   discord_user_id            String?                       @unique(map: "idx_app_users_discord_user_id", where: raw("discord_user_id IS NOT NULL"))
   app_api_tokens             app_api_tokens[]
   app_user_achievements      app_user_achievements[]
+  app_news_comments          app_news_comments[]
+  app_news_likes             app_news_likes[]
   app_news_posts             app_news_posts[]
+  app_news_views             app_news_views[]
   app_notifications          app_notifications[]
   app_server_events          app_server_events[]
   app_server_event_attendees app_server_event_attendees[]

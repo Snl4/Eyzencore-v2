@@ -59,14 +59,14 @@ export default async function RegisterPage() {
             <span style={{ transform: 'rotate(180deg)', display: 'inline-block' }}>{AuthIcons.arrow}</span>
             На головну
           </Link>
-          <div className="right">
-            Вже маєте акаунт? <Link href="/login" style={{ color: 'var(--accent)', fontWeight: 500 }}>Увійти</Link>
-          </div>
         </div>
         <div className="auth-form-wrap">
           <h1>Створити акаунт</h1>
           <p className="sub">Безкоштовно. Налаштування за 2 хвилини.</p>
           <RegisterForm />
+          <div className="auth-switch-link">
+            Вже маєте акаунт? <Link href="/login">Увійти</Link>
+          </div>
           <div className="auth-footer">
             Реєструючись, ви приймаєте наші <Link href="/terms">Умови</Link> та <Link href="/privacy">Конфіденційність</Link>
           </div>

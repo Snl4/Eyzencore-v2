@@ -62,14 +62,14 @@ export default async function LoginPage() {
             <span style={{ transform: 'rotate(180deg)', display: 'inline-block' }}>{AuthIcons.arrow}</span>
             На головну
           </Link>
-          <div className="right">
-            Немає акаунту? <Link href="/register" style={{ color: 'var(--accent)', fontWeight: 500 }}>Зареєструватись</Link>
-          </div>
         </div>
         <div className="auth-form-wrap">
           <h1>Увійти в Eyzencore</h1>
           <p className="sub">Введіть свої дані, щоб продовжити роботу.</p>
           <LoginForm />
+          <div className="auth-switch-link">
+            Немає акаунту? <Link href="/register">Зареєструватись</Link>
+          </div>
           <div className="auth-footer">
             Захищено reCAPTCHA · <Link href="/terms">Умови</Link> · <Link href="/privacy">Конфіденційність</Link>
           </div>

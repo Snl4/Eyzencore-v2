@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { PageShell } from '@/components/layout/PageShell'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
 import type { AuthUser, NewsContentBlock, NewsPost } from '@/lib/auth-db'
@@ -13,6 +13,37 @@ type NewsDetailsClientProps = {
   initialUser: AuthUser | null
   post: NewsPost
   canManage: boolean
+}
+
+type NewsEngagementComment = {
+  id: number
+  text: string
+  createdAt: string
+  updatedAt: string
+  author: {
+    id: string
+    name: string
+    slug: string | null
+    avatarUrl: string | null
+  }
+}
+
+type NewsEngagement = {
+  likes: number
+  views: number
+  commentsCount: number
+  likedByMe: boolean
+  userComment: NewsEngagementComment | null
+  comments: NewsEngagementComment[]
+}
+
+const emptyEngagement: NewsEngagement = {
+  likes: 0,
+  views: 0,
+  commentsCount: 0,
+  likedByMe: false,
+  userComment: null,
+  comments: [],
 }
 
 function isVideoFileUrl(url: string): boolean {
@@ -155,7 +186,27 @@ export function NewsDetailsClient({ initialUser, post, canManage }: NewsDetailsC
   const confirmAction = useConfirm()
   const [isCopied, setIsCopied] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [engagement, setEngagement] = useState<NewsEngagement>(emptyEngagement)
+  const [isLikeBusy, setIsLikeBusy] = useState(false)
+  const [isCommentBusy, setIsCommentBusy] = useState(false)
+  const [commentText, setCommentText] = useState('')
+  const [commentError, setCommentError] = useState('')
   const readTime = estimateReadTime(post.content)
+
+  useEffect(() => {
+    let isActive = true
+    fetch(`/api/news/${post.id}/engagement`, { method: 'POST' })
+      .then((response) => response.ok ? response.json() : null)
+      .then((data: { engagement?: NewsEngagement } | null) => {
+        if (!isActive || !data?.engagement) return
+        setEngagement(data.engagement)
+        setCommentText(data.engagement.userComment?.text || '')
+      })
+      .catch(() => undefined)
+    return () => {
+      isActive = false
+    }
+  }, [post.id])
 
   const handleCopyLink = async (): Promise<void> => {
     try {
@@ -184,6 +235,55 @@ export function NewsDetailsClient({ initialUser, post, canManage }: NewsDetailsC
       router.refresh()
     } catch {
       setIsDeleting(false)
+    }
+  }
+
+  const handleToggleLike = async (): Promise<void> => {
+    if (!initialUser) {
+      router.push(`/login?next=/news/${post.id}`)
+      return
+    }
+    setIsLikeBusy(true)
+    try {
+      const response = await fetch(`/api/news/${post.id}/like`, { method: 'POST' })
+      const data = await response.json().catch(() => null) as { engagement?: NewsEngagement } | null
+      if (response.ok && data?.engagement) {
+        setEngagement(data.engagement)
+      }
+    } finally {
+      setIsLikeBusy(false)
+    }
+  }
+
+  const handleSaveComment = async (): Promise<void> => {
+    if (!initialUser) {
+      router.push(`/login?next=/news/${post.id}`)
+      return
+    }
+    const text = commentText.trim()
+    if (!text) {
+      setCommentError('Напишіть коротке повідомлення.')
+      return
+    }
+    setCommentError('')
+    setIsCommentBusy(true)
+    try {
+      const response = await fetch(`/api/news/${post.id}/comment`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+      })
+      const data = await response.json().catch(() => null) as { engagement?: NewsEngagement; error?: string } | null
+      if (!response.ok) {
+        setCommentError(data?.error || 'Не вдалося зберегти повідомлення.')
+        return
+      }
+      if (data?.engagement) {
+        setEngagement(data.engagement)
+        setCommentText(data.engagement.userComment?.text || text)
+      }
+    } finally {
+      setIsCommentBusy(false)
     }
   }
 
@@ -232,6 +332,8 @@ export function NewsDetailsClient({ initialUser, post, canManage }: NewsDetailsC
             <div className="na-meta">
               <span className="na-category">{post.category}</span>
               <time dateTime={post.createdAt}>{formatDate(post.createdAt)}</time>
+              <span className="na-meta-item">{engagement.views} переглядів</span>
+              <span className="na-meta-item">{engagement.likes} лайків</span>
               <span className="na-meta-item">{readTime} хв читання</span>
             </div>
 
@@ -283,6 +385,86 @@ export function NewsDetailsClient({ initialUser, post, canManage }: NewsDetailsC
                   {isCopied ? 'Посилання скопійовано ✓' : 'Поділитися новиною'}
                 </button>
               </footer>
+
+              <section className="news-engagement" aria-label="Взаємодія з новиною">
+                <div className="news-engagement-head">
+                  <div>
+                    <span className="news-engagement-kicker">Активність</span>
+                    <h2>Обговорення новини</h2>
+                    <p>Можна залишити одне повідомлення під новиною. Якщо зміните думку, просто оновіть його.</p>
+                  </div>
+                  <div className="news-engagement-stats" aria-label="Статистика новини">
+                    <span><strong>{engagement.views}</strong> переглядів</span>
+                    <span><strong>{engagement.likes}</strong> лайків</span>
+                    <span><strong>{engagement.commentsCount}</strong> повідомлень</span>
+                  </div>
+                </div>
+
+                <div className="news-engagement-actions">
+                  <button
+                    type="button"
+                    className={`news-like-button${engagement.likedByMe ? ' active' : ''}`}
+                    onClick={() => void handleToggleLike()}
+                    disabled={isLikeBusy}
+                  >
+                    <span aria-hidden="true">{engagement.likedByMe ? '♥' : '♡'}</span>
+                    {engagement.likedByMe ? 'Лайк поставлено' : 'Поставити лайк'}
+                  </button>
+                  {!initialUser && (
+                    <Link href={`/login?next=/news/${post.id}`} className="news-login-note">
+                      Увійдіть, щоб лайкати і писати.
+                    </Link>
+                  )}
+                </div>
+
+                {initialUser ? (
+                  <div className="news-comment-box">
+                    <label htmlFor="news-comment-text">
+                      Ваше повідомлення
+                      <span>{commentText.trim().length}/900</span>
+                    </label>
+                    <textarea
+                      id="news-comment-text"
+                      value={commentText}
+                      onChange={(event) => setCommentText(event.target.value.slice(0, 900))}
+                      placeholder="Напишіть думку про новину..."
+                      rows={4}
+                    />
+                    {commentError && <p className="news-comment-error">{commentError}</p>}
+                    <div className="news-comment-actions">
+                      <span>{engagement.userComment ? 'У вас уже є повідомлення. Новий текст оновить його.' : 'Доступне 1 повідомлення на новину.'}</span>
+                      <button type="button" onClick={() => void handleSaveComment()} disabled={isCommentBusy}>
+                        {isCommentBusy ? 'Збереження...' : engagement.userComment ? 'Оновити повідомлення' : 'Опублікувати'}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="news-comment-guest">
+                    Щоб залишити повідомлення під новиною, потрібно увійти в акаунт.
+                  </div>
+                )}
+
+                <div className="news-comments-list">
+                  {engagement.comments.length > 0 ? engagement.comments.map((comment) => (
+                    <article className="news-comment" key={comment.id}>
+                      <img src={comment.author.avatarUrl || IMAGE_PLACEHOLDER} alt="" loading="lazy" />
+                      <div>
+                        <header>
+                          {comment.author.slug ? (
+                            <Link href={`/profile/${comment.author.slug}`}>{comment.author.name}</Link>
+                          ) : (
+                            <strong>{comment.author.name}</strong>
+                          )}
+                          <time dateTime={comment.updatedAt}>{formatDate(comment.updatedAt)}</time>
+                        </header>
+                        <p>{comment.text}</p>
+                      </div>
+                    </article>
+                  )) : (
+                    <div className="news-comments-empty">Поки немає повідомлень. Будьте першим, хто відреагує.</div>
+                  )}
+                </div>
+              </section>
             </div>
           </div>
         </article>
