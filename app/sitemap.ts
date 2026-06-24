@@ -50,6 +50,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.72,
     },
     {
+      url: url('/partners/animilair'),
+      lastModified: now,
+      changeFrequency: 'weekly',
+      priority: 0.74,
+    },
+    {
       url: url('/terms'),
       lastModified: now,
       changeFrequency: 'monthly',

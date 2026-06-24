@@ -959,6 +959,627 @@
   width: 100%;
   max-width: 980px;
 }
+
+/* AnimiLair partner marketplace */
+.animilair-page,
+.animilair-orders-page {
+  display: grid;
+  gap: 28px;
+}
+
+.animilair-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(320px, .75fr);
+  gap: 22px;
+  align-items: stretch;
+  padding: clamp(22px, 4vw, 42px);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xl);
+  background:
+    radial-gradient(circle at 18% 0%, color-mix(in srgb, var(--accent) 24%, transparent), transparent 34%),
+    radial-gradient(circle at 100% 20%, color-mix(in srgb, #22d3ee 18%, transparent), transparent 38%),
+    linear-gradient(135deg, color-mix(in srgb, var(--bg-1) 96%, transparent), var(--bg-2));
+  box-shadow: 0 24px 80px hsl(var(--shadow-color) / .12);
+  overflow: hidden;
+}
+
+.animilair-hero-copy {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 360px;
+}
+
+.animilair-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+
+.animilair-hero h1 {
+  margin: 12px 0 12px;
+  max-width: 780px;
+  font-size: clamp(42px, 7vw, 86px);
+  line-height: .92;
+  letter-spacing: -.07em;
+}
+
+.animilair-hero p {
+  max-width: 720px;
+  margin: 0;
+  color: var(--fg-2);
+  font-size: clamp(15px, 1.6vw, 18px);
+  line-height: 1.75;
+}
+
+.animilair-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 26px;
+}
+
+.animilair-hero-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  min-height: 360px;
+  padding: 24px;
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--line));
+  border-radius: var(--radius-xl);
+  background:
+    linear-gradient(180deg, rgba(10, 15, 30, .18), rgba(10, 15, 30, .72)),
+    url('/images/placeholder-minecraft.jpg') center/cover;
+  color: #fff;
+  overflow: hidden;
+}
+
+.animilair-hero-card::before {
+  content: "";
+  position: absolute;
+  inset: 16px;
+  border: 1px solid rgba(255,255,255,.18);
+  border-radius: calc(var(--radius-xl) - 4px);
+  pointer-events: none;
+}
+
+.animilair-live-dot {
+  position: absolute;
+  top: 28px;
+  right: 28px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 0 8px rgba(16,185,129,.18);
+}
+
+.animilair-hero-card p {
+  position: relative;
+  margin: 0 0 8px;
+  color: rgba(255,255,255,.72);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: .12em;
+}
+
+.animilair-hero-card strong {
+  position: relative;
+  max-width: 320px;
+  font-size: 28px;
+  line-height: 1.05;
+  letter-spacing: -.04em;
+}
+
+.animilair-mini-grid {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin-top: 26px;
+}
+
+.animilair-mini-grid span {
+  padding: 12px;
+  border: 1px solid rgba(255,255,255,.18);
+  border-radius: 12px;
+  background: rgba(255,255,255,.08);
+  backdrop-filter: blur(10px);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.animilair-section {
+  display: grid;
+  gap: 16px;
+}
+
+.animilair-section-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: end;
+}
+
+.animilair-section-head h2 {
+  margin: 8px 0 0;
+  font-size: clamp(26px, 3vw, 42px);
+  letter-spacing: -.045em;
+}
+
+.animilair-authors,
+.animilair-products {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.animilair-author-card,
+.animilair-product-card,
+.animilair-chat-card,
+.animilair-order-list,
+.animilair-empty-orders {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--bg-1) 96%, transparent);
+  box-shadow: var(--shadow-sm);
+}
+
+.animilair-author-card {
+  overflow: hidden;
+}
+
+.animilair-author-banner {
+  height: 106px;
+  background-size: cover;
+  background-position: center;
+  filter: saturate(1.08);
+}
+
+.animilair-author-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 16px 6px;
+}
+
+.animilair-author-avatar {
+  width: 54px;
+  height: 54px;
+  border: 2px solid var(--bg-1);
+  border-radius: 16px;
+  background-size: cover;
+  background-position: center;
+  box-shadow: 0 10px 30px hsl(var(--shadow-color) / .18);
+}
+
+.animilair-author-main h3,
+.animilair-product-body h3,
+.animilair-chat-head h2 {
+  margin: 0;
+  letter-spacing: -.025em;
+}
+
+.animilair-author-main p {
+  margin: 3px 0 0;
+  color: var(--fg-3);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.animilair-author-bio {
+  margin: 0;
+  padding: 0 16px 18px;
+  color: var(--fg-2);
+  line-height: 1.6;
+  font-size: 13.5px;
+}
+
+.animilair-category-tabs {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.animilair-product-card {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: transform .16s, border-color .16s, box-shadow .16s;
+}
+
+.animilair-product-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--line-strong);
+  box-shadow: 0 16px 50px hsl(var(--shadow-color) / .16);
+}
+
+.animilair-product-cover {
+  position: relative;
+  min-height: 190px;
+  background-size: cover;
+  background-position: center;
+}
+
+.animilair-product-cover::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(0,0,0,.05), rgba(0,0,0,.42));
+}
+
+.animilair-product-cover span {
+  position: absolute;
+  z-index: 1;
+  top: 12px;
+  left: 12px;
+  padding: 6px 9px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, .78);
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.animilair-product-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px;
+}
+
+.animilair-product-meta,
+.animilair-product-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.animilair-product-meta {
+  color: var(--fg-3);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+
+.animilair-product-body p {
+  margin: 0;
+  color: var(--fg-2);
+  line-height: 1.65;
+  font-size: 13.5px;
+}
+
+.animilair-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.animilair-tags span {
+  padding: 5px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg-2);
+  color: var(--fg-2);
+  font-size: 12px;
+}
+
+.animilair-portfolio-strip {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-top: auto;
+}
+
+.animilair-portfolio-thumb {
+  min-height: 74px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background-size: cover;
+  background-position: center;
+  cursor: default;
+}
+
+.animilair-product-foot {
+  padding-top: 4px;
+}
+
+.animilair-product-foot span {
+  display: block;
+  color: var(--fg-3);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.animilair-product-foot strong {
+  display: block;
+  margin-top: 3px;
+  font-size: 13px;
+}
+
+.animilair-order-backdrop {
+  z-index: 80;
+}
+
+.animilair-order-modal {
+  max-width: 760px;
+}
+
+.animilair-order-form label,
+.animilair-chat-compose {
+  display: grid;
+  gap: 7px;
+  color: var(--fg-2);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.animilair-order-form input,
+.animilair-order-form textarea,
+.animilair-chat-compose textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg);
+  color: var(--fg);
+  padding: 12px 13px;
+  font: inherit;
+  outline: none;
+}
+
+.animilair-order-form input:focus,
+.animilair-order-form textarea:focus,
+.animilair-chat-compose textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+.animilair-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.animilair-form-message {
+  border-radius: 12px;
+  padding: 11px 12px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.animilair-form-message.success {
+  color: var(--green);
+  background: color-mix(in srgb, var(--green) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--green) 28%, var(--line));
+}
+
+.animilair-form-message.error {
+  color: var(--red);
+  background: color-mix(in srgb, var(--red) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--red) 28%, var(--line));
+}
+
+.animilair-orders-layout {
+  display: grid;
+  grid-template-columns: minmax(260px, 360px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.animilair-order-list {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+}
+
+.animilair-order-item {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  text-align: left;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  background: transparent;
+  color: var(--fg);
+  padding: 13px;
+  cursor: pointer;
+}
+
+.animilair-order-item:hover,
+.animilair-order-item.active {
+  border-color: var(--line-strong);
+  background: var(--bg-2);
+}
+
+.animilair-order-item small {
+  color: var(--fg-3);
+  font-size: 12px;
+}
+
+.animilair-order-status {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--line));
+  border-radius: 999px;
+  padding: 4px 8px;
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.animilair-order-status.large {
+  align-self: start;
+  justify-self: end;
+}
+
+.animilair-chat-card {
+  overflow: hidden;
+}
+
+.animilair-chat-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 20px;
+  border-bottom: 1px solid var(--line);
+}
+
+.animilair-chat-head p {
+  margin: 6px 0 0;
+  color: var(--fg-2);
+}
+
+.animilair-chat-messages {
+  display: grid;
+  gap: 12px;
+  min-height: 360px;
+  max-height: 58vh;
+  overflow: auto;
+  padding: 20px;
+}
+
+.animilair-message {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr);
+  gap: 10px;
+  max-width: 78%;
+}
+
+.animilair-message.own {
+  justify-self: end;
+}
+
+.animilair-message img {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  object-fit: cover;
+}
+
+.animilair-message > div {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 12px;
+  background: var(--bg-2);
+}
+
+.animilair-message.own > div {
+  background: color-mix(in srgb, var(--accent) 11%, var(--bg-2));
+  border-color: color-mix(in srgb, var(--accent) 24%, var(--line));
+}
+
+.animilair-message-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+  color: var(--fg-3);
+  font-size: 12px;
+}
+
+.animilair-message p {
+  margin: 0;
+  color: var(--fg);
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.animilair-chat-empty {
+  margin: auto;
+  color: var(--fg-3);
+  text-align: center;
+}
+
+.animilair-chat-compose {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  padding: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.animilair-chat-compose textarea {
+  resize: vertical;
+}
+
+.animilair-empty-orders {
+  display: grid;
+  justify-items: start;
+  gap: 10px;
+  padding: 34px;
+}
+
+.animilair-empty-orders h2,
+.animilair-empty-orders p {
+  margin: 0;
+}
+
+.animilair-empty-orders p {
+  max-width: 620px;
+  color: var(--fg-2);
+  line-height: 1.7;
+}
+
+@media (max-width: 1100px) {
+  .animilair-hero,
+  .animilair-orders-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .animilair-authors,
+  .animilair-products {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .animilair-hero {
+    padding: 18px;
+  }
+
+  .animilair-hero-copy,
+  .animilair-hero-card {
+    min-height: auto;
+  }
+
+  .animilair-authors,
+  .animilair-products,
+  .animilair-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .animilair-section-head {
+    align-items: start;
+    flex-direction: column;
+  }
+
+  .animilair-category-tabs {
+    justify-content: flex-start;
+  }
+
+  .animilair-message {
+    max-width: 100%;
+  }
+
+  .animilair-chat-compose {
+    grid-template-columns: 1fr;
+  }
+}
 .na-action {
   min-height: 38px;
   display: flex;

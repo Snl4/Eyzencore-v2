@@ -700,6 +700,85 @@ model email_verification_codes {
   attempts   Int    @default(0)
 }
 
+model app_animilair_authors {
+  id           Int    @id @default(autoincrement())
+  slug         String @unique
+  name         String
+  role         String @default("")
+  bio          String @default("")
+  avatar_url   String?
+  banner_url   String?
+  socials_json String @default("{}")
+  position     Int    @default(0)
+  is_active    Int    @default(1)
+  created_at   String
+  updated_at   String
+
+  @@index([position], map: "idx_animilair_authors_position")
+}
+
+model app_animilair_products {
+  id            Int     @id @default(autoincrement())
+  author_id     Int
+  slug          String  @unique
+  title         String
+  category      String  @default("design")
+  short_desc    String  @default("")
+  description   String  @default("")
+  price_from    Int?
+  delivery_days Int?
+  cover_url     String?
+  tags_json     String  @default("[]")
+  status        String  @default("published")
+  featured      Int     @default(0)
+  created_at    String
+  updated_at    String
+
+  @@index([author_id], map: "idx_animilair_products_author")
+  @@index([status, featured], map: "idx_animilair_products_public")
+}
+
+model app_animilair_product_media {
+  id         Int    @id @default(autoincrement())
+  product_id Int
+  type       String @default("image")
+  url        String
+  caption    String @default("")
+  position   Int    @default(0)
+  created_at String
+
+  @@index([product_id, position], map: "idx_animilair_media_product")
+}
+
+model app_animilair_orders {
+  id          Int     @id @default(autoincrement())
+  product_id  Int
+  customer_id String
+  status      String  @default("new")
+  title       String
+  brief       String
+  budget      String  @default("")
+  deadline    String?
+  contact     String  @default("")
+  created_at  String
+  updated_at  String
+
+  @@index([customer_id, created_at], map: "idx_animilair_orders_customer")
+  @@index([product_id, created_at], map: "idx_animilair_orders_product")
+  @@index([status], map: "idx_animilair_orders_status")
+}
+
+model app_animilair_order_messages {
+  id         Int    @id @default(autoincrement())
+  order_id   Int
+  user_id    String
+  body       String
+  created_at String
+
+  @@index([order_id, created_at], map: "idx_animilair_messages_order")
+  @@index([user_id], map: "idx_animilair_messages_user")
+}
+
 model app_site_settings {
   id                  Int    @id @default(1)
   maintenance_enabled Int    @default(0)
