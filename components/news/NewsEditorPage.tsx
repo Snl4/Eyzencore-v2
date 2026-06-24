@@ -8,6 +8,7 @@ import { Breadcrumbs } from '@/components/ui/Breadcrumbs'
 import { Select } from '@/components/ui/Select'
 import { uploadFile, formatFileSize } from '@/lib/upload'
 import type { AuthUser, NewsContentBlock, NewsPost } from '@/lib/auth-db'
+import { buildNewsPath } from '@/lib/news-slug'
 
 type NewsEditorMode = 'create' | 'edit'
 
@@ -306,7 +307,7 @@ export function NewsEditorPage({ mode, initialUser, initialPost }: NewsEditorPag
         setErrorMessage(payload.error || 'Не вдалося зберегти новину')
         return
       }
-      router.push(`/news/${payload.post.id}`)
+      router.push(buildNewsPath(payload.post))
       router.refresh()
     } catch {
       setErrorMessage('Помилка мережі. Спробуйте ще раз')
@@ -328,7 +329,7 @@ export function NewsEditorPage({ mode, initialUser, initialPost }: NewsEditorPag
             <h1 className="page-title">{pageTitle}</h1>
           </div>
           <div className="news-edit-actions">
-            <Link href={isEditMode ? `/news/${initialPost?.id}` : '/news'} className="btn btn-secondary">
+            <Link href={isEditMode && initialPost ? buildNewsPath(initialPost) : '/news'} className="btn btn-secondary">
               Скасувати
             </Link>
             <button

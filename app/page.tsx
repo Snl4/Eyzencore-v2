@@ -11,6 +11,7 @@ import {
 } from '@/lib/public-cache'
 import { IMAGE_PLACEHOLDER } from '@/lib/placeholders'
 import { SITE_URL, buildPageMetadata, serverJsonLd } from '@/lib/seo'
+import { buildNewsPath } from '@/lib/news-slug'
 import { buildServerPublicPath } from '@/lib/server-slug'
 
 export const dynamic = 'force-dynamic'
@@ -277,7 +278,7 @@ export default async function LandingPage() {
               <div className="home-news-grid">
                 {news.map((post, index) => (
                   <Link
-                    href={`/news/${post.id}`}
+                    href={buildNewsPath(post)}
                     className={`home-news-card${index === 0 ? ' is-featured' : ''}`}
                     key={post.id}
                   >

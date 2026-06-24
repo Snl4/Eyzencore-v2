@@ -2,6 +2,7 @@ import type { MetadataRoute } from 'next'
 import { listForumThreads } from '@/lib/forum-db'
 import { getCachedPublicNews, getCachedPublicServers } from '@/lib/public-cache'
 import { SITE_URL } from '@/lib/seo'
+import { buildNewsPath } from '@/lib/news-slug'
 import { buildServerPublicPath } from '@/lib/server-slug'
 
 const now = new Date()
@@ -76,7 +77,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }))
 
   const newsRoutes: MetadataRoute.Sitemap = news.map((post) => ({
-    url: url(`/news/${post.id}`),
+    url: url(buildNewsPath(post)),
     lastModified: post.updatedAt ? new Date(post.updatedAt) : now,
     changeFrequency: 'weekly',
     priority: 0.68,

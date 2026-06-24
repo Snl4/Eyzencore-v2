@@ -3,6 +3,7 @@ import { NewsPageClient } from './NewsPageClient'
 import { getCurrentUser } from '@/lib/auth-server'
 import { resolveUserRole } from '@/lib/auth-db'
 import { getCachedPublicNews } from '@/lib/public-cache'
+import { buildNewsPath } from '@/lib/news-slug'
 import { buildPageMetadata, itemListJsonLd, newsJsonLd } from '@/lib/seo'
 
 export const dynamic = 'force-dynamic'
@@ -42,7 +43,7 @@ export default async function NewsPage() {
     path: '/news',
     items: initialPosts.slice(0, 20).map((post) => ({
       name: post.title,
-      url: `/news/${post.id}`,
+      url: buildNewsPath(post),
       item: newsJsonLd(post),
     })),
   })

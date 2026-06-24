@@ -1,6 +1,7 @@
-import { notFound } from 'next/navigation'
+import { notFound, permanentRedirect } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth-server'
 import { getNewsPostById, resolveUserRole } from '@/lib/auth-db'
+import { buildNewsPath, parseNewsIdFromSlug } from '@/lib/news-slug'
 import { buildNewsMetadata, newsJsonLd } from '@/lib/seo'
 import { NewsDetailsClient } from './NewsDetailsClient'
 
@@ -10,16 +11,8 @@ type NewsDetailsPageProps = {
   }
 }
 
-function parseNewsId(value: string): number | null {
-  const parsed = Number(value)
-  if (!Number.isInteger(parsed) || parsed <= 0) {
-    return null
-  }
-  return parsed
-}
-
 export async function generateMetadata({ params }: NewsDetailsPageProps) {
-  const newsId = parseNewsId(params.id)
+  const newsId = parseNewsIdFromSlug(params.id)
   if (!newsId) {
     return { title: 'Новину не знайдено' }
   }
@@ -31,13 +24,17 @@ export async function generateMetadata({ params }: NewsDetailsPageProps) {
 }
 
 export default async function NewsDetailsPage({ params }: NewsDetailsPageProps) {
-  const newsId = parseNewsId(params.id)
+  const newsId = parseNewsIdFromSlug(params.id)
   if (!newsId) {
     notFound()
   }
   const post = await getNewsPostById(newsId)
   if (!post) {
     notFound()
+  }
+  const canonicalPath = buildNewsPath(post)
+  if (params.id !== canonicalPath.split('/').pop()) {
+    permanentRedirect(canonicalPath)
   }
   const currentUser = await getCurrentUser()
   const role = currentUser

@@ -1,7 +1,8 @@
 import { createHash } from 'node:crypto'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
-import { createNewsPost, type NewsContentBlock } from '@/lib/auth-db'
+import { createNewsPost, type NewsContentBlock, type NewsPost } from '@/lib/auth-db'
+import { buildNewsPath } from '@/lib/news-slug'
 import { prisma } from '@/lib/prisma'
 
 type NewsSourceKind = 'rss' | 'reddit' | 'telegram' | 'web' | 'x'
@@ -357,12 +358,12 @@ function composeFallback(candidate: Candidate): ComposedNews {
   }
 }
 
-async function postToTelegram(input: { postId: number; news: ComposedNews }) {
+async function postToTelegram(input: { post: NewsPost; news: ComposedNews }) {
   const token = String(process.env.TELEGRAM_BOT_TOKEN || '').trim()
   const chatId = String(process.env.TELEGRAM_NEWS_CHANNEL_ID || process.env.NEWS_BOT_TELEGRAM_CHAT_ID || '').trim()
   if (!token || !chatId) return
 
-  const url = `${getPublicOrigin()}/news/${input.postId}`
+  const url = `${getPublicOrigin()}${buildNewsPath(input.post)}`
   const text = [
     escapeTelegramHtml(input.news.telegramText),
     '',
@@ -430,7 +431,7 @@ export async function runNewsBot() {
       category: 'Новини',
       coverUrl: null,
     })
-    await postToTelegram({ postId: post.id, news: composed })
+    await postToTelegram({ post, news: composed })
     seen.add(candidate.id)
     created += 1
     console.log(`[news-bot] created news #${post.id}: ${post.title}`)

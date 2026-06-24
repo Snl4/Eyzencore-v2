@@ -7,6 +7,7 @@ import { Icons } from '@/components/ui/Icons'
 import { Toggle } from '@/components/ui/Toggle'
 import { Breadcrumbs } from '@/components/ui/Breadcrumbs'
 import type { AuthUser, NewsPost } from '@/lib/auth-db'
+import { buildNewsPath } from '@/lib/news-slug'
 import { IMAGE_PLACEHOLDER } from '@/lib/placeholders'
 
 type NewsPageClientProps = {
@@ -30,7 +31,7 @@ function NewsCard({ post, featured = false }: { post: NewsPost; featured?: boole
   const excerpt = post.excerpt || post.content.slice(0, featured ? 200 : 120)
 
   return (
-    <Link href={`/news/${post.id}`} className={`nc-card${featured ? ' nc-card-featured' : ''}`}>
+    <Link href={buildNewsPath(post)} className={`nc-card${featured ? ' nc-card-featured' : ''}`}>
       {/* Media */}
       <div className="nc-media">
         <div

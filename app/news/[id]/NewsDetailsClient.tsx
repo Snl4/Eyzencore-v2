@@ -6,6 +6,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { PageShell } from '@/components/layout/PageShell'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
 import type { AuthUser, NewsContentBlock, NewsPost } from '@/lib/auth-db'
+import { buildNewsPath } from '@/lib/news-slug'
 import { IMAGE_PLACEHOLDER } from '@/lib/placeholders'
 import { toYoutubeEmbedUrl } from '@/lib/youtube'
 
@@ -192,6 +193,7 @@ export function NewsDetailsClient({ initialUser, post, canManage }: NewsDetailsC
   const [commentText, setCommentText] = useState('')
   const [commentError, setCommentError] = useState('')
   const readTime = estimateReadTime(post.content)
+  const postPath = buildNewsPath(post)
 
   useEffect(() => {
     let isActive = true
@@ -240,7 +242,7 @@ export function NewsDetailsClient({ initialUser, post, canManage }: NewsDetailsC
 
   const handleToggleLike = async (): Promise<void> => {
     if (!initialUser) {
-      router.push(`/login?next=/news/${post.id}`)
+      router.push(`/login?next=${encodeURIComponent(postPath)}`)
       return
     }
     setIsLikeBusy(true)
@@ -257,7 +259,7 @@ export function NewsDetailsClient({ initialUser, post, canManage }: NewsDetailsC
 
   const handleSaveComment = async (): Promise<void> => {
     if (!initialUser) {
-      router.push(`/login?next=/news/${post.id}`)
+      router.push(`/login?next=${encodeURIComponent(postPath)}`)
       return
     }
     const text = commentText.trim()
@@ -305,7 +307,7 @@ export function NewsDetailsClient({ initialUser, post, canManage }: NewsDetailsC
             </button>
             {canManage && (
               <>
-                <Link href={`/news/${post.id}/edit`} className="na-action">
+                <Link href={`${postPath}/edit`} className="na-action">
                   <span aria-hidden="true">✎</span>
                   <span>Редагувати</span>
                 </Link>
@@ -411,7 +413,7 @@ export function NewsDetailsClient({ initialUser, post, canManage }: NewsDetailsC
                     {engagement.likedByMe ? 'Лайк поставлено' : 'Поставити лайк'}
                   </button>
                   {!initialUser && (
-                    <Link href={`/login?next=/news/${post.id}`} className="news-login-note">
+                    <Link href={`/login?next=${encodeURIComponent(postPath)}`} className="news-login-note">
                       Увійдіть, щоб лайкати і писати.
                     </Link>
                   )}

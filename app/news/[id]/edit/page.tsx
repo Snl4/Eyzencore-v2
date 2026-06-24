@@ -2,19 +2,12 @@ import { notFound, redirect } from 'next/navigation'
 import { NewsEditorPage } from '@/components/news/NewsEditorPage'
 import { getCurrentUser } from '@/lib/auth-server'
 import { getNewsPostById, resolveUserRole } from '@/lib/auth-db'
+import { buildNewsPath, parseNewsIdFromSlug } from '@/lib/news-slug'
 
 type NewsEditPageProps = {
   params: {
     id: string
   }
-}
-
-function parseNewsId(value: string): number | null {
-  const parsed = Number(value)
-  if (!Number.isInteger(parsed) || parsed <= 0) {
-    return null
-  }
-  return parsed
 }
 
 export const dynamic = 'force-dynamic'
@@ -24,7 +17,7 @@ export default async function NewsEditPage({ params }: NewsEditPageProps) {
   if (!user) {
     redirect('/auth/login')
   }
-  const newsId = parseNewsId(params.id)
+  const newsId = parseNewsIdFromSlug(params.id)
   if (!newsId) {
     notFound()
   }
@@ -38,7 +31,7 @@ export default async function NewsEditPage({ params }: NewsEditPageProps) {
   })
   const canManage = user.id === post.authorUserId || role === 'ADMIN'
   if (!canManage) {
-    redirect(`/news/${post.id}`)
+    redirect(buildNewsPath(post))
   }
   return (
     <>

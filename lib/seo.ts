@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import type { NewsPost } from '@/lib/auth-db'
+import { buildNewsPath } from '@/lib/news-slug'
 import type { Server } from '@/lib/types'
 import { buildServerPublicPath } from '@/lib/server-slug'
 
@@ -132,7 +133,7 @@ export function buildNewsMetadata(post: NewsPost): Metadata {
   return buildPageMetadata({
     title: `${post.title} — Новини Eyzencore`,
     description: post.excerpt || post.content,
-    path: `/news/${post.id}`,
+    path: buildNewsPath(post),
     image: post.coverUrl || '/icon.png',
     type: 'article',
     publishedTime: post.createdAt,
@@ -272,6 +273,6 @@ export function newsJsonLd(post: NewsPost) {
         url: `${SITE_URL}/icon.png`,
       },
     },
-    mainEntityOfPage: `${SITE_URL}/news/${post.id}`,
+    mainEntityOfPage: `${SITE_URL}${buildNewsPath(post)}`,
   }
 }

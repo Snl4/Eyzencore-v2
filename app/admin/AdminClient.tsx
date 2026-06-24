@@ -9,6 +9,7 @@ import type { AuthUser } from '@/lib/auth-db'
 import type { AdminStatsRow, AdminUserRow, ServerApplication, ServerApplicationStatus } from '@/lib/auth-db'
 import type { Server } from '@/lib/types'
 import type { NewsPost } from '@/lib/auth-db'
+import { buildNewsPath } from '@/lib/news-slug'
 
 type Tab = 'overview' | 'users' | 'servers' | 'news' | 'applications'
 
@@ -396,7 +397,7 @@ const NewsTab = () => {
           {posts.map((p) => (
             <tr key={p.id} style={{ borderBottom: '1px solid var(--line-2)' }}>
               <td style={{ padding: '10px 16px' }}>
-                <a href={`/news/${p.id}`} style={{ color: 'var(--fg-1)', fontWeight: 500, textDecoration: 'none' }}
+                <a href={buildNewsPath(p)} style={{ color: 'var(--fg-1)', fontWeight: 500, textDecoration: 'none' }}
                   onMouseEnter={(e) => { (e.target as HTMLElement).style.color = 'var(--accent)' }}
                   onMouseLeave={(e) => { (e.target as HTMLElement).style.color = 'var(--fg-1)' }}
                 >
@@ -410,7 +411,7 @@ const NewsTab = () => {
               <td style={{ padding: '10px 16px', color: 'var(--fg-3)', fontSize: 12, whiteSpace: 'nowrap' }}>{formatDate(p.createdAt)}</td>
               <td style={{ padding: '10px 16px' }}>
                 <div style={{ display: 'flex', gap: 6 }}>
-                  <a href={`/news/${p.id}/edit`} className="btn btn-secondary" style={{ fontSize: 11, padding: '3px 10px' }}>Редагувати</a>
+                  <a href={`${buildNewsPath(p)}/edit`} className="btn btn-secondary" style={{ fontSize: 11, padding: '3px 10px' }}>Редагувати</a>
                   {confirmDelete === p.id ? (
                     <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                       <button
