@@ -7,7 +7,7 @@ import { PageShell } from '@/components/layout/PageShell'
 import { Breadcrumbs } from '@/components/ui/Breadcrumbs'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
 import type { AuthUser } from '@/lib/auth-db'
-import type { AnimilairProduct } from '@/lib/animilair-db'
+import type { AnimilairProduct } from '@/lib/animilair-shared'
 import { IMAGE_PLACEHOLDER } from '@/lib/placeholders'
 
 type Props = {

@@ -8,7 +8,7 @@ import { Breadcrumbs } from '@/components/ui/Breadcrumbs'
 import { AnimilairChatCompose } from '@/components/partners/AnimilairChatCompose'
 import { AnimilairMessageContent } from '@/components/partners/AnimilairMessageContent'
 import type { AuthUser } from '@/lib/auth-db'
-import type { AnimilairMessageAttachment, AnimilairOrder, AnimilairOrderMessage } from '@/lib/animilair-db'
+import type { AnimilairMessageAttachment, AnimilairOrder, AnimilairOrderMessage } from '@/lib/animilair-shared'
 
 type Props = {
   initialUser: AuthUser

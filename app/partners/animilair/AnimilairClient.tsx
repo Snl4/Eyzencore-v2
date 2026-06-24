@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { PageShell } from '@/components/layout/PageShell'
 import { Breadcrumbs } from '@/components/ui/Breadcrumbs'
 import type { AuthUser } from '@/lib/auth-db'
-import type { AnimilairAuthor, AnimilairProduct } from '@/lib/animilair-db'
+import type { AnimilairAuthor, AnimilairProduct } from '@/lib/animilair-shared'
 import { IMAGE_PLACEHOLDER } from '@/lib/placeholders'
 
 type Catalog = {

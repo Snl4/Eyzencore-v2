@@ -2,7 +2,7 @@
 
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faLink, faPaperclip } from '@fortawesome/free-solid-svg-icons'
-import type { AnimilairMessageAttachment } from '@/lib/animilair-db'
+import type { AnimilairMessageAttachment } from '@/lib/animilair-shared'
 import { formatFileSize } from '@/lib/upload'
 
 export function AnimilairMessageContent({

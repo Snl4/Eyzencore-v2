@@ -2,97 +2,43 @@ import { createHash } from 'node:crypto'
 import { prisma } from '@/lib/prisma'
 import type { AuthUser, UserRole } from '@/lib/auth-db'
 import { IMAGE_PLACEHOLDER } from '@/lib/placeholders'
+import {
+  ANIMILAIR_MESSAGE_MAX_ATTACHMENTS,
+  ANIMILAIR_MESSAGE_MAX_LENGTH,
+  ANIMILAIR_ORDER_STATUS_MESSAGES,
+  ANIMILAIR_SUPPORT_AVATAR,
+  ANIMILAIR_SUPPORT_NAME,
+  ANIMILAIR_SUPPORT_USER_ID,
+  canManageAnimilairProduct,
+  getAnimilairRequestIp,
+  isAnimilairCatalogCategory,
+  type AnimilairAuthor,
+  type AnimilairMessageAttachment,
+  type AnimilairOrder,
+  type AnimilairOrderMessage,
+  type AnimilairProduct,
+} from '@/lib/animilair-shared'
 
-const ANIMILAIR_EXCLUDED_CATEGORIES = new Set(['plugins', 'promo', 'promotion'])
+export {
+  ANIMILAIR_MESSAGE_MAX_ATTACHMENTS,
+  ANIMILAIR_MESSAGE_MAX_LENGTH,
+  ANIMILAIR_ORDER_STATUS_MESSAGES,
+  ANIMILAIR_SUPPORT_AVATAR,
+  ANIMILAIR_SUPPORT_NAME,
+  ANIMILAIR_SUPPORT_USER_ID,
+  canManageAnimilairProduct,
+  getAnimilairRequestIp,
+  isAnimilairCatalogCategory,
+  type AnimilairAuthor,
+  type AnimilairMessageAttachment,
+  type AnimilairOrder,
+  type AnimilairOrderMessage,
+  type AnimilairProduct,
+}
 
 type CountRow = { c: number | bigint | null }
 
-export type AnimilairAuthor = {
-  id: number
-  userId: string | null
-  slug: string
-  name: string
-  role: string
-  bio: string
-  avatarUrl: string | null
-  bannerUrl: string | null
-  socials: Record<string, string>
-}
-
-export type AnimilairProduct = {
-  id: number
-  authorId: number
-  author: AnimilairAuthor | null
-  slug: string
-  title: string
-  category: string
-  shortDesc: string
-  description: string
-  priceFrom: number | null
-  deliveryDays: number | null
-  coverUrl: string | null
-  tags: string[]
-  featured: boolean
-  viewCount: number
-  media: Array<{ id: number; type: string; url: string; caption: string }>
-}
-
-export function isAnimilairCatalogCategory(category: string): boolean {
-  return !ANIMILAIR_EXCLUDED_CATEGORIES.has(String(category || '').trim().toLowerCase())
-}
-
-export type AnimilairOrder = {
-  id: number
-  productId: number
-  productTitle: string
-  productSlug: string
-  authorUserId: string | null
-  authorName: string
-  customerId: string
-  customerName: string
-  customerAvatarUrl: string | null
-  status: string
-  title: string
-  brief: string
-  budget: string
-  deadline: string | null
-  contact: string
-  createdAt: string
-  updatedAt: string
-}
-
-export type AnimilairMessageAttachment =
-  | { type: 'image'; url: string; name: string; mime: string; size: number }
-  | { type: 'file'; url: string; name: string; mime: string; size: number }
-  | { type: 'link'; url: string; caption: string }
-
-export const ANIMILAIR_MESSAGE_MAX_LENGTH = 500
-export const ANIMILAIR_MESSAGE_MAX_ATTACHMENTS = 4
-export const ANIMILAIR_SUPPORT_USER_ID = '__eyzencore_support__'
-export const ANIMILAIR_SUPPORT_NAME = 'EyzenCore Support'
-export const ANIMILAIR_SUPPORT_AVATAR = '/project-default-logo.png'
-
-export const ANIMILAIR_ORDER_STATUS_MESSAGES: Record<string, string> = {
-  new: 'Статус замовлення: нове',
-  in_progress: 'Дизайнер прийняв замовлення в роботу.',
-  waiting_customer: 'Дизайнер очікує відповідь замовника.',
-  completed: 'Замовлення позначено як виконане.',
-  canceled: 'Замовлення скасовано.',
-}
-
 const ANIMILAIR_ORDER_STATUS_BODIES = new Set(Object.values(ANIMILAIR_ORDER_STATUS_MESSAGES))
-
-export type AnimilairOrderMessage = {
-  id: number
-  orderId: number
-  userId: string
-  authorName: string
-  authorAvatarUrl: string | null
-  body: string
-  attachments: AnimilairMessageAttachment[]
-  createdAt: string
-  isSystem: boolean
-}
 
 type AuthorRow = {
   id: number | bigint
@@ -199,16 +145,6 @@ function roleCanSell(role: UserRole) {
   return role === 'DESIGNER' || role === 'ADMIN'
 }
 
-export function canManageAnimilairProduct(
-  user: AuthUser | null,
-  role: UserRole,
-  authorUserId: string | null
-): boolean {
-  if (!user) return false
-  if (role === 'ADMIN') return true
-  return Boolean(authorUserId && authorUserId === user.id)
-}
-
 function isValidCoverUrl(value: string | null | undefined): boolean {
   const url = String(value || '').trim()
   if (!url) return false
@@ -228,15 +164,6 @@ function mapAuthor(row: AuthorRow): AnimilairAuthor {
     bannerUrl: row.banner_url,
     socials: parseJson<Record<string, string>>(row.socials_json, {}),
   }
-}
-
-export function getAnimilairRequestIp(source: { get(name: string): string | null }): string | null {
-  return (
-    source.get('cf-connecting-ip') ||
-    source.get('x-real-ip') ||
-    source.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-    null
-  )
 }
 
 export function buildAnimilairViewFingerprint(input: {

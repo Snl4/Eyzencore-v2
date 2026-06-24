@@ -7,7 +7,7 @@ import {
   ANIMILAIR_MESSAGE_MAX_ATTACHMENTS,
   ANIMILAIR_MESSAGE_MAX_LENGTH,
   type AnimilairMessageAttachment,
-} from '@/lib/animilair-db'
+} from '@/lib/animilair-shared'
 import { formatFileSize, uploadFile } from '@/lib/upload'
 
 type Props = {
