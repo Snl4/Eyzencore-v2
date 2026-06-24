@@ -41,12 +41,30 @@ export function PageShell({ children, active, initialUser = null, sidebarRole, h
   const resolvedRole = sidebarRole ?? String(user?.user_metadata.role || 'USER').toUpperCase();
   const isOwnerNavigation = resolvedRole === 'ADMIN' || Boolean(sidebarRole && resolvedRole === 'OWNER');
   const isAdminUser = user?.email === ADMIN_EMAIL;
+  const canManageAnimilairProducts = resolvedRole === 'DESIGNER' || resolvedRole === 'ADMIN' || isAdminUser;
   const rawSections = sidebarRole ? getDashboardSidebarSections(sidebarRole) : getSidebarSections(isOwnerNavigation);
+  const partnerItems: SidebarItem[] = [
+    { ico: 'bullhorn', name: 'AnimiLair Studio', key: 'animilair', href: '/partners/animilair' },
+  ];
+  if (user) {
+    partnerItems.push({
+      ico: 'comments',
+      name: 'Замовлення',
+      key: 'animilair-orders',
+      href: '/partners/animilair/orders',
+    });
+  }
+  if (canManageAnimilairProducts) {
+    partnerItems.push({
+      ico: 'screwdriver-wrench',
+      name: 'Товари',
+      key: 'animilair-products',
+      href: '/partners/animilair/products',
+    });
+  }
   const partnerSection: SidebarSection = {
     label: 'Партнери',
-    items: [
-      { ico: 'bullhorn', name: 'AnimiLair Studio', key: 'animilair', href: '/partners/animilair' },
-    ],
+    items: partnerItems,
   };
   const sectionsWithPartners = [partnerSection, ...rawSections];
   const allSections = isAdminUser

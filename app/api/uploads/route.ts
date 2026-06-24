@@ -9,9 +9,25 @@ export const runtime = 'nodejs'
 
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024 // 8 MB
 const MAX_VIDEO_BYTES = 80 * 1024 * 1024 // 80 MB
+const MAX_FILE_BYTES = 25 * 1024 * 1024 // 25 MB
 
 const IMAGE_MIME = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif'])
 const VIDEO_MIME = new Set(['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime'])
+const FILE_MIME = new Set([
+  'application/pdf',
+  'application/zip',
+  'application/x-zip-compressed',
+  'application/x-rar-compressed',
+  'application/vnd.rar',
+  'application/x-7z-compressed',
+  'text/plain',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'image/vnd.adobe.photoshop',
+  'application/octet-stream',
+])
 
 const EXT_BY_MIME: Record<string, string> = {
   'image/jpeg': '.jpg',
@@ -33,9 +49,16 @@ function safeExtension(filename: string, mime: string): string {
   return '.bin'
 }
 
-function safeKind(value: string | null): 'news' | 'forum' | 'avatar' | 'banner' | 'misc' {
+function safeKind(value: string | null): 'news' | 'forum' | 'avatar' | 'banner' | 'misc' | 'animilair' {
   const normalized = String(value || '').toLowerCase()
-  if (normalized === 'news' || normalized === 'forum' || normalized === 'avatar' || normalized === 'banner' || normalized === 'misc') {
+  if (
+    normalized === 'news' ||
+    normalized === 'forum' ||
+    normalized === 'avatar' ||
+    normalized === 'banner' ||
+    normalized === 'misc' ||
+    normalized === 'animilair'
+  ) {
     return normalized
   }
   return 'misc'
@@ -63,12 +86,17 @@ export async function POST(request: NextRequest) {
   const mime = String(file.type || '').toLowerCase()
   const isImage = IMAGE_MIME.has(mime)
   const isVideo = VIDEO_MIME.has(mime)
+  const isDocument = FILE_MIME.has(mime)
 
-  if (!isImage && !isVideo) {
+  if (!isImage && !isVideo && !(kind === 'animilair' && isDocument)) {
     return NextResponse.json(
-      { error: 'Підтримуються лише зображення (jpg/png/webp/gif/avif) та відео (mp4/webm/ogg/mov)' },
+      { error: 'Підтримуються зображення, відео або файли (pdf, zip, doc, txt тощо)' },
       { status: 400 }
     )
+  }
+
+  if (kind === 'animilair' && isVideo) {
+    return NextResponse.json({ error: 'До чату замовлення можна додати фото або файли, не відео' }, { status: 400 })
   }
 
   // News videos are reserved for admins or users that actually own a server.
@@ -80,7 +108,7 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  const limit = isVideo ? MAX_VIDEO_BYTES : MAX_IMAGE_BYTES
+  const limit = isVideo ? MAX_VIDEO_BYTES : isImage ? MAX_IMAGE_BYTES : MAX_FILE_BYTES
   if (file.size > limit) {
     const limitMb = Math.round(limit / (1024 * 1024))
     return NextResponse.json({ error: `Файл занадто великий — максимум ${limitMb} МБ` }, { status: 413 })
@@ -104,9 +132,10 @@ export async function POST(request: NextRequest) {
   }
 
   const url = buildUploadUrl(kind, subdir, filename)
+  const responseKind = isImage ? 'image' : isVideo ? 'video' : 'file'
   return NextResponse.json({
     url,
-    kind: isImage ? 'image' : 'video',
+    kind: responseKind,
     mime,
     size: file.size,
     name: file.name,

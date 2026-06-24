@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { AUTH_COOKIE_NAME, getAuthSessionFromToken, resolveUserRole } from '@/lib/auth-db'
-import { addAnimilairMessage, getAnimilairMessages } from '@/lib/animilair-db'
+import { addAnimilairMessage, getAnimilairMessages, type AnimilairMessageAttachment } from '@/lib/animilair-db'
 
 type Context = {
   params: { id: string }
@@ -37,13 +37,17 @@ export async function POST(request: NextRequest, context: Context) {
     return NextResponse.json({ error: 'Некоректне замовлення' }, { status: 400 })
   }
   try {
-    const body = await request.json() as { body?: string }
+    const body = await request.json() as {
+      body?: string
+      attachments?: AnimilairMessageAttachment[]
+    }
     const role = await resolveUserRole({ userId: auth.user.id, role: auth.user.user_metadata.role })
     const messages = await addAnimilairMessage({
       orderId,
       user: auth.user,
       role,
       body: String(body.body || ''),
+      attachments: body.attachments,
     })
     return NextResponse.json({ success: true, messages })
   } catch (error) {

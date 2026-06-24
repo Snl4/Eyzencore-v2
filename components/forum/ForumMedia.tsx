@@ -11,10 +11,15 @@ import {
 import {
   formatFileSize,
   uploadFile,
-  type UploadedFile,
 } from '@/lib/upload'
 
-export type ForumAttachment = UploadedFile
+export type ForumAttachment = {
+  url: string
+  kind: 'image' | 'video'
+  mime: string
+  size: number
+  name: string
+}
 
 export function ForumMediaUploader({
   attachments,
@@ -42,7 +47,16 @@ export function ForumMediaUploader({
     try {
       const uploaded: ForumAttachment[] = []
       for (const file of selected) {
-        uploaded.push(await uploadFile(file, 'forum'))
+        const item = await uploadFile(file, 'forum')
+        if (item.kind === 'image' || item.kind === 'video') {
+          uploaded.push({
+            url: item.url,
+            kind: item.kind,
+            mime: item.mime,
+            size: item.size,
+            name: item.name,
+          })
+        }
       }
       onChange([...attachments, ...uploaded])
     } catch (error) {

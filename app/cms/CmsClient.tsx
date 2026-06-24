@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { CmsAchievementsPanel } from '@/components/cms/CmsAchievementsPanel'
-import { Select } from '@/components/ui/Select'
+import { Select, type SelectOption } from '@/components/ui/Select'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
 import type { CmsEntity } from '@/lib/cms-db'
 import type { MaintenanceSettings } from '@/lib/maintenance'
@@ -15,7 +15,7 @@ type Field = {
   key: string
   label: string
   type?: 'text' | 'textarea' | 'number' | 'select' | 'toggle'
-  options?: string[]
+  options?: readonly SelectOption[]
 }
 type EntityConfig = {
   label: string
@@ -44,7 +44,12 @@ const configs: Record<CmsEntity, EntityConfig> = {
         key: 'role',
         label: 'Роль',
         type: 'select',
-        options: ['USER', 'OWNER', 'ADMIN'],
+        options: [
+          { value: 'USER', label: 'USER — користувач' },
+          { value: 'OWNER', label: 'OWNER — власник сервера' },
+          { value: 'DESIGNER', label: 'DESIGNER — дизайнер AnimiLair' },
+          { value: 'ADMIN', label: 'ADMIN — адміністратор' },
+        ],
       },
       { key: 'bio', label: 'Про користувача', type: 'textarea' },
       { key: 'location', label: 'Локація' },
@@ -274,6 +279,37 @@ const configs: Record<CmsEntity, EntityConfig> = {
       { key: 'project_id', label: 'ID проєкту', type: 'number' },
     ],
   },
+  animilair_orders: {
+    label: 'AnimiLair замовлення',
+    singular: 'замовлення',
+    description: 'Замовлення маркетплейсу AnimiLair. Чат і деталі — на /partners/animilair/orders.',
+    columns: [
+      { key: 'id', label: '№' },
+      { key: 'title', label: 'Тема' },
+      { key: 'product_title', label: 'Товар' },
+      { key: 'author_name', label: 'Дизайнер' },
+      { key: 'customer_name', label: 'Замовник' },
+      { key: 'status', label: 'Статус' },
+      { key: 'updated_at', label: 'Оновлено' },
+    ],
+    fields: [
+      { key: 'title', label: 'Тема' },
+      { key: 'product_title', label: 'Товар' },
+      { key: 'author_name', label: 'Дизайнер' },
+      { key: 'customer_name', label: 'Замовник' },
+      { key: 'customer_email', label: 'Email замовника' },
+      { key: 'brief', label: 'ТЗ', type: 'textarea' },
+      { key: 'budget', label: 'Бюджет' },
+      { key: 'deadline', label: 'Дедлайн' },
+      { key: 'contact', label: 'Контакт' },
+      {
+        key: 'status',
+        label: 'Статус',
+        type: 'select',
+        options: ['new', 'in_progress', 'waiting_customer', 'completed', 'canceled'],
+      },
+    ],
+  },
 }
 
 const entityOrder: CmsEntity[] = [
@@ -287,6 +323,7 @@ const entityOrder: CmsEntity[] = [
   'forum_threads',
   'forum_posts',
   'applications',
+  'animilair_orders',
   'achievements',
 ]
 
@@ -299,7 +336,18 @@ function readPath(row: CmsRow, path: string) {
   return value
 }
 
+const ANIMILAIR_STATUS_LABELS: Record<string, string> = {
+  new: 'Нове',
+  in_progress: 'В роботі',
+  waiting_customer: 'Очікує замовника',
+  completed: 'Виконано',
+  canceled: 'Скасовано',
+}
+
 function renderValue(value: unknown, key: string) {
+  if (key === 'status' && typeof value === 'string' && ANIMILAIR_STATUS_LABELS[value]) {
+    return ANIMILAIR_STATUS_LABELS[value]
+  }
   if (key.includes('_at') && value) {
     return new Date(String(value)).toLocaleDateString('uk-UA')
   }
@@ -694,6 +742,7 @@ export function CmsClient({
                             >
                               Редагувати
                             </button>
+                            {entity !== 'animilair_orders' ? (
                             <button
                               className="danger"
                               onClick={() => remove(row)}
@@ -701,6 +750,7 @@ export function CmsClient({
                             >
                               Видалити
                             </button>
+                            ) : null}
                           </div>
                         </td>
                       </tr>
@@ -754,7 +804,9 @@ export function CmsClient({
               </div>
             </header>
             <div className="cms-editor-grid">
-              {config.fields.map((field) => (
+              {config.fields.map((field) => {
+                const isReadOnly = entity === 'animilair_orders' && field.key !== 'status'
+                return (
                 <label
                   className={field.type === 'textarea' ? 'wide' : ''}
                   key={field.key}
@@ -764,6 +816,7 @@ export function CmsClient({
                     <textarea
                       rows={field.key === 'content' ? 14 : 5}
                       value={String(editing[field.key] ?? '')}
+                      readOnly={isReadOnly}
                       onChange={(event) =>
                         setEditing({
                           ...editing,
@@ -774,6 +827,7 @@ export function CmsClient({
                   ) : field.type === 'select' ? (
                     <Select
                       value={String(editing[field.key] ?? '')}
+                      disabled={isReadOnly}
                       onChange={(value) =>
                         setEditing({
                           ...editing,
@@ -788,6 +842,7 @@ export function CmsClient({
                       className={`cms-toggle ${
                         Number(editing[field.key]) ? 'on' : ''
                       }`}
+                      disabled={isReadOnly}
                       onClick={() =>
                         setEditing({
                           ...editing,
@@ -802,6 +857,7 @@ export function CmsClient({
                     <input
                       type={field.type === 'number' ? 'number' : 'text'}
                       value={String(editing[field.key] ?? '')}
+                      readOnly={isReadOnly}
                       onChange={(event) =>
                         setEditing({
                           ...editing,
@@ -811,7 +867,7 @@ export function CmsClient({
                     />
                   )}
                 </label>
-              ))}
+              )})}
             </div>
           </section>
         </div>

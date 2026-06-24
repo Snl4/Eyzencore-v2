@@ -1,6 +1,11 @@
+import { createHash } from 'node:crypto'
 import { prisma } from '@/lib/prisma'
 import type { AuthUser, UserRole } from '@/lib/auth-db'
 import { IMAGE_PLACEHOLDER } from '@/lib/placeholders'
+
+const ANIMILAIR_EXCLUDED_CATEGORIES = new Set(['plugins', 'promo', 'promotion'])
+
+type CountRow = { c: number | bigint | null }
 
 export type AnimilairAuthor = {
   id: number
@@ -28,7 +33,12 @@ export type AnimilairProduct = {
   coverUrl: string | null
   tags: string[]
   featured: boolean
+  viewCount: number
   media: Array<{ id: number; type: string; url: string; caption: string }>
+}
+
+export function isAnimilairCatalogCategory(category: string): boolean {
+  return !ANIMILAIR_EXCLUDED_CATEGORIES.has(String(category || '').trim().toLowerCase())
 }
 
 export type AnimilairOrder = {
@@ -51,6 +61,27 @@ export type AnimilairOrder = {
   updatedAt: string
 }
 
+export type AnimilairMessageAttachment =
+  | { type: 'image'; url: string; name: string; mime: string; size: number }
+  | { type: 'file'; url: string; name: string; mime: string; size: number }
+  | { type: 'link'; url: string; caption: string }
+
+export const ANIMILAIR_MESSAGE_MAX_LENGTH = 500
+export const ANIMILAIR_MESSAGE_MAX_ATTACHMENTS = 4
+export const ANIMILAIR_SUPPORT_USER_ID = '__eyzencore_support__'
+export const ANIMILAIR_SUPPORT_NAME = 'EyzenCore Support'
+export const ANIMILAIR_SUPPORT_AVATAR = '/project-default-logo.png'
+
+export const ANIMILAIR_ORDER_STATUS_MESSAGES: Record<string, string> = {
+  new: 'Статус замовлення: нове',
+  in_progress: 'Дизайнер прийняв замовлення в роботу.',
+  waiting_customer: 'Дизайнер очікує відповідь замовника.',
+  completed: 'Замовлення позначено як виконане.',
+  canceled: 'Замовлення скасовано.',
+}
+
+const ANIMILAIR_ORDER_STATUS_BODIES = new Set(Object.values(ANIMILAIR_ORDER_STATUS_MESSAGES))
+
 export type AnimilairOrderMessage = {
   id: number
   orderId: number
@@ -58,7 +89,9 @@ export type AnimilairOrderMessage = {
   authorName: string
   authorAvatarUrl: string | null
   body: string
+  attachments: AnimilairMessageAttachment[]
   createdAt: string
+  isSystem: boolean
 }
 
 type AuthorRow = {
@@ -131,6 +164,7 @@ type MessageRow = {
   author_name: string
   author_avatar_url: string | null
   body: string
+  attachments_json?: string | null
   created_at: string
 }
 
@@ -165,6 +199,16 @@ function roleCanSell(role: UserRole) {
   return role === 'DESIGNER' || role === 'ADMIN'
 }
 
+export function canManageAnimilairProduct(
+  user: AuthUser | null,
+  role: UserRole,
+  authorUserId: string | null
+): boolean {
+  if (!user) return false
+  if (role === 'ADMIN') return true
+  return Boolean(authorUserId && authorUserId === user.id)
+}
+
 function isValidCoverUrl(value: string | null | undefined): boolean {
   const url = String(value || '').trim()
   if (!url) return false
@@ -186,7 +230,69 @@ function mapAuthor(row: AuthorRow): AnimilairAuthor {
   }
 }
 
-function mapProduct(row: ProductRow, media: MediaRow[] = []): AnimilairProduct {
+export function getAnimilairRequestIp(source: { get(name: string): string | null }): string | null {
+  return (
+    source.get('cf-connecting-ip') ||
+    source.get('x-real-ip') ||
+    source.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+    null
+  )
+}
+
+export function buildAnimilairViewFingerprint(input: {
+  userId?: string | null
+  ipAddress?: string | null
+  userAgent?: string | null
+}): string {
+  if (input.userId) return `user:${input.userId}`
+  const source = `${input.ipAddress || 'unknown'}|${input.userAgent || 'unknown'}`
+  return `guest:${createHash('sha256').update(source).digest('hex').slice(0, 48)}`
+}
+
+function countToNumber(value: number | bigint | null | undefined): number {
+  if (typeof value === 'bigint') return Number(value)
+  return Number(value || 0)
+}
+
+async function getAnimilairProductViewCounts(productIds: number[]): Promise<Map<number, number>> {
+  if (productIds.length === 0) return new Map()
+  const placeholders = productIds.map(() => '?').join(',')
+  const rows = await prisma.$queryRawUnsafe<Array<{ product_id: number | bigint; c: number | bigint | null }>>(
+    `SELECT product_id, COUNT(*) AS c
+     FROM app_animilair_product_views
+     WHERE product_id IN (${placeholders})
+     GROUP BY product_id`,
+    ...productIds
+  )
+  const counts = new Map<number, number>()
+  for (const row of rows) {
+    counts.set(Number(row.product_id), countToNumber(row.c))
+  }
+  return counts
+}
+
+export async function recordAnimilairProductView(input: {
+  productId: number
+  userId?: string | null
+  fingerprint: string
+  ipAddress?: string | null
+  userAgent?: string | null
+}): Promise<boolean> {
+  const result = await prisma.$executeRawUnsafe(
+    `INSERT OR IGNORE INTO app_animilair_product_views
+      (product_id, user_id, fingerprint, ip_address, user_agent, created_at)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    input.productId,
+    input.userId || null,
+    input.fingerprint,
+    input.ipAddress || null,
+    input.userAgent || null,
+    nowIso()
+  )
+  return Number(result) > 0
+}
+
+function mapProduct(row: ProductRow, media: MediaRow[] = [], viewCount = 0): AnimilairProduct {
   const author = row.author_name
     ? {
         id: Number(row.author_id),
@@ -215,6 +321,7 @@ function mapProduct(row: ProductRow, media: MediaRow[] = []): AnimilairProduct {
     coverUrl: row.cover_url,
     tags: parseJson<string[]>(row.tags_json, []),
     featured: Boolean(Number(row.featured || 0)),
+    viewCount,
     media: media
       .filter((item) => Number(item.product_id) === Number(row.id))
       .map((item) => ({
@@ -248,15 +355,56 @@ function mapOrder(row: OrderRow): AnimilairOrder {
   }
 }
 
+function normalizeMessageAttachments(value: unknown): AnimilairMessageAttachment[] {
+  if (!Array.isArray(value)) return []
+  const result: AnimilairMessageAttachment[] = []
+  for (const item of value.slice(0, ANIMILAIR_MESSAGE_MAX_ATTACHMENTS)) {
+    if (!item || typeof item !== 'object') continue
+    const input = item as Record<string, unknown>
+    const type = String(input.type || '').trim()
+    if (type === 'link') {
+      const url = String(input.url || '').trim().slice(0, 1000)
+      if (!/^https?:\/\//i.test(url)) continue
+      result.push({
+        type: 'link',
+        url,
+        caption: String(input.caption || '').trim().slice(0, 120),
+      })
+      continue
+    }
+    const url = String(input.url || '').trim().slice(0, 1000)
+    if (!url.startsWith('/uploads/')) continue
+    const name = String(input.name || '').trim().slice(0, 255) || 'file'
+    const mime = String(input.mime || '').trim().slice(0, 120)
+    const size = Math.max(0, Number(input.size) || 0)
+    if (type === 'image' && mime.startsWith('image/')) {
+      result.push({ type: 'image', url, name, mime, size })
+      continue
+    }
+    if (type === 'file') {
+      result.push({ type: 'file', url, name, mime, size })
+    }
+  }
+  return result
+}
+
+function isAnimilairSupportMessage(row: MessageRow): boolean {
+  if (row.user_id === ANIMILAIR_SUPPORT_USER_ID) return true
+  return ANIMILAIR_ORDER_STATUS_BODIES.has(String(row.body || '').trim())
+}
+
 function mapMessage(row: MessageRow): AnimilairOrderMessage {
+  const isSystem = isAnimilairSupportMessage(row)
   return {
     id: Number(row.id),
     orderId: Number(row.order_id),
     userId: row.user_id,
-    authorName: row.author_name,
-    authorAvatarUrl: row.author_avatar_url,
+    authorName: isSystem ? ANIMILAIR_SUPPORT_NAME : String(row.author_name || 'Користувач'),
+    authorAvatarUrl: isSystem ? ANIMILAIR_SUPPORT_AVATAR : row.author_avatar_url,
     body: row.body,
+    attachments: normalizeMessageAttachments(parseJson(row.attachments_json, [])),
     createdAt: row.created_at,
+    isSystem,
   }
 }
 
@@ -423,9 +571,13 @@ export async function getAnimilairCatalog() {
       `SELECT id FROM app_users WHERE UPPER(role) IN ('DESIGNER', 'ADMIN')`
     ),
   ])
-  const products = productRows
-    .filter((product) => isValidCoverUrl(product.cover_url))
-    .map((product) => mapProduct(product, media))
+  const visibleProductRows = productRows.filter(
+    (product) => isValidCoverUrl(product.cover_url) && isAnimilairCatalogCategory(product.category)
+  )
+  const viewCounts = await getAnimilairProductViewCounts(visibleProductRows.map((product) => Number(product.id)))
+  const products = visibleProductRows.map((product) =>
+    mapProduct(product, media, viewCounts.get(Number(product.id)) || 0)
+  )
   const authorIdsWithProducts = new Set(products.map((product) => product.authorId))
   const designerUserIds = new Set(designerRows.map((row) => row.id))
   const visibleAuthors = authors.filter((author) => {
@@ -454,11 +606,17 @@ export async function getAnimilairProduct(slugOrId: string | number) {
   )
   const product = rows[0]
   if (!product) return null
-  const media = await prisma.$queryRawUnsafe<MediaRow[]>(
-    `SELECT * FROM app_animilair_product_media WHERE product_id = ? ORDER BY position ASC, id ASC`,
-    Number(product.id)
-  )
-  return mapProduct(product, media)
+  const [media, viewRows] = await Promise.all([
+    prisma.$queryRawUnsafe<MediaRow[]>(
+      `SELECT * FROM app_animilair_product_media WHERE product_id = ? ORDER BY position ASC, id ASC`,
+      Number(product.id)
+    ),
+    prisma.$queryRawUnsafe<CountRow[]>(
+      `SELECT COUNT(*) AS c FROM app_animilair_product_views WHERE product_id = ?`,
+      Number(product.id)
+    ),
+  ])
+  return mapProduct(product, media, countToNumber(viewRows[0]?.c))
 }
 
 export async function getOrCreateDesignerAuthor(user: AuthUser, role: UserRole) {
@@ -555,6 +713,130 @@ export async function createAnimilairProduct(input: {
   return getAnimilairProduct(productId)
 }
 
+export async function getAnimilairProductsForManager(user: AuthUser, role: UserRole) {
+  await ensureAnimilairSeedData()
+  const isAdmin = role === 'ADMIN'
+  const rows = await prisma.$queryRawUnsafe<ProductRow[]>(
+    isAdmin
+      ? `SELECT p.*, a.user_id AS author_user_id, a.slug AS author_slug, a.name AS author_name,
+                a.role AS author_role, a.bio AS author_bio, a.avatar_url AS author_avatar_url,
+                a.banner_url AS author_banner_url, a.socials_json AS author_socials_json
+         FROM app_animilair_products p
+         JOIN app_animilair_authors a ON a.id = p.author_id
+         WHERE p.status != 'deleted'
+         ORDER BY datetime(p.updated_at) DESC, p.id DESC`
+      : `SELECT p.*, a.user_id AS author_user_id, a.slug AS author_slug, a.name AS author_name,
+                a.role AS author_role, a.bio AS author_bio, a.avatar_url AS author_avatar_url,
+                a.banner_url AS author_banner_url, a.socials_json AS author_socials_json
+         FROM app_animilair_products p
+         JOIN app_animilair_authors a ON a.id = p.author_id
+         WHERE p.status != 'deleted' AND a.user_id = ?
+         ORDER BY datetime(p.updated_at) DESC, p.id DESC`,
+    ...(isAdmin ? [] : [user.id])
+  )
+  const media = await prisma.$queryRawUnsafe<MediaRow[]>(
+    `SELECT * FROM app_animilair_product_media ORDER BY product_id ASC, position ASC, id ASC`
+  )
+  const viewCounts = await getAnimilairProductViewCounts(rows.map((product) => Number(product.id)))
+  return rows.map((product) => mapProduct(product, media, viewCounts.get(Number(product.id)) || 0))
+}
+
+async function getAnimilairProductRow(slugOrId: string | number) {
+  const field = Number.isFinite(Number(slugOrId)) ? 'p.id = ?' : 'p.slug = ?'
+  const rows = await prisma.$queryRawUnsafe<ProductRow[]>(
+    `SELECT p.*, a.user_id AS author_user_id, a.slug AS author_slug, a.name AS author_name,
+            a.role AS author_role, a.bio AS author_bio, a.avatar_url AS author_avatar_url,
+            a.banner_url AS author_banner_url, a.socials_json AS author_socials_json
+     FROM app_animilair_products p
+     JOIN app_animilair_authors a ON a.id = p.author_id
+     WHERE ${field} AND p.status != 'deleted'
+     LIMIT 1`,
+    slugOrId
+  )
+  return rows[0] || null
+}
+
+export async function updateAnimilairProduct(input: {
+  slugOrId: string | number
+  user: AuthUser
+  role: UserRole
+  title: string
+  category: string
+  shortDesc: string
+  description: string
+  priceFrom?: number | null
+  deliveryDays?: number | null
+  coverUrl?: string | null
+  tags?: string[]
+  media?: string[]
+}) {
+  const row = await getAnimilairProductRow(input.slugOrId)
+  if (!row) throw new Error('Товар не знайдено')
+  if (!canManageAnimilairProduct(input.user, input.role, row.author_user_id || null)) {
+    throw new Error('Немає доступу до редагування цього товару')
+  }
+  const title = input.title.trim().slice(0, 120)
+  const shortDesc = input.shortDesc.trim().slice(0, 260)
+  const description = input.description.trim().slice(0, 5000)
+  if (!title || !shortDesc || !description) {
+    throw new Error('Заповніть назву, короткий опис і повний опис послуги')
+  }
+  const now = nowIso()
+  const tags = (input.tags || []).map((tag) => tag.trim()).filter(Boolean).slice(0, 8)
+  const productId = Number(row.id)
+  await prisma.$executeRawUnsafe(
+    `UPDATE app_animilair_products
+     SET title = ?, category = ?, short_desc = ?, description = ?, price_from = ?, delivery_days = ?,
+         cover_url = ?, tags_json = ?, updated_at = ?
+     WHERE id = ?`,
+    title,
+    input.category.trim().slice(0, 40) || 'design',
+    shortDesc,
+    description,
+    input.priceFrom || null,
+    input.deliveryDays || null,
+    input.coverUrl?.trim() || null,
+    JSON.stringify(tags),
+    now,
+    productId
+  )
+  if (input.media !== undefined) {
+    await prisma.$executeRawUnsafe(`DELETE FROM app_animilair_product_media WHERE product_id = ?`, productId)
+    const media = input.media.filter(Boolean).slice(0, 8)
+    for (let index = 0; index < media.length; index += 1) {
+      const url = media[index]
+      await prisma.$executeRawUnsafe(
+        `INSERT INTO app_animilair_product_media (product_id, type, url, caption, position, created_at)
+         VALUES (?, 'image', ?, '', ?, ?)`,
+        productId,
+        url,
+        index + 1,
+        now
+      )
+    }
+  }
+  return getAnimilairProduct(productId)
+}
+
+export async function deleteAnimilairProduct(input: {
+  slugOrId: string | number
+  user: AuthUser
+  role: UserRole
+}) {
+  const row = await getAnimilairProductRow(input.slugOrId)
+  if (!row) throw new Error('Товар не знайдено')
+  if (!canManageAnimilairProduct(input.user, input.role, row.author_user_id || null)) {
+    throw new Error('Немає доступу до видалення цього товару')
+  }
+  const now = nowIso()
+  await prisma.$executeRawUnsafe(
+    `UPDATE app_animilair_products SET status = 'deleted', updated_at = ? WHERE id = ?`,
+    now,
+    Number(row.id)
+  )
+  return { success: true }
+}
+
 export async function createAnimilairOrder(input: {
   productId: number
   user: AuthUser
@@ -590,8 +872,8 @@ export async function createAnimilairOrder(input: {
   const orderId = Number(idRows[0]?.id || 0)
 
   await prisma.$executeRawUnsafe(
-    `INSERT INTO app_animilair_order_messages (order_id, user_id, body, created_at)
-     VALUES (?, ?, ?, ?)`,
+    `INSERT INTO app_animilair_order_messages (order_id, user_id, body, attachments_json, created_at)
+     VALUES (?, ?, ?, '[]', ?)`,
     orderId,
     input.user.id,
     brief,
@@ -645,7 +927,7 @@ export async function getAnimilairMessages(orderId: number, user: AuthUser, role
   const rows = await prisma.$queryRawUnsafe<MessageRow[]>(
     `SELECT m.*, u.full_name AS author_name, u.avatar_url AS author_avatar_url
      FROM app_animilair_order_messages m
-     JOIN app_users u ON u.id = m.user_id
+     LEFT JOIN app_users u ON u.id = m.user_id
      WHERE m.order_id = ?
      ORDER BY datetime(m.created_at) ASC, m.id ASC`,
     orderId
@@ -658,18 +940,22 @@ export async function addAnimilairMessage(input: {
   user: AuthUser
   role?: UserRole
   body: string
+  attachments?: AnimilairMessageAttachment[]
 }) {
   await getAnimilairOrder(input.orderId, input.user, input.role || 'USER')
-  const body = input.body.trim().slice(0, 3000)
-  if (!body) throw new Error('Напишіть повідомлення')
-
+  const body = input.body.trim().slice(0, ANIMILAIR_MESSAGE_MAX_LENGTH)
+  const attachments = normalizeMessageAttachments(input.attachments || [])
+  if (!body && attachments.length === 0) {
+    throw new Error('Напишіть повідомлення або додайте вкладення')
+  }
   const now = nowIso()
   await prisma.$executeRawUnsafe(
-    `INSERT INTO app_animilair_order_messages (order_id, user_id, body, created_at)
-     VALUES (?, ?, ?, ?)`,
+    `INSERT INTO app_animilair_order_messages (order_id, user_id, body, attachments_json, created_at)
+     VALUES (?, ?, ?, ?, ?)`,
     input.orderId,
     input.user.id,
     body,
+    JSON.stringify(attachments),
     now
   )
   await prisma.$executeRawUnsafe(
@@ -703,13 +989,7 @@ export async function updateAnimilairOrderStatus(input: {
     throw new Error('Немає доступу до зміни статусу')
   }
 
-  const statusMessages: Record<string, string> = {
-    new: 'Статус замовлення: нове',
-    in_progress: 'Дизайнер прийняв замовлення в роботу.',
-    waiting_customer: 'Дизайнер очікує відповідь замовника.',
-    completed: 'Замовлення позначено як виконане.',
-    canceled: 'Замовлення скасовано.',
-  }
+  const statusMessages = ANIMILAIR_ORDER_STATUS_MESSAGES
 
   const now = nowIso()
   await prisma.$executeRawUnsafe(
@@ -719,10 +999,10 @@ export async function updateAnimilairOrderStatus(input: {
     input.orderId
   )
   await prisma.$executeRawUnsafe(
-    `INSERT INTO app_animilair_order_messages (order_id, user_id, body, created_at)
-     VALUES (?, ?, ?, ?)`,
+    `INSERT INTO app_animilair_order_messages (order_id, user_id, body, attachments_json, created_at)
+     VALUES (?, ?, ?, '[]', ?)`,
     input.orderId,
-    input.user.id,
+    ANIMILAIR_SUPPORT_USER_ID,
     statusMessages[nextStatus] || `Статус замовлення: ${nextStatus}`,
     now
   )

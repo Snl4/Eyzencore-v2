@@ -1,11 +1,11 @@
 // Client-side helper for uploading files via /api/uploads.
 // Returns the public URL of the saved file or throws with a user-friendly message.
 
-export type UploadKind = 'news' | 'forum' | 'avatar' | 'banner' | 'misc'
+export type UploadKind = 'news' | 'forum' | 'avatar' | 'banner' | 'misc' | 'animilair'
 
 export type UploadedFile = {
   url: string
-  kind: 'image' | 'video'
+  kind: 'image' | 'video' | 'file'
   mime: string
   size: number
   name: string
@@ -35,7 +35,7 @@ export async function uploadFile(file: File, kind: UploadKind = 'news'): Promise
 
   return {
     url: String(payload.url),
-    kind: payload.kind === 'video' ? 'video' : 'image',
+    kind: payload.kind === 'video' ? 'video' : payload.kind === 'file' ? 'file' : 'image',
     mime: typeof payload.mime === 'string' ? payload.mime : '',
     size: typeof payload.size === 'number' ? payload.size : 0,
     name: typeof payload.name === 'string' ? payload.name : file.name,

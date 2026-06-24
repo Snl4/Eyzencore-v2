@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   ...buildPageMetadata({
     title: 'AnimiLair Studio — дизайн, рендери та анімації для серверів',
     description:
-      'Партнерський маркетплейс AnimiLair Studio на Eyzencore: замовляйте логотипи, банери, Minecraft рендери, трейлери, анімації та промо-матеріали для серверів.',
+      'Партнерський маркетплейс AnimiLair Studio на Eyzencore: замовляйте логотипи, банери, Minecraft рендери, трейлери та анімації для серверів.',
     path: '/partners/animilair',
     keywords: [
       'AnimiLair Studio',

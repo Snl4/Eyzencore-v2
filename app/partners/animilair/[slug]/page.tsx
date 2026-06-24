@@ -1,7 +1,15 @@
 import { notFound } from 'next/navigation'
+import { headers } from 'next/headers'
 import type { Metadata } from 'next'
-import { getCurrentUser } from '@/lib/auth-server'
-import { getAnimilairProduct } from '@/lib/animilair-db'
+import { getCurrentAuth } from '@/lib/auth-server'
+import { resolveUserRole } from '@/lib/auth-db'
+import {
+  buildAnimilairViewFingerprint,
+  canManageAnimilairProduct,
+  getAnimilairProduct,
+  getAnimilairRequestIp,
+  recordAnimilairProductView,
+} from '@/lib/animilair-db'
 import { buildPageMetadata } from '@/lib/seo'
 import { AnimilairProductClient } from './AnimilairProductClient'
 
@@ -30,17 +38,33 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function AnimilairProductPage({ params }: Props) {
-  const [initialUser, product] = await Promise.all([
-    getCurrentUser(),
-    getAnimilairProduct(params.slug),
-  ])
-
+  const auth = await getCurrentAuth()
+  const initialUser = auth?.user || null
+  const product = await getAnimilairProduct(params.slug)
   if (!product) notFound()
+  const requestHeaders = headers()
+  const userId = auth?.user?.id ?? null
+  const ipAddress = getAnimilairRequestIp(requestHeaders)
+  const userAgent = requestHeaders.get('user-agent')
+  const viewRecorded = await recordAnimilairProductView({
+    productId: product.id,
+    userId,
+    fingerprint: buildAnimilairViewFingerprint({ userId, ipAddress, userAgent }),
+    ipAddress,
+    userAgent,
+  })
+  const displayProduct = viewRecorded
+    ? { ...product, viewCount: product.viewCount + 1 }
+    : product
+  const role = auth
+    ? await resolveUserRole({ userId: auth.user.id, role: auth.user.user_metadata.role })
+    : 'USER'
+  const canManage = canManageAnimilairProduct(initialUser, role, product.author?.userId || null)
 
   return (
     <>
       <div className="bg-aurora" />
-      <AnimilairProductClient initialUser={initialUser} product={product} />
+      <AnimilairProductClient initialUser={initialUser} product={displayProduct} canManage={canManage} />
     </>
   )
 }

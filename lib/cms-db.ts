@@ -20,6 +20,7 @@ export const CMS_ENTITIES = [
   'forum_threads',
   'forum_posts',
   'applications',
+  'animilair_orders',
   'achievements',
 ] as const
 
@@ -61,6 +62,7 @@ export async function getCmsStats() {
     forum_threads,
     forum_posts,
     applications,
+    animilair_orders,
     achievements,
   ] =
     await Promise.all([
@@ -76,6 +78,7 @@ export async function getCmsStats() {
       prisma.app_server_applications.count({
         where: { status: 'pending' },
       }),
+      prisma.app_animilair_orders.count(),
       prisma.app_achievements.count(),
     ])
 
@@ -90,6 +93,7 @@ export async function getCmsStats() {
     forum_threads,
     forum_posts,
     applications,
+    animilair_orders,
     achievements,
   }
 }
@@ -289,6 +293,19 @@ export async function listCmsEntity(entity: CmsEntity) {
           app_users: { select: { full_name: true, email: true } },
         },
       })
+    case 'animilair_orders':
+      return prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(
+        `SELECT o.id, o.product_id, o.customer_id, o.status, o.title, o.brief, o.budget, o.deadline, o.contact,
+                o.created_at, o.updated_at,
+                p.title AS product_title, p.slug AS product_slug,
+                a.name AS author_name,
+                u.full_name AS customer_name, u.email AS customer_email
+         FROM app_animilair_orders o
+         JOIN app_animilair_products p ON p.id = o.product_id
+         JOIN app_animilair_authors a ON a.id = p.author_id
+         JOIN app_users u ON u.id = o.customer_id
+         ORDER BY datetime(o.updated_at) DESC, o.id DESC`
+      )
     case 'achievements':
       const rows = await prisma.app_achievements.findMany({
         orderBy: [{ sort_order: 'asc' }, { id: 'asc' }],
@@ -586,6 +603,21 @@ export async function updateCmsEntity(
         select: { id: true },
       })
     }
+    case 'animilair_orders': {
+      const nextStatus = text(input.status, 40)
+      const allowedStatuses = new Set(['new', 'in_progress', 'waiting_customer', 'completed', 'canceled'])
+      if (!allowedStatuses.has(nextStatus)) {
+        throw new Error('Некоректний статус замовлення')
+      }
+      return prisma.app_animilair_orders.update({
+        where: { id: integer(id) },
+        data: {
+          status: nextStatus,
+          updated_at: now,
+        },
+        select: { id: true },
+      })
+    }
   }
 }
 
@@ -650,6 +682,8 @@ export async function deleteCmsEntity(
         where: { id: integer(id) },
         select: { id: true },
       })
+    case 'animilair_orders':
+      throw new Error('Замовлення AnimiLair не видаляються через CMS')
   }
 }
 

@@ -771,14 +771,29 @@ model app_animilair_orders {
 }
 
 model app_animilair_order_messages {
-  id         Int    @id @default(autoincrement())
-  order_id   Int
-  user_id    String
-  body       String
-  created_at String
+  id               Int    @id @default(autoincrement())
+  order_id         Int
+  user_id          String
+  body             String
+  attachments_json String @default("[]")
+  created_at       String
 
   @@index([order_id, created_at], map: "idx_animilair_messages_order")
   @@index([user_id], map: "idx_animilair_messages_user")
+}
+
+model app_animilair_product_views {
+  id          Int     @id @default(autoincrement())
+  product_id  Int
+  user_id     String?
+  fingerprint String
+  ip_address  String?
+  user_agent  String?
+  created_at  String
+
+  @@unique([product_id, fingerprint], map: "idx_animilair_product_views_unique")
+  @@index([product_id], map: "idx_animilair_product_views_product")
+  @@index([created_at], map: "idx_animilair_product_views_created")
 }
 
 model app_site_settings {

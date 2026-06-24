@@ -53,7 +53,6 @@ const CATEGORY_LABELS: Record<string, string> = {
   discord: 'Discord',
   builds: 'Побудови',
   models: '3D-моделі',
-  plugins: 'Плагіни',
   textures: 'Текстур-паки',
 }
 
@@ -147,7 +146,7 @@ export function AnimilairClient({ initialUser, catalog }: Props) {
             <h1>AnimiLair Studio</h1>
             <p>
               Послуги дизайнерів для Minecraft і Discord проєктів: банери, логотипи, рендери,
-              анімації, текстури, плагіни та промо. Виберіть товар, відкрийте деталі й створіть
+              анімації та текстури. Виберіть товар, відкрийте деталі й створіть
               замовлення прямо на сайті.
             </p>
             <div className="animilair-hero-actions">
@@ -238,7 +237,14 @@ export function AnimilairClient({ initialUser, catalog }: Props) {
                   tabIndex={0}
                   aria-label={product.title}
                 >
-                  <div className="animilair-product-cover" style={{ backgroundImage: `url(${cover})` }} />
+                  <div className="animilair-product-cover" style={{ backgroundImage: `url(${cover})` }}>
+                    <span className="animilair-product-views" aria-label={`${product.viewCount.toLocaleString('uk-UA')} переглядів`}>
+                      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                        <path d="M12 5C7 5 2.73 8.11 1 12c1.73 3.89 6 7 11 7s9.27-3.11 11-7c-1.73-3.89-6-7-11-7zm0 11.5A4.5 4.5 0 1 1 12 8a4.5 4.5 0 0 1 0 9zm0-7A2.5 2.5 0 1 0 12 15a2.5 2.5 0 0 0 0-5z" fill="currentColor" />
+                      </svg>
+                      {product.viewCount.toLocaleString('uk-UA')}
+                    </span>
+                  </div>
                   <div className="animilair-product-body">
                     <div className="animilair-product-meta">
                       <span>{product.author?.name || 'AnimiLair'}</span>

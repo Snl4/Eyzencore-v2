@@ -5,8 +5,10 @@ import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { PageShell } from '@/components/layout/PageShell'
 import { Breadcrumbs } from '@/components/ui/Breadcrumbs'
+import { AnimilairChatCompose } from '@/components/partners/AnimilairChatCompose'
+import { AnimilairMessageContent } from '@/components/partners/AnimilairMessageContent'
 import type { AuthUser } from '@/lib/auth-db'
-import type { AnimilairOrder, AnimilairOrderMessage } from '@/lib/animilair-db'
+import type { AnimilairMessageAttachment, AnimilairOrder, AnimilairOrderMessage } from '@/lib/animilair-db'
 
 type Props = {
   initialUser: AuthUser
@@ -51,7 +53,6 @@ export function AnimilairOrdersClient({ initialUser, initialOrders }: Props) {
   const [orders, setOrders] = useState(initialOrders)
   const [selectedId, setSelectedId] = useState<number | null>(initialSelected)
   const [messages, setMessages] = useState<AnimilairOrderMessage[]>([])
-  const [body, setBody] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
 
@@ -92,22 +93,22 @@ export function AnimilairOrdersClient({ initialUser, initialOrders }: Props) {
     void loadMessages(selectedId)
   }, [selectedId])
 
-  const send = async () => {
-    if (!selectedId || !body.trim()) return
+  const send = async (payload: { body: string; attachments: AnimilairMessageAttachment[] }) => {
+    if (!selectedId) return
+    if (!payload.body && payload.attachments.length === 0) return
     setBusy(true)
     setError('')
     try {
       const response = await fetch(`/api/partners/animilair/orders/${selectedId}/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ body }),
+        body: JSON.stringify(payload),
       })
-      const payload = await response.json() as { messages?: AnimilairOrderMessage[]; error?: string }
+      const result = await response.json() as { messages?: AnimilairOrderMessage[]; error?: string }
       if (!response.ok) {
-        throw new Error(payload.error || 'Не вдалося надіслати повідомлення')
+        throw new Error(result.error || 'Не вдалося надіслати повідомлення')
       }
-      setMessages(Array.isArray(payload.messages) ? payload.messages : [])
-      setBody('')
+      setMessages(Array.isArray(result.messages) ? result.messages : [])
       void reloadOrders()
     } catch (sendError) {
       setError(sendError instanceof Error ? sendError.message : 'Помилка повідомлення')
@@ -140,7 +141,7 @@ export function AnimilairOrdersClient({ initialUser, initialOrders }: Props) {
   }
 
   return (
-    <PageShell active="animilair" initialUser={initialUser}>
+    <PageShell active="animilair-orders" initialUser={initialUser}>
       <main className="page-main animilair-orders-page">
         <div className="page-topbar">
           <div>
@@ -215,9 +216,9 @@ export function AnimilairOrdersClient({ initialUser, initialOrders }: Props) {
 
                   <div className="animilair-chat-messages">
                     {messages.map((message) => {
-                      const own = message.userId === initialUser.id
+                      const own = !message.isSystem && message.userId === initialUser.id
                       return (
-                        <article key={message.id} className={`animilair-message${own ? ' own' : ''}`}>
+                        <article key={message.id} className={`animilair-message${own ? ' own' : ''}${message.isSystem ? ' system' : ''}`}>
                           {message.authorAvatarUrl ? (
                             <img src={message.authorAvatarUrl} alt="" />
                           ) : (
@@ -228,7 +229,7 @@ export function AnimilairOrdersClient({ initialUser, initialOrders }: Props) {
                               <strong>{message.authorName}</strong>
                               <span>{formatDate(message.createdAt)}</span>
                             </div>
-                            <p>{message.body}</p>
+                            <AnimilairMessageContent body={message.body} attachments={message.attachments} />
                           </div>
                         </article>
                       )
@@ -238,17 +239,7 @@ export function AnimilairOrdersClient({ initialUser, initialOrders }: Props) {
 
                   {error && <div className="animilair-form-message error">{error}</div>}
 
-                  <div className="animilair-chat-compose">
-                    <textarea
-                      rows={3}
-                      placeholder="Напишіть уточнення, посилання на референси або правки..."
-                      value={body}
-                      onChange={(event) => setBody(event.target.value)}
-                    />
-                    <button className="btn btn-primary" type="button" disabled={busy || !body.trim()} onClick={() => void send()}>
-                      {busy ? 'Надсилаємо...' : 'Надіслати'}
-                    </button>
-                  </div>
+                  <AnimilairChatCompose busy={busy} onSend={send} />
                 </>
               ) : (
                 <p className="animilair-chat-empty">Оберіть замовлення.</p>
