@@ -16,6 +16,16 @@ const MIME_BY_EXT: Record<string, string> = {
   '.png': 'image/png',
   '.webm': 'video/webm',
   '.webp': 'image/webp',
+  '.pdf': 'application/pdf',
+  '.zip': 'application/zip',
+  '.rar': 'application/vnd.rar',
+  '.7z': 'application/x-7z-compressed',
+  '.txt': 'text/plain',
+  '.doc': 'application/msword',
+  '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  '.xls': 'application/vnd.ms-excel',
+  '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  '.psd': 'image/vnd.adobe.photoshop',
 }
 
 export async function GET(

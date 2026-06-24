@@ -8,7 +8,7 @@ import {
   ANIMILAIR_MESSAGE_MAX_LENGTH,
   type AnimilairMessageAttachment,
 } from '@/lib/animilair-shared'
-import { formatFileSize, uploadFile } from '@/lib/upload'
+import { formatFileSize, isImageFile, uploadFile } from '@/lib/upload'
 
 type Props = {
   busy: boolean
@@ -64,7 +64,7 @@ export function AnimilairChatCompose({ busy, onSend }: Props) {
     setError('')
     try {
       for (const file of selected) {
-        if (asImage && !file.type.startsWith('image/')) {
+        if (asImage && !isImageFile(file)) {
           throw new Error('Оберіть зображення')
         }
         const uploaded = await uploadFile(file, 'animilair')
@@ -112,14 +112,14 @@ export function AnimilairChatCompose({ busy, onSend }: Props) {
       {linkOpen && (
         <div className="animilair-link-popover">
           <div className="animilair-link-popover-head">
-            <strong>Посилання на файл (Google Диск / Яндекс Диск)</strong>
+            <strong>Посилання на Google Диск</strong>
             <button type="button" className="btn btn-ghost" aria-label="Закрити" onClick={() => setLinkOpen(false)}>
               <FontAwesomeIcon icon={faXmark} />
             </button>
           </div>
           <input
             type="url"
-            placeholder="https://disk.yandex.ru/... або https://drive.google.com/..."
+            placeholder="https://drive.google.com/..."
             value={linkUrl}
             onChange={(event) => setLinkUrl(event.target.value)}
           />

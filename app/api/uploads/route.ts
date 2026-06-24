@@ -29,6 +29,48 @@ const FILE_MIME = new Set([
   'application/octet-stream',
 ])
 
+const EXT_TO_MIME: Record<string, string> = {
+  '.avif': 'image/avif',
+  '.gif': 'image/gif',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.png': 'image/png',
+  '.webp': 'image/webp',
+  '.mp4': 'video/mp4',
+  '.webm': 'video/webm',
+  '.ogv': 'video/ogg',
+  '.mov': 'video/quicktime',
+  '.pdf': 'application/pdf',
+  '.zip': 'application/zip',
+  '.rar': 'application/vnd.rar',
+  '.7z': 'application/x-7z-compressed',
+  '.txt': 'text/plain',
+  '.doc': 'application/msword',
+  '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  '.xls': 'application/vnd.ms-excel',
+  '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  '.psd': 'image/vnd.adobe.photoshop',
+}
+
+const IMAGE_EXT = new Set(['.avif', '.gif', '.jpg', '.jpeg', '.png', '.webp'])
+const VIDEO_EXT = new Set(['.mp4', '.webm', '.ogv', '.mov'])
+const FILE_EXT = new Set(['.pdf', '.zip', '.rar', '.7z', '.txt', '.doc', '.docx', '.xls', '.xlsx', '.psd'])
+
+function resolveMime(file: File): string {
+  const fromType = String(file.type || '').toLowerCase().trim()
+  if (fromType && fromType !== 'application/octet-stream') return fromType
+  const ext = path.extname(file.name || '').toLowerCase()
+  return EXT_TO_MIME[ext] || fromType || 'application/octet-stream'
+}
+
+function classifyUpload(file: File, mime: string) {
+  const ext = path.extname(file.name || '').toLowerCase()
+  const isImage = IMAGE_MIME.has(mime) || IMAGE_EXT.has(ext)
+  const isVideo = VIDEO_MIME.has(mime) || VIDEO_EXT.has(ext)
+  const isDocument = FILE_MIME.has(mime) || FILE_EXT.has(ext)
+  return { isImage, isVideo, isDocument }
+}
+
 const EXT_BY_MIME: Record<string, string> = {
   'image/jpeg': '.jpg',
   'image/png': '.png',
@@ -83,10 +125,8 @@ export async function POST(request: NextRequest) {
   }
 
   const kind = safeKind(String(formData.get('kind') || 'news'))
-  const mime = String(file.type || '').toLowerCase()
-  const isImage = IMAGE_MIME.has(mime)
-  const isVideo = VIDEO_MIME.has(mime)
-  const isDocument = FILE_MIME.has(mime)
+  const mime = resolveMime(file)
+  const { isImage, isVideo, isDocument } = classifyUpload(file, mime)
 
   if (!isImage && !isVideo && !(kind === 'animilair' && isDocument)) {
     return NextResponse.json(

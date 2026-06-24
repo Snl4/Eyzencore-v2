@@ -324,12 +324,13 @@ function normalizeMessageAttachments(value: unknown): AnimilairMessageAttachment
       continue
     }
     const url = String(input.url || '').trim().slice(0, 1000)
-    if (!url.startsWith('/uploads/')) continue
+    const isStoredUpload = url.startsWith('/uploads/') || url.startsWith('/api/uploads/')
+    if (!isStoredUpload) continue
     const name = String(input.name || '').trim().slice(0, 255) || 'file'
     const mime = String(input.mime || '').trim().slice(0, 120)
     const size = Math.max(0, Number(input.size) || 0)
-    if (type === 'image' && mime.startsWith('image/')) {
-      result.push({ type: 'image', url, name, mime, size })
+    if (type === 'image' && (mime.startsWith('image/') || isStoredUpload)) {
+      result.push({ type: 'image', url, name, mime: mime || 'image/jpeg', size })
       continue
     }
     if (type === 'file') {

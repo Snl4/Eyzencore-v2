@@ -11,6 +11,14 @@ export type UploadedFile = {
   name: string
 }
 
+const IMAGE_EXTENSIONS = new Set(['avif', 'gif', 'jpg', 'jpeg', 'png', 'webp'])
+
+export function isImageFile(file: File): boolean {
+  if (String(file.type || '').toLowerCase().startsWith('image/')) return true
+  const ext = file.name.split('.').pop()?.toLowerCase() || ''
+  return IMAGE_EXTENSIONS.has(ext)
+}
+
 export async function uploadFile(file: File, kind: UploadKind = 'news'): Promise<UploadedFile> {
   const formData = new FormData()
   formData.append('file', file)
