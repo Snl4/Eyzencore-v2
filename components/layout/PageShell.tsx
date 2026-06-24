@@ -19,6 +19,19 @@ interface PageShellProps {
   hiddenKeys?: string[];
 }
 
+type SidebarItem = {
+  ico: string;
+  name: string;
+  key: string;
+  href: string | null;
+  badge?: string;
+};
+
+type SidebarSection = {
+  label: string;
+  items: SidebarItem[];
+};
+
 export function PageShell({ children, active, initialUser = null, sidebarRole, hiddenKeys = [] }: PageShellProps) {
   const router = useRouter();
   const { theme, toggle } = useTheme();
@@ -26,22 +39,25 @@ export function PageShell({ children, active, initialUser = null, sidebarRole, h
   const [forumThreadCount, setForumThreadCount] = useState<number | null>(null);
   const user = initialUser;
   const resolvedRole = sidebarRole ?? String(user?.user_metadata.role || 'USER').toUpperCase();
-  const isOwner = resolvedRole === 'OWNER' || resolvedRole === 'ADMIN';
+  const isOwnerNavigation = resolvedRole === 'ADMIN' || Boolean(sidebarRole && resolvedRole === 'OWNER');
   const isAdminUser = user?.email === ADMIN_EMAIL;
-  const rawSections = sidebarRole ? getDashboardSidebarSections(sidebarRole) : getSidebarSections(isOwner);
-  const partnerSection: { label: string; items: Array<{ ico: string; name: string; key: string; href: string; badge?: string }> } = {
+  const rawSections = sidebarRole ? getDashboardSidebarSections(sidebarRole) : getSidebarSections(isOwnerNavigation);
+  const partnerSection: SidebarSection = {
     label: 'Партнери',
     items: [
       { ico: 'bullhorn', name: 'AnimiLair Studio', key: 'animilair', href: '/partners/animilair' },
     ],
   };
-  const sectionsWithPartners = [...rawSections, partnerSection];
+  const sectionsWithPartners = [partnerSection, ...rawSections];
   const allSections = isAdminUser
     ? [...sectionsWithPartners, { label: 'Адмін', items: [{ ico: 'shield', name: 'CMS панель', key: 'admin', href: '/cms' }] }]
     : sectionsWithPartners;
   const sections = hiddenKeys.length === 0
     ? allSections
-    : allSections.map((s) => ({ ...s, items: s.items.filter((item) => !hiddenKeys.includes(item.key)) })).filter((s) => s.items.length > 0);
+    : allSections.map((section) => ({
+        ...section,
+        items: section.items.filter((item) => !hiddenKeys.includes(item.key)),
+      })).filter((section) => section.items.length > 0);
   const sidebarPrefetchKey = sections
     .flatMap((section) => section.items.map((item) => item.href || ''))
     .filter(Boolean)

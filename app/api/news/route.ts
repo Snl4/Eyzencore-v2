@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createNewsPost, listNewsPosts, resolveUserRole, type NewsContentBlock } from '@/lib/auth-db'
+import { countServersByOwner, createNewsPost, listNewsPosts, resolveUserRole, type NewsContentBlock } from '@/lib/auth-db'
 import { getCurrentUser } from '@/lib/auth-server'
 
 type CreateNewsRequestBody = {
@@ -25,8 +25,9 @@ export async function POST(request: Request) {
     userId: user.id,
     role: user.user_metadata.role,
   })
-  if (role !== 'OWNER' && role !== 'ADMIN') {
-    return NextResponse.json({ error: 'Створювати новини можуть лише OWNER або ADMIN' }, { status: 403 })
+  const serverCount = await countServersByOwner(user.id)
+  if (role !== 'ADMIN' && serverCount === 0) {
+    return NextResponse.json({ error: 'Створювати новини можуть адміністратори або власники серверів' }, { status: 403 })
   }
   try {
     const body = (await request.json()) as CreateNewsRequestBody

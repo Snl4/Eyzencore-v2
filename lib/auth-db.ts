@@ -1119,16 +1119,6 @@ export async function countServersByOwner(userId: string) {
   return Number(row?.c || 0);
 }
 
-async function ensureOwnerRole(userId: string) {
-  const db = getDb();
-  await db.prepare(
-    `UPDATE app_users
-     SET role = 'OWNER', updated_at = ?
-     WHERE id = ?
-       AND role = 'USER'`
-  ).run(nowIso(), userId);
-}
-
 export async function getUserByProfileSlug(profileSlug: string) {
   const normalizedSlug = String(profileSlug || '').trim().toLowerCase();
   if (!normalizedSlug) {
@@ -1314,7 +1304,6 @@ export async function createServer(input: {
   projectId?: number | null;
 }) {
   const db = getDb();
-  await ensureOwnerRole(input.ownerId);
   const platform: ServerPlatform = input.platform === 'discord' ? 'discord' : 'minecraft';
   const normalizedAddr = normalizeServerAddress(input.addr, platform);
   const existing = await db.prepare('SELECT id FROM app_servers WHERE lower(addr) = lower(?) LIMIT 1').get(normalizedAddr);

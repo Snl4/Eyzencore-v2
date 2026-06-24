@@ -28,7 +28,7 @@ export default async function DevelopersPage({ searchParams }: DevelopersPagePro
 
   const role = await resolveUserRole({ userId: user.id, role: user.user_metadata.role })
   const servers = await listServersByOwner(user.id)
-  const canUseDeveloperTools = role === 'OWNER' || role === 'ADMIN' || servers.length > 0
+  const canUseDeveloperTools = role === 'ADMIN' || servers.length > 0
   if (!canUseDeveloperTools) redirect('/dashboard')
   const selectedServerId = resolveSelectedServerId(servers.map((server) => server.seed), searchParams?.serverId)
   const initialTokens = selectedServerId ? await listApiTokens(user.id, selectedServerId) : []

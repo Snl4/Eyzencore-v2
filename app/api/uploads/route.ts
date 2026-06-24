@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { writeFile, mkdir } from 'node:fs/promises'
 import path from 'node:path'
 import { randomUUID } from 'node:crypto'
-import { AUTH_COOKIE_NAME, getAuthSessionFromToken, resolveUserRole } from '@/lib/auth-db'
+import { AUTH_COOKIE_NAME, countServersByOwner, getAuthSessionFromToken, resolveUserRole } from '@/lib/auth-db'
 import { buildUploadUrl, getUploadsRoot } from '@/lib/upload-store'
 
 export const runtime = 'nodejs'
@@ -30,7 +30,7 @@ function safeExtension(filename: string, mime: string): string {
   if (fromMime) return fromMime
   const guessed = path.extname(String(filename || '')).toLowerCase()
   if (/^\.[a-z0-9]{2,5}$/.test(guessed)) return guessed
-  return mime.startsWith('image/') ? '.bin' : '.bin'
+  return '.bin'
 }
 
 function safeKind(value: string | null): 'news' | 'forum' | 'avatar' | 'banner' | 'misc' {
@@ -71,11 +71,12 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  // News video publishing is reserved for OWNER/ADMIN. Forum members may attach video.
+  // News videos are reserved for admins or users that actually own a server.
   if (isVideo && kind !== 'forum') {
     const role = await resolveUserRole({ userId: auth.user.id, role: auth.user.user_metadata.role })
-    if (role !== 'OWNER' && role !== 'ADMIN') {
-      return NextResponse.json({ error: 'Завантажувати відео можуть лише автори новин' }, { status: 403 })
+    const serverCount = await countServersByOwner(auth.user.id)
+    if (role !== 'ADMIN' && serverCount === 0) {
+      return NextResponse.json({ error: 'Завантажувати відео можуть адміністратори або власники серверів' }, { status: 403 })
     }
   }
 

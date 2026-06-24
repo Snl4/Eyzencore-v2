@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { NewsPageClient } from './NewsPageClient'
 import { getCurrentUser } from '@/lib/auth-server'
-import { resolveUserRole } from '@/lib/auth-db'
+import { countServersByOwner, resolveUserRole } from '@/lib/auth-db'
 import { getCachedPublicNews } from '@/lib/public-cache'
 import { buildNewsPath } from '@/lib/news-slug'
 import { buildPageMetadata, itemListJsonLd, newsJsonLd } from '@/lib/seo'
@@ -37,7 +37,8 @@ export default async function NewsPage() {
         role: initialUser.user_metadata.role,
       })
     : null
-  const canCreateNews = role === 'OWNER' || role === 'ADMIN'
+  const serverCount = initialUser ? await countServersByOwner(initialUser.id) : 0
+  const canCreateNews = role === 'ADMIN' || serverCount > 0
   const jsonLd = itemListJsonLd({
     name: 'Новини Eyzencore',
     path: '/news',

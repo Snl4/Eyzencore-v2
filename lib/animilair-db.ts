@@ -133,8 +133,6 @@ type MessageRow = {
   created_at: string
 }
 
-const PLACEHOLDER = '/images/placeholder-minecraft.jpg'
-
 function nowIso() {
   return new Date().toISOString()
 }
@@ -315,8 +313,8 @@ export async function ensureAnimilairSeedData() {
       author.name,
       author.role,
       author.bio,
-      PLACEHOLDER,
-      PLACEHOLDER,
+      null,
+      null,
       JSON.stringify({ website: 'https://eyzencore.com/partners/animilair' }),
       author.position,
       now,
@@ -386,7 +384,7 @@ export async function ensureAnimilairSeedData() {
       product.description,
       product.priceFrom,
       product.deliveryDays,
-      PLACEHOLDER,
+      null,
       JSON.stringify(product.tags),
       product.featured,
       now,
@@ -464,8 +462,8 @@ export async function getOrCreateDesignerAuthor(user: AuthUser, role: UserRole) 
     user.id,
     slug,
     name,
-    user.user_metadata.avatar_url || PLACEHOLDER,
-    user.user_metadata.banner_url || PLACEHOLDER,
+    user.user_metadata.avatar_url || null,
+    user.user_metadata.banner_url || null,
     now,
     now
   )
@@ -513,7 +511,7 @@ export async function createAnimilairProduct(input: {
     description,
     input.priceFrom || null,
     input.deliveryDays || null,
-    input.coverUrl?.trim() || PLACEHOLDER,
+    input.coverUrl?.trim() || null,
     JSON.stringify(tags),
     now,
     now
@@ -660,4 +658,54 @@ export async function addAnimilairMessage(input: {
     input.orderId
   )
   return getAnimilairMessages(input.orderId, input.user, input.role || 'USER')
+}
+
+export async function updateAnimilairOrderStatus(input: {
+  orderId: number
+  user: AuthUser
+  role?: UserRole
+  status: string
+}) {
+  const role = input.role || 'USER'
+  const order = await getAnimilairOrder(input.orderId, input.user, role)
+  if (!order) throw new Error('Замовлення не знайдено')
+
+  const nextStatus = String(input.status || '').trim()
+  const allowed = new Set(['new', 'in_progress', 'waiting_customer', 'completed', 'canceled'])
+  if (!allowed.has(nextStatus)) throw new Error('Некоректний статус замовлення')
+
+  const isAdmin = role === 'ADMIN'
+  const isDesigner = order.authorUserId === input.user.id
+  const isCustomer = order.customerId === input.user.id
+  const canDesignerUpdate = isAdmin || isDesigner
+  const canCustomerCancel = isCustomer && nextStatus === 'canceled'
+  if (!canDesignerUpdate && !canCustomerCancel) {
+    throw new Error('Немає доступу до зміни статусу')
+  }
+
+  const statusMessages: Record<string, string> = {
+    new: 'Статус замовлення: нове',
+    in_progress: 'Дизайнер прийняв замовлення в роботу.',
+    waiting_customer: 'Дизайнер очікує відповідь замовника.',
+    completed: 'Замовлення позначено як виконане.',
+    canceled: 'Замовлення скасовано.',
+  }
+
+  const now = nowIso()
+  await prisma.$executeRawUnsafe(
+    `UPDATE app_animilair_orders SET status = ?, updated_at = ? WHERE id = ?`,
+    nextStatus,
+    now,
+    input.orderId
+  )
+  await prisma.$executeRawUnsafe(
+    `INSERT INTO app_animilair_order_messages (order_id, user_id, body, created_at)
+     VALUES (?, ?, ?, ?)`,
+    input.orderId,
+    input.user.id,
+    statusMessages[nextStatus] || `Статус замовлення: ${nextStatus}`,
+    now
+  )
+
+  return getAnimilairOrder(input.orderId, input.user, role)
 }

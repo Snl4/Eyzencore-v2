@@ -92,7 +92,7 @@ function buildActivityEntries(events: UserProfileActivity[]): UserActivityEntry[
   });
 }
 
-function buildHeader(user: AuthUser): ProfileHeaderData {
+function buildHeader(user: AuthUser, serverCount: number): ProfileHeaderData {
   const meta = user.user_metadata;
   return {
     fullName: meta.full_name || user.email.split('@')[0] || 'Без імені',
@@ -107,6 +107,7 @@ function buildHeader(user: AuthUser): ProfileHeaderData {
     avatarUrl: meta.avatar_url,
     bannerUrl: meta.banner_url,
     role: meta.role || 'user',
+    hasOwnedServer: serverCount > 0,
     tags: [
       ...(String(meta.role || '').toUpperCase() === 'DESIGNER' ? ['DESIGNER'] : []),
       ...(meta.is_legacy ? ['OLD'] : []),
@@ -123,7 +124,7 @@ export function ProfileClient({ user: initialUser, currentUser = null, serverCou
   const [tab, setTab] = useState<ProfileTabKey>('servers');
   const [editing, setEditing] = useState(false);
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
-  const headerData = useMemo(() => buildHeader(user), [user]);
+  const headerData = useMemo(() => buildHeader(user, serverCount), [user, serverCount]);
   useEffect(() => {
     if (!toast) return;
     const timeoutId = window.setTimeout(() => setToast(null), 2500);

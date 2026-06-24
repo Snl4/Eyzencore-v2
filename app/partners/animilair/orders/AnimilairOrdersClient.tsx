@@ -2,11 +2,11 @@
 
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { PageShell } from '@/components/layout/PageShell'
 import { Breadcrumbs } from '@/components/ui/Breadcrumbs'
 import type { AuthUser } from '@/lib/auth-db'
 import type { AnimilairOrder, AnimilairOrderMessage } from '@/lib/animilair-db'
-import { IMAGE_PLACEHOLDER } from '@/lib/placeholders'
 
 type Props = {
   initialUser: AuthUser
@@ -33,9 +33,23 @@ function statusLabel(status: string) {
   return labels[status] || status
 }
 
+function userInitials(name: string) {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join('') || 'EC'
+}
+
 export function AnimilairOrdersClient({ initialUser, initialOrders }: Props) {
+  const searchParams = useSearchParams()
+  const queryOrder = Number(searchParams.get('order') || 0)
+  const initialSelected = initialOrders.some((order) => order.id === queryOrder)
+    ? queryOrder
+    : initialOrders[0]?.id || null
   const [orders, setOrders] = useState(initialOrders)
-  const [selectedId, setSelectedId] = useState<number | null>(initialOrders[0]?.id || null)
+  const [selectedId, setSelectedId] = useState<number | null>(initialSelected)
   const [messages, setMessages] = useState<AnimilairOrderMessage[]>([])
   const [body, setBody] = useState('')
   const [busy, setBusy] = useState(false)
@@ -45,6 +59,10 @@ export function AnimilairOrdersClient({ initialUser, initialOrders }: Props) {
     () => orders.find((order) => order.id === selectedId) || null,
     [orders, selectedId]
   )
+  const role = String(initialUser.user_metadata.role || '').toUpperCase()
+  const isAdmin = role === 'ADMIN'
+  const isDesignerForSelected = Boolean(selected && selected.authorUserId === initialUser.id)
+  const isCustomerForSelected = Boolean(selected && selected.customerId === initialUser.id)
 
   const reloadOrders = async () => {
     const response = await fetch('/api/partners/animilair/orders', { cache: 'no-store' })
@@ -52,7 +70,10 @@ export function AnimilairOrdersClient({ initialUser, initialOrders }: Props) {
     const payload = await response.json() as { orders?: AnimilairOrder[] }
     const nextOrders = Array.isArray(payload.orders) ? payload.orders : []
     setOrders(nextOrders)
-    setSelectedId((current) => current || nextOrders[0]?.id || null)
+    setSelectedId((current) => {
+      if (current && nextOrders.some((order) => order.id === current)) return current
+      return nextOrders[0]?.id || null
+    })
   }
 
   const loadMessages = async (orderId: number) => {
@@ -95,6 +116,29 @@ export function AnimilairOrdersClient({ initialUser, initialOrders }: Props) {
     }
   }
 
+  const updateStatus = async (status: string) => {
+    if (!selectedId) return
+    setBusy(true)
+    setError('')
+    try {
+      const response = await fetch(`/api/partners/animilair/orders/${selectedId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      })
+      const payload = await response.json() as { order?: AnimilairOrder; error?: string }
+      if (!response.ok || !payload.order) {
+        throw new Error(payload.error || 'Не вдалося оновити статус')
+      }
+      setOrders((current) => current.map((order) => order.id === payload.order?.id ? payload.order : order))
+      await loadMessages(selectedId)
+    } catch (statusError) {
+      setError(statusError instanceof Error ? statusError.message : 'Помилка статусу')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   return (
     <PageShell active="animilair" initialUser={initialUser}>
       <main className="page-main animilair-orders-page">
@@ -113,7 +157,7 @@ export function AnimilairOrdersClient({ initialUser, initialOrders }: Props) {
         {orders.length === 0 ? (
           <section className="set-card animilair-empty-orders">
             <h2>Замовлень поки немає</h2>
-            <p>Оберіть послугу AnimiLair Studio та створіть перше замовлення. Після цього тут з’явиться чат.</p>
+            <p>Оберіть послугу AnimiLair Studio та створіть перше замовлення. Після цього тут зʼявиться чат.</p>
             <Link href="/partners/animilair#works" className="btn btn-primary">Переглянути послуги</Link>
           </section>
         ) : (
@@ -146,12 +190,39 @@ export function AnimilairOrdersClient({ initialUser, initialOrders }: Props) {
                     <span className="animilair-order-status large">{statusLabel(selected.status)}</span>
                   </header>
 
+                  <div className="animilair-order-actions">
+                    {(isAdmin || isDesignerForSelected) && selected.status === 'new' && (
+                      <button className="btn btn-primary" type="button" disabled={busy} onClick={() => void updateStatus('in_progress')}>
+                        Прийняти замовлення
+                      </button>
+                    )}
+                    {(isAdmin || isDesignerForSelected) && selected.status === 'in_progress' && (
+                      <>
+                        <button className="btn btn-secondary" type="button" disabled={busy} onClick={() => void updateStatus('waiting_customer')}>
+                          Чекаю відповідь
+                        </button>
+                        <button className="btn btn-primary" type="button" disabled={busy} onClick={() => void updateStatus('completed')}>
+                          Завершити
+                        </button>
+                      </>
+                    )}
+                    {isCustomerForSelected && !['completed', 'canceled'].includes(selected.status) && (
+                      <button className="btn btn-secondary" type="button" disabled={busy} onClick={() => void updateStatus('canceled')}>
+                        Скасувати
+                      </button>
+                    )}
+                  </div>
+
                   <div className="animilair-chat-messages">
                     {messages.map((message) => {
                       const own = message.userId === initialUser.id
                       return (
                         <article key={message.id} className={`animilair-message${own ? ' own' : ''}`}>
-                          <img src={message.authorAvatarUrl || IMAGE_PLACEHOLDER} alt="" />
+                          {message.authorAvatarUrl ? (
+                            <img src={message.authorAvatarUrl} alt="" />
+                          ) : (
+                            <span className="animilair-message-avatar">{userInitials(message.authorName)}</span>
+                          )}
                           <div>
                             <div className="animilair-message-meta">
                               <strong>{message.authorName}</strong>

@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { NewsEditorPage } from '@/components/news/NewsEditorPage'
 import { getCurrentUser } from '@/lib/auth-server'
-import { resolveUserRole } from '@/lib/auth-db'
+import { countServersByOwner, resolveUserRole } from '@/lib/auth-db'
 
 export const dynamic = 'force-dynamic'
 
@@ -14,7 +14,8 @@ export default async function NewsCreatePage() {
     userId: user.id,
     role: user.user_metadata.role,
   })
-  if (role !== 'OWNER' && role !== 'ADMIN') {
+  const serverCount = await countServersByOwner(user.id)
+  if (role !== 'ADMIN' && serverCount === 0) {
     redirect('/news')
   }
   return (

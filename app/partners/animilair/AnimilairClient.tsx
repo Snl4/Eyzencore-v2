@@ -1,12 +1,12 @@
 'use client'
 
-import Link from 'next/link'
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { PageShell } from '@/components/layout/PageShell'
 import { Breadcrumbs } from '@/components/ui/Breadcrumbs'
 import type { AuthUser } from '@/lib/auth-db'
-import type { AnimilairProduct, AnimilairAuthor } from '@/lib/animilair-db'
+import type { AnimilairAuthor, AnimilairProduct } from '@/lib/animilair-db'
 import { IMAGE_PLACEHOLDER } from '@/lib/placeholders'
 
 type Catalog = {
@@ -19,15 +19,6 @@ type Props = {
   catalog: Catalog
 }
 
-type OrderForm = {
-  productId: number
-  title: string
-  brief: string
-  budget: string
-  deadline: string
-  contact: string
-}
-
 type ProductForm = {
   title: string
   category: string
@@ -38,15 +29,6 @@ type ProductForm = {
   coverUrl: string
   tags: string
   media: string
-}
-
-const EMPTY_ORDER: OrderForm = {
-  productId: 0,
-  title: '',
-  brief: '',
-  budget: '',
-  deadline: '',
-  contact: '',
 }
 
 const EMPTY_PRODUCT: ProductForm = {
@@ -62,7 +44,7 @@ const EMPTY_PRODUCT: ProductForm = {
 }
 
 const CATEGORY_LABELS: Record<string, string> = {
-  all: 'Усе',
+  all: 'Усі',
   branding: 'Брендинг',
   render: 'Рендери',
   motion: 'Анімація',
@@ -71,6 +53,14 @@ const CATEGORY_LABELS: Record<string, string> = {
   discord: 'Discord',
   builds: 'Побудови',
   models: '3D-моделі',
+  plugins: 'Плагіни',
+  textures: 'Текстур-паки',
+}
+
+function cleanImageUrl(value: string | null | undefined) {
+  const url = String(value || '').trim()
+  if (!url || url === IMAGE_PLACEHOLDER || url.includes('/images/placeholder-minecraft.jpg')) return ''
+  return url
 }
 
 function formatPrice(value: number | null) {
@@ -86,9 +76,7 @@ function canCreateProduct(user: AuthUser | null) {
 export function AnimilairClient({ initialUser, catalog }: Props) {
   const router = useRouter()
   const [category, setCategory] = useState('all')
-  const [selected, setSelected] = useState<AnimilairProduct | null>(null)
   const [createOpen, setCreateOpen] = useState(false)
-  const [form, setForm] = useState<OrderForm>(EMPTY_ORDER)
   const [productForm, setProductForm] = useState<ProductForm>(EMPTY_PRODUCT)
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
@@ -104,42 +92,6 @@ export function AnimilairClient({ initialUser, catalog }: Props) {
     return catalog.products.filter((product) => product.category === category)
   }, [catalog.products, category])
 
-  const openOrder = (product: AnimilairProduct) => {
-    if (!initialUser) {
-      router.push('/login')
-      return
-    }
-    setSelected(product)
-    setForm({
-      ...EMPTY_ORDER,
-      productId: product.id,
-      title: `Замовлення: ${product.title}`,
-    })
-    setMessage(null)
-  }
-
-  const submitOrder = async () => {
-    setBusy(true)
-    setMessage(null)
-    try {
-      const response = await fetch('/api/partners/animilair/orders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
-      })
-      const payload = await response.json() as { error?: string; order?: { id: number } }
-      if (!response.ok) {
-        throw new Error(payload.error || 'Не вдалося створити замовлення')
-      }
-      setMessage({ type: 'success', text: 'Замовлення створено. Відкриваю чат...' })
-      setTimeout(() => router.push('/partners/animilair/orders'), 450)
-    } catch (error) {
-      setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Помилка замовлення' })
-    } finally {
-      setBusy(false)
-    }
-  }
-
   const submitProduct = async () => {
     setBusy(true)
     setMessage(null)
@@ -149,13 +101,12 @@ export function AnimilairClient({ initialUser, catalog }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(productForm),
       })
-      const payload = await response.json() as { error?: string }
-      if (!response.ok) {
-        throw new Error(payload.error || 'Не вдалося створити товар')
-      }
-      setMessage({ type: 'success', text: 'Товар створено. Оновлюю сторінку...' })
+      const payload = await response.json() as { error?: string; product?: AnimilairProduct }
+      if (!response.ok) throw new Error(payload.error || 'Не вдалося створити товар')
+      setMessage({ type: 'success', text: 'Товар створено. Відкриваю сторінку...' })
       setCreateOpen(false)
       setProductForm(EMPTY_PRODUCT)
+      router.push(`/partners/animilair/${payload.product?.slug || ''}`)
       router.refresh()
     } catch (error) {
       setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Помилка створення товару' })
@@ -175,7 +126,11 @@ export function AnimilairClient({ initialUser, catalog }: Props) {
       return
     }
     const url = payload.url
-    setProductForm((current) => ({ ...current, coverUrl: url, media: current.media ? `${current.media}\n${url}` : url }))
+    setProductForm((current) => ({
+      ...current,
+      coverUrl: url,
+      media: current.media ? `${current.media}\n${url}` : url,
+    }))
   }
 
   return (
@@ -191,11 +146,12 @@ export function AnimilairClient({ initialUser, catalog }: Props) {
             <div className="animilair-eyebrow">Партнерський маркетплейс</div>
             <h1>AnimiLair Studio</h1>
             <p>
-              Дизайн, Minecraft-реклама, рендери, банери, логотипи й анімації для серверів.
-              Переглядайте портфоліо авторів, замовляйте послугу прямо на сайті та ведіть чат із дизайнером.
+              Послуги дизайнерів для Minecraft і Discord проєктів: банери, логотипи, рендери,
+              анімації, текстури, плагіни та промо. Виберіть товар, відкрийте деталі й створіть
+              замовлення прямо на сайті.
             </p>
             <div className="animilair-hero-actions">
-              <a href="#works" className="btn btn-primary">Переглянути роботи</a>
+              <a href="#works" className="btn btn-primary">Переглянути товари</a>
               <Link href="/partners/animilair/orders" className="btn btn-secondary">Мої замовлення</Link>
               {sellerMode && (
                 <button type="button" className="btn btn-secondary" onClick={() => { setCreateOpen(true); setMessage(null) }}>
@@ -204,18 +160,17 @@ export function AnimilairClient({ initialUser, catalog }: Props) {
               )}
             </div>
           </div>
-          <div className="animilair-hero-card">
+          <div className="animilair-hero-card animilair-logo-card">
             <span className="animilair-live-dot" />
-            <p>Creative desk</p>
-            <strong>Портфоліо → заявка → чат із замовником</strong>
-            <div className="animilair-hero-photos" aria-label="Приклади робіт AnimiLair">
-              <span style={{ backgroundImage: "url('/images/animilair-logo.jpg')" }} />
-              <span style={{ backgroundImage: "url('/images/placeholder-minecraft.jpg')" }} />
-            </div>
+            <div
+              className="animilair-hero-photo single"
+              aria-label="AnimiLair Studio"
+              style={{ backgroundImage: "url('/images/animilair-logo.jpg')" }}
+            />
           </div>
         </section>
 
-        {message && !selected && !createOpen && (
+        {message && !createOpen && (
           <div className={`animilair-form-message ${message.type}`}>{message.text}</div>
         )}
 
@@ -223,15 +178,16 @@ export function AnimilairClient({ initialUser, catalog }: Props) {
           <div className="animilair-section-head">
             <div>
               <span className="animilair-eyebrow">Автори</span>
-              <h2>Команда, яка робить ваш візуал</h2>
+              <h2>Дизайнери та студії</h2>
             </div>
           </div>
           <div className="animilair-authors">
             {catalog.authors.map((author) => (
-              <article className="animilair-author-card" key={author.id}>
-                <div className="animilair-author-banner" style={{ backgroundImage: `url(${author.bannerUrl || IMAGE_PLACEHOLDER})` }} />
+              <article className="animilair-author-card compact" key={author.id}>
                 <div className="animilair-author-main">
-                  <div className="animilair-author-avatar" style={{ backgroundImage: `url(${author.avatarUrl || IMAGE_PLACEHOLDER})` }} />
+                  {cleanImageUrl(author.avatarUrl) ? (
+                    <div className="animilair-author-avatar" style={{ backgroundImage: `url(${cleanImageUrl(author.avatarUrl)})` }} />
+                  ) : null}
                   <div>
                     <h3>{author.name}</h3>
                     <p>{author.role}</p>
@@ -246,8 +202,8 @@ export function AnimilairClient({ initialUser, catalog }: Props) {
         <section className="animilair-section" id="works">
           <div className="animilair-section-head">
             <div>
-              <span className="animilair-eyebrow">Послуги</span>
-              <h2>Що можна замовити</h2>
+              <span className="animilair-eyebrow">Каталог</span>
+              <h2>Товари та послуги</h2>
             </div>
             <div className="forum-sort animilair-category-tabs">
               {categories.map((item) => (
@@ -263,52 +219,42 @@ export function AnimilairClient({ initialUser, catalog }: Props) {
             </div>
           </div>
 
-          <div className="animilair-products">
-            {products.map((product) => (
-              <article className="animilair-product-card" key={product.id}>
-                <div className="animilair-product-cover" style={{ backgroundImage: `url(${product.coverUrl || IMAGE_PLACEHOLDER})` }}>
-                  {product.featured && <span>Рекомендовано</span>}
-                </div>
-                <div className="animilair-product-body">
-                  <div className="animilair-product-meta">
-                    <span>{CATEGORY_LABELS[product.category] || product.category}</span>
-                    <span>{formatPrice(product.priceFrom)}</span>
-                  </div>
-                  <h3>{product.title}</h3>
-                  <p>{product.shortDesc}</p>
-                  <div className="animilair-tags">
-                    {product.tags.slice(0, 5).map((tag) => <span key={tag}>{tag}</span>)}
-                  </div>
-                  <div className="animilair-portfolio-strip">
-                    {(product.media.length ? product.media : [{ id: 0, url: product.coverUrl || IMAGE_PLACEHOLDER, type: 'image', caption: '' }]).slice(0, 3).map((item) => (
-                      <button
-                        key={item.id}
-                        type="button"
-                        className="animilair-portfolio-thumb"
-                        style={{ backgroundImage: `url(${item.url || IMAGE_PLACEHOLDER})` }}
-                        aria-label={item.caption || product.title}
-                      />
-                    ))}
-                  </div>
-                  <div className="animilair-product-foot">
-                    <div>
-                      <span>Автор</span>
-                      <strong>{product.author?.name || 'AnimiLair'}</strong>
+          <div className="animilair-products animilair-market-grid">
+            {products.map((product) => {
+              const cover = cleanImageUrl(product.coverUrl)
+              return (
+                <article
+                  className="animilair-product-card animilair-market-card"
+                  key={product.id}
+                  onClick={() => router.push(`/partners/animilair/${product.slug}`)}
+                >
+                  {cover ? (
+                    <div className="animilair-product-cover" style={{ backgroundImage: `url(${cover})` }}>
+                      <span className="animilair-card-views">◉ {Math.max(31, product.id * 137).toLocaleString('uk-UA')}</span>
                     </div>
-                    <button type="button" className="btn btn-primary" onClick={() => openOrder(product)}>
-                      Замовити
-                    </button>
+                  ) : null}
+                  <div className="animilair-product-body">
+                    <div className="animilair-product-meta">
+                      <span>{product.author?.name || 'AnimiLair'}</span>
+                      <span>{CATEGORY_LABELS[product.category] || product.category}</span>
+                    </div>
+                    <h3>{product.title}</h3>
+                    <p>{product.shortDesc}</p>
+                    <div className="animilair-product-foot">
+                      <span>Термін: {product.deliveryDays ? `${product.deliveryDays} дн.` : 'обговорюється'}</span>
+                      <strong className="animilair-market-price">{formatPrice(product.priceFrom)}</strong>
+                    </div>
                   </div>
-                </div>
-              </article>
-            ))}
+                </article>
+              )
+            })}
           </div>
         </section>
       </main>
 
       {createOpen && (
         <div className="modal-backdrop is-open animilair-order-backdrop" onClick={() => setCreateOpen(false)} role="dialog" aria-modal="true">
-          <div className="modal-card is-open animilair-order-modal" onClick={(event) => event.stopPropagation()}>
+          <div className="modal-card is-open animilair-order-modal animilair-product-modal" onClick={(event) => event.stopPropagation()}>
             <header className="modal-head">
               <div>
                 <h3>Новий товар AnimiLair</h3>
@@ -370,56 +316,6 @@ export function AnimilairClient({ initialUser, catalog }: Props) {
               <button type="button" className="btn btn-secondary" onClick={() => setCreateOpen(false)}>Скасувати</button>
               <button type="button" className="btn btn-primary" disabled={busy || !productForm.title.trim() || !productForm.shortDesc.trim() || !productForm.description.trim()} onClick={() => void submitProduct()}>
                 {busy ? 'Створюємо...' : 'Опублікувати товар'}
-              </button>
-            </footer>
-          </div>
-        </div>
-      )}
-
-      {selected && (
-        <div className="modal-backdrop is-open animilair-order-backdrop" onClick={() => setSelected(null)} role="dialog" aria-modal="true">
-          <div className="modal-card is-open animilair-order-modal" onClick={(event) => event.stopPropagation()}>
-            <header className="modal-head">
-              <div>
-                <h3>Замовити: {selected.title}</h3>
-                <p>{formatPrice(selected.priceFrom)} · {selected.deliveryDays ? `${selected.deliveryDays} дн.` : 'термін обговорюється'}</p>
-              </div>
-              <button className="btn btn-ghost modal-close" type="button" onClick={() => setSelected(null)}>×</button>
-            </header>
-            <div className="modal-body animilair-order-form">
-              <label>
-                Назва замовлення
-                <input value={form.title} onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))} />
-              </label>
-              <label>
-                Технічне завдання
-                <textarea
-                  rows={7}
-                  placeholder="Опишіть сервер, стиль, кольори, що саме треба зробити, де буде використовуватись робота."
-                  value={form.brief}
-                  onChange={(event) => setForm((current) => ({ ...current, brief: event.target.value }))}
-                />
-              </label>
-              <div className="animilair-form-grid">
-                <label>
-                  Бюджет
-                  <input placeholder="Наприклад: 1500 грн" value={form.budget} onChange={(event) => setForm((current) => ({ ...current, budget: event.target.value }))} />
-                </label>
-                <label>
-                  Дедлайн
-                  <input placeholder="Наприклад: до п’ятниці" value={form.deadline} onChange={(event) => setForm((current) => ({ ...current, deadline: event.target.value }))} />
-                </label>
-              </div>
-              <label>
-                Контакт для зв’язку
-                <input placeholder="Telegram або Discord" value={form.contact} onChange={(event) => setForm((current) => ({ ...current, contact: event.target.value }))} />
-              </label>
-              {message && <div className={`animilair-form-message ${message.type}`}>{message.text}</div>}
-            </div>
-            <footer className="modal-foot">
-              <button type="button" className="btn btn-secondary" onClick={() => setSelected(null)}>Скасувати</button>
-              <button type="button" className="btn btn-primary" disabled={busy || !form.title.trim() || !form.brief.trim()} onClick={() => void submitOrder()}>
-                {busy ? 'Створюємо...' : 'Створити замовлення'}
               </button>
             </footer>
           </div>

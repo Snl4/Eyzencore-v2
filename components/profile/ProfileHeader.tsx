@@ -16,19 +16,19 @@ export interface ProfileHeaderData {
   bannerUrl: string | null;
   role: string;
   tags: string[];
+  hasOwnedServer?: boolean;
 }
 
 function getProfileTags(data: ProfileHeaderData) {
   const role = String(data.role || '').toUpperCase();
   const roleTags = role === 'ADMIN'
     ? ['ADMIN']
-    : role === 'OWNER'
-      ? ['OWNER']
-      : role === 'DESIGNER'
+    : role === 'DESIGNER'
         ? ['DESIGNER']
         : [];
 
-  return Array.from(new Set([...roleTags, ...data.tags.map((tag) => String(tag).toUpperCase())]));
+  const ownerTags = data.hasOwnedServer ? ['Власник серверу'] : [];
+  return Array.from(new Set([...ownerTags, ...roleTags, ...data.tags.map((tag) => String(tag).toUpperCase())]));
 }
 
 export function ProfileHeader({ data }: { data: ProfileHeaderData }) {

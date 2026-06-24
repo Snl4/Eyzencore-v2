@@ -21,24 +21,24 @@ export default async function DashboardPage({ searchParams }: { searchParams?: R
     userId: user.id,
     role: user.user_metadata.role,
   })
-  if (role === 'USER') {
+  const owned = await listServersByOwner(user.id)
+  const canUseOwnerDashboard = role === 'ADMIN' || owned.length > 0
+  if (!canUseOwnerDashboard) {
     redirect('/')
   }
   // Owners and admins land on the per-server dashboard for their first server.
   // ?tab=servers escapes the redirect (used by sidebar "My Servers" link).
-  if (role === 'OWNER' || role === 'ADMIN') {
+  if (canUseOwnerDashboard) {
     const escape = String(searchParams?.tab || '')
-    if (escape !== 'servers') {
-      const owned = await listServersByOwner(user.id)
-      if (owned.length > 0) {
-        redirect(`/dashboard/${buildServerDashboardSlug(owned[0].name)}`)
-      }
+    if (escape !== 'servers' && owned.length > 0) {
+      redirect(`/dashboard/${buildServerDashboardSlug(owned[0].name)}`)
     }
   }
+  const dashboardRole = role === 'ADMIN' ? 'ADMIN' : 'OWNER'
   return (
     <>
       <div className="bg-aurora" />
-      <DashboardClient initialUser={user} initialRole={role} />
+      <DashboardClient initialUser={user} initialRole={dashboardRole} />
     </>
   )
 }

@@ -460,7 +460,12 @@ export function DeveloperHubClient({ initialUser, serverOptions, selectedServerI
   }
 
   return (
-    <PageShell active="developers" initialUser={initialUser} hiddenKeys={['notifications']}>
+    <PageShell
+      active="developers"
+      initialUser={initialUser}
+      sidebarRole={serverOptions.length > 0 ? 'OWNER' : undefined}
+      hiddenKeys={['notifications']}
+    >
       <main className="page-main external-api-page">
         <header className="external-hero">
           <div>
