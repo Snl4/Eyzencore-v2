@@ -286,6 +286,28 @@ export function NewsEditorPage({ mode, initialUser, initialPost }: NewsEditorPag
     }
   }
 
+  const handleGalleryFiles = async (blockId: string, fileList: FileList | null) => {
+    if (!fileList?.length) return
+    setErrorMessage('')
+    setBlockUploading(blockId)
+    try {
+      const block = form.blocks.find((item) => item.id === blockId)
+      const current = block?.urls || []
+      const slotsLeft = Math.max(0, 20 - current.length)
+      const files = Array.from(fileList).slice(0, slotsLeft)
+      const uploadedUrls: string[] = []
+      for (const file of files) {
+        const uploaded = await uploadFile(file, 'news')
+        uploadedUrls.push(uploaded.url)
+      }
+      handleUpdateBlock(blockId, { urls: [...current, ...uploadedUrls].slice(0, 20) })
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Не вдалося завантажити зображення')
+    } finally {
+      setBlockUploading(null)
+    }
+  }
+
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setErrorMessage('')
@@ -329,8 +351,9 @@ export function NewsEditorPage({ mode, initialUser, initialPost }: NewsEditorPag
             <h1 className="page-title">{pageTitle}</h1>
           </div>
           <div className="news-edit-actions">
-            <Link href={isEditMode && initialPost ? buildNewsPath(initialPost) : '/news'} className="btn btn-secondary">
-              Скасувати
+            <Link href={isEditMode && initialPost ? buildNewsPath(initialPost) : '/news'} className="page-back-link">
+              <span aria-hidden="true">←</span>
+              {isEditMode ? 'До новини' : 'До новин'}
             </Link>
             <button
               type="submit"
@@ -606,6 +629,8 @@ export function NewsEditorPage({ mode, initialUser, initialPost }: NewsEditorPag
                         <GalleryBlockEditor
                           block={block}
                           onUpdate={(patch) => handleUpdateBlock(block.id, patch)}
+                          onPickFiles={(files) => void handleGalleryFiles(block.id, files)}
+                          uploading={blockUploading === block.id}
                         />
                       )}
                     </article>
@@ -875,11 +900,19 @@ function BlockMedia({
 function GalleryBlockEditor({
   block,
   onUpdate,
+  onPickFiles,
+  uploading,
 }: {
   block: NewsContentBlock
   onUpdate: (patch: Partial<NewsContentBlock>) => void
+  onPickFiles: (files: FileList | null) => void
+  uploading: boolean
 }) {
+  const inputRef = useRef<HTMLInputElement>(null)
+  const [dragOver, setDragOver] = useState(false)
   const urls = block.urls || []
+  const slotsLeft = Math.max(0, 20 - urls.length)
+
   return (
     <div className="news-gallery-editor">
       <label className="news-edit-field">
@@ -892,11 +925,62 @@ function GalleryBlockEditor({
           maxLength={220}
         />
       </label>
+
+      <div className="news-gallery-editor-upload">
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          hidden
+          disabled={slotsLeft === 0}
+          onChange={(event) => {
+            onPickFiles(event.target.files)
+            event.target.value = ''
+          }}
+        />
+        <div
+          className={`news-block-drop${dragOver ? ' is-over' : ''}${uploading ? ' is-uploading' : ''}`}
+          onClick={() => slotsLeft > 0 && inputRef.current?.click()}
+          onDragOver={(event) => {
+            event.preventDefault()
+            if (slotsLeft > 0) setDragOver(true)
+          }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={(event) => {
+            event.preventDefault()
+            setDragOver(false)
+            if (slotsLeft > 0) onPickFiles(event.dataTransfer.files)
+          }}
+          role="button"
+          tabIndex={slotsLeft > 0 ? 0 : -1}
+          onKeyDown={(event) => {
+            if ((event.key === 'Enter' || event.key === ' ') && slotsLeft > 0) inputRef.current?.click()
+          }}
+        >
+          <span className="ico" aria-hidden>{UploadIcon}</span>
+          <b>
+            {uploading
+              ? 'Завантажуємо…'
+              : slotsLeft === 0
+                ? 'Досягнуто ліміт 20 зображень'
+                : 'Перетягніть зображення сюди'}
+          </b>
+          <span>
+            {slotsLeft > 0 && (
+              <>
+                або натисніть, щоб обрати декілька з ПК · до 8 МБ кожне · ще {slotsLeft} з 20
+              </>
+            )}
+          </span>
+        </div>
+      </div>
+
       <label className="news-edit-field">
-        <span>Зображення, одне посилання на рядок</span>
+        <span>Посилання (одне на рядок, необов&apos;язково)</span>
         <textarea
           className="news-input"
-          rows={7}
+          rows={5}
           value={urls.join('\n')}
           onChange={(event) => onUpdate({
             urls: event.target.value.split('\n').map(normalizeImportedUrl).filter(Boolean).slice(0, 20),

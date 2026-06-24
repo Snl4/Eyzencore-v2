@@ -18,6 +18,7 @@ type Catalog = {
 type Props = {
   initialUser: AuthUser | null
   catalog: Catalog
+  heroDescription: string
 }
 
 type ProductForm = {
@@ -73,13 +74,16 @@ function canCreateProduct(user: AuthUser | null) {
   return role === 'DESIGNER' || role === 'ADMIN'
 }
 
-export function AnimilairClient({ initialUser, catalog }: Props) {
+export function AnimilairClient({ initialUser, catalog, heroDescription: initialHeroDescription }: Props) {
   const router = useRouter()
   const [category, setCategory] = useState('all')
   const [createOpen, setCreateOpen] = useState(false)
   const [productForm, setProductForm] = useState<ProductForm>(EMPTY_PRODUCT)
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [heroDescription, setHeroDescription] = useState(initialHeroDescription)
+  const [editingHero, setEditingHero] = useState(false)
+  const [heroDraft, setHeroDraft] = useState(initialHeroDescription)
   const sellerMode = canCreateProduct(initialUser)
 
   const categories = useMemo(() => {
@@ -110,6 +114,31 @@ export function AnimilairClient({ initialUser, catalog }: Props) {
       router.refresh()
     } catch (error) {
       setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Помилка створення товару' })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const saveHeroDescription = async () => {
+    setBusy(true)
+    setMessage(null)
+    try {
+      const response = await fetch('/api/partners/animilair/hero', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ description: heroDraft }),
+      })
+      const payload = await response.json() as { description?: string; error?: string }
+      if (!response.ok || !payload.description) {
+        throw new Error(payload.error || 'Не вдалося зберегти опис')
+      }
+      setHeroDescription(payload.description)
+      setHeroDraft(payload.description)
+      setEditingHero(false)
+      setMessage({ type: 'success', text: 'Опис маркетплейсу збережено' })
+      router.refresh()
+    } catch (error) {
+      setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Не вдалося зберегти опис' })
     } finally {
       setBusy(false)
     }
@@ -146,17 +175,56 @@ export function AnimilairClient({ initialUser, catalog }: Props) {
           <div className="animilair-hero-copy">
             <div className="animilair-eyebrow">Партнерський маркетплейс</div>
             <h1>AnimiLair Studio</h1>
-            <p>
-              Послуги дизайнерів для Minecraft і Discord проєктів: банери, логотипи, рендери,
-              анімації та текстури. Виберіть товар, відкрийте деталі й створіть
-              замовлення прямо на сайті.
-            </p>
+            {editingHero ? (
+              <div className="animilair-hero-editor">
+                <label>
+                  Опис маркетплейсу
+                  <textarea
+                    rows={4}
+                    value={heroDraft}
+                    onChange={(event) => setHeroDraft(event.target.value)}
+                    maxLength={600}
+                  />
+                </label>
+                <div className="animilair-hero-editor-actions">
+                  <button type="button" className="btn btn-primary" disabled={busy} onClick={() => void saveHeroDescription()}>
+                    Зберегти
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    disabled={busy}
+                    onClick={() => {
+                      setHeroDraft(heroDescription)
+                      setEditingHero(false)
+                    }}
+                  >
+                    Скасувати
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <p>{heroDescription}</p>
+            )}
             <div className="animilair-hero-actions">
               <a href="#works" className="btn btn-primary">Переглянути товари</a>
               <Link href="/partners/animilair/orders" className="btn btn-secondary">Мої замовлення</Link>
               {sellerMode && (
                 <button type="button" className="btn btn-secondary" onClick={() => { setCreateOpen(true); setMessage(null) }}>
                   Створити товар
+                </button>
+              )}
+              {sellerMode && !editingHero && (
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => {
+                    setHeroDraft(heroDescription)
+                    setEditingHero(true)
+                    setMessage(null)
+                  }}
+                >
+                  Редагувати опис
                 </button>
               )}
             </div>

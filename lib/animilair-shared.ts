@@ -7,6 +7,9 @@ type AnimilairManagerUser = {
 export const ANIMILAIR_DEFAULT_WELCOME =
   'Привіт! Напишіть, що потрібно зробити — обговоримо деталі, бюджет і терміни прямо в чаті.'
 
+export const ANIMILAIR_DEFAULT_HERO_DESCRIPTION =
+  'Послуги дизайнерів для Minecraft і Discord проєктів: банери, логотипи, рендери, анімації та текстури. Виберіть товар, відкрийте деталі й створіть замовлення прямо на сайті.'
+
 export const ANIMILAIR_ONLINE_WINDOW_MS = 5 * 60 * 1000
 
 export type AnimilairAuthor = {

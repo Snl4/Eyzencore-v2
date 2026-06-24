@@ -164,7 +164,7 @@ export function ProfileClient({ user: initialUser, currentUser = null, serverCou
             ]} />
             <h1 className="page-title">{isPublicView ? 'Профіль користувача' : 'Мій профіль'}</h1>
           </div>
-          <div className="profile-actions" style={{ marginLeft: 'auto' }}>
+          <div className="profile-actions page-topbar-actions">
             {!isPublicView && (
               <button
                 className="btn btn-secondary"

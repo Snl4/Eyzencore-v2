@@ -71,7 +71,7 @@ export function AnimilairOrderChat({
   const isAdmin = role === 'ADMIN'
   const isDesignerForSelected = Boolean(
     activeOrder
-      ? activeOrder.authorUserId === user?.id
+      ? activeOrder.authorUserId === user?.id || productPreview?.canEditWelcome
       : productPreview?.canEditWelcome
   )
   const isCustomerForSelected = Boolean(activeOrder && activeOrder.customerId === user?.id)
@@ -430,18 +430,24 @@ export function AnimilairOrderChat({
         </div>
       )}
 
-      {activeOrder && !productPreview && (
-        <header className="animilair-chat-head">
+      {activeOrder && (
+        <header className={`animilair-chat-head${productPreview ? ' compact' : ''}`}>
           <div>
             <span className="animilair-eyebrow">Замовлення #{activeOrder.id}</span>
             <h2>{activeOrder.title}</h2>
             <p>
               {isCustomerForSelected ? `Дизайнер: ${activeOrder.authorName}` : `Клієнт: ${activeOrder.customerName}`}
-              {' · '}
-              {animilairStatusLabel(activeOrder.status)}
+              {!productPreview && (
+                <>
+                  {' · '}
+                  {animilairStatusLabel(activeOrder.status)}
+                </>
+              )}
             </p>
           </div>
-          <span className="animilair-order-status large">{animilairStatusLabel(activeOrder.status)}</span>
+          {!productPreview && (
+            <span className="animilair-order-status large">{animilairStatusLabel(activeOrder.status)}</span>
+          )}
         </header>
       )}
 
@@ -461,37 +467,51 @@ export function AnimilairOrderChat({
       )}
 
       {activeOrder && (
-        <div className="animilair-order-actions">
-          {productPreview && (
-            <span className="animilair-order-status inline">{animilairStatusLabel(activeOrder.status)}</span>
-          )}
-          {(isAdmin || isDesignerForSelected) && activeOrder.status === 'new' && (
-            <button className="btn btn-primary" type="button" disabled={busy} onClick={() => void updateStatus('in_progress')}>
-              Прийняти замовлення
-            </button>
-          )}
-          {(isAdmin || isDesignerForSelected) && ['in_progress', 'waiting_customer'].includes(activeOrder.status) && (
-            <>
-              {activeOrder.status === 'in_progress' && (
+        <div className="animilair-order-status-bar">
+          <div className="animilair-order-status-bar-head">
+            <strong>Керування замовленням</strong>
+            <span className="animilair-order-status">{animilairStatusLabel(activeOrder.status)}</span>
+          </div>
+          <div className="animilair-order-actions">
+            {(isAdmin || isDesignerForSelected) && activeOrder.status === 'new' && (
+              <button className="btn btn-primary" type="button" disabled={busy} onClick={() => void updateStatus('in_progress')}>
+                Прийняти в роботу
+              </button>
+            )}
+            {(isAdmin || isDesignerForSelected) && activeOrder.status === 'in_progress' && (
+              <>
                 <button className="btn btn-secondary" type="button" disabled={busy} onClick={() => void updateStatus('waiting_customer')}>
                   Чекаю відповідь
                 </button>
-              )}
-              <button className="btn btn-primary" type="button" disabled={busy} onClick={() => void updateStatus('awaiting_confirmation')}>
-                Роботу завершено
+                <button className="btn btn-primary" type="button" disabled={busy} onClick={() => void updateStatus('awaiting_confirmation')}>
+                  Роботу завершено
+                </button>
+              </>
+            )}
+            {(isAdmin || isDesignerForSelected) && activeOrder.status === 'waiting_customer' && (
+              <>
+                <button className="btn btn-secondary" type="button" disabled={busy} onClick={() => void updateStatus('in_progress')}>
+                  В роботі
+                </button>
+                <button className="btn btn-primary" type="button" disabled={busy} onClick={() => void updateStatus('awaiting_confirmation')}>
+                  Роботу завершено
+                </button>
+              </>
+            )}
+            {(isAdmin || isDesignerForSelected) && activeOrder.status === 'awaiting_confirmation' && (
+              <p className="animilair-order-status-hint">Очікуємо підтвердження від клієнта.</p>
+            )}
+            {isCustomerForSelected && activeOrder.status === 'awaiting_confirmation' && (
+              <button className="btn btn-primary" type="button" disabled={busy} onClick={() => void updateStatus('completed')}>
+                Підтвердити виконання
               </button>
-            </>
-          )}
-          {isCustomerForSelected && activeOrder.status === 'awaiting_confirmation' && (
-            <button className="btn btn-primary" type="button" disabled={busy} onClick={() => void updateStatus('completed')}>
-              Підтвердити виконання
-            </button>
-          )}
-          {isCustomerForSelected && !['completed', 'canceled'].includes(activeOrder.status) && (
-            <button className="btn btn-secondary" type="button" disabled={busy} onClick={() => void updateStatus('canceled')}>
-              Скасувати
-            </button>
-          )}
+            )}
+            {isCustomerForSelected && !['completed', 'canceled'].includes(activeOrder.status) && (
+              <button className="btn btn-secondary" type="button" disabled={busy} onClick={() => void updateStatus('canceled')}>
+                Скасувати
+              </button>
+            )}
+          </div>
         </div>
       )}
 

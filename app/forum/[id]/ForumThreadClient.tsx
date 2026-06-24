@@ -447,7 +447,7 @@ export function ForumThreadClient({
   return (
     <PageShell active="forum" initialUser={initialUser}>
       <div className="page-main forum-topic-page">
-        <Link className="forum-back-link" href="/forum">
+        <Link className="page-back-link forum-back-link" href="/forum">
           <FontAwesomeIcon icon={faArrowLeft} />
           До всіх тем
         </Link>

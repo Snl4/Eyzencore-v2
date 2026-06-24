@@ -41,7 +41,10 @@ export function AnimilairOrdersClient({ initialUser, initialOrders }: Props) {
             ]} />
             <h1 className="page-title">Замовлення AnimiLair</h1>
           </div>
-          <Link href="/partners/animilair" className="btn btn-secondary">До маркетплейсу</Link>
+          <Link href="/partners/animilair" className="page-back-link">
+            <span aria-hidden="true">←</span>
+            До маркетплейсу
+          </Link>
         </div>
 
         {orders.length === 0 ? (

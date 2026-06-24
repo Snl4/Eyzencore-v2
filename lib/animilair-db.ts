@@ -5,6 +5,7 @@ import type { AuthUser, UserRole } from '@/lib/auth-db'
 import { IMAGE_PLACEHOLDER } from '@/lib/placeholders'
 import {
   ANIMILAIR_DEFAULT_WELCOME,
+  ANIMILAIR_DEFAULT_HERO_DESCRIPTION,
   ANIMILAIR_MESSAGE_MAX_ATTACHMENTS,
   ANIMILAIR_MESSAGE_MAX_LENGTH,
   ANIMILAIR_ONLINE_WINDOW_MS,
@@ -25,6 +26,7 @@ import {
 
 export {
   ANIMILAIR_DEFAULT_WELCOME,
+  ANIMILAIR_DEFAULT_HERO_DESCRIPTION,
   ANIMILAIR_MESSAGE_MAX_ATTACHMENTS,
   ANIMILAIR_MESSAGE_MAX_LENGTH,
   ANIMILAIR_ONLINE_WINDOW_MS,
@@ -1301,4 +1303,42 @@ export async function createAnimilairProductReview(input: {
     order.id
   )
   return rows[0] ? mapReview(rows[0]) : null
+}
+
+export async function getAnimilairHeroDescription(): Promise<string> {
+  try {
+    const rows = await prisma.$queryRawUnsafe<Array<{ animilair_hero_description?: string }>>(
+      `SELECT animilair_hero_description FROM app_site_settings WHERE id = 1 LIMIT 1`
+    )
+    const text = String(rows[0]?.animilair_hero_description || '').trim()
+    return text || ANIMILAIR_DEFAULT_HERO_DESCRIPTION
+  } catch {
+    return ANIMILAIR_DEFAULT_HERO_DESCRIPTION
+  }
+}
+
+export async function updateAnimilairHeroDescription(input: {
+  user: AuthUser
+  role: UserRole
+  description: string
+}) {
+  if (!roleCanSell(input.role)) {
+    throw new Error('Редагувати опис маркетплейсу можуть лише дизайнери AnimiLair або адміністратор')
+  }
+  const description = input.description.trim().slice(0, 600)
+  if (!description) {
+    throw new Error('Опис не може бути порожнім')
+  }
+  const now = nowIso()
+  await prisma.$executeRawUnsafe(
+    `INSERT INTO app_site_settings
+      (id, maintenance_enabled, maintenance_title, maintenance_message, animilair_hero_description, updated_at)
+     VALUES (1, 0, 'Технічні роботи', 'Ми оновлюємо Eyzencore. Сайт незабаром повернеться.', ?, ?)
+     ON CONFLICT(id) DO UPDATE SET
+       animilair_hero_description = excluded.animilair_hero_description,
+       updated_at = excluded.updated_at`,
+    description,
+    now
+  )
+  return description
 }

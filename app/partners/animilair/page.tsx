@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { getCurrentUser } from '@/lib/auth-server'
-import { getAnimilairCatalog } from '@/lib/animilair-db'
+import { getAnimilairCatalog, getAnimilairHeroDescription } from '@/lib/animilair-db'
 import { buildPageMetadata } from '@/lib/seo'
 import { AnimilairClient } from './AnimilairClient'
 
@@ -26,15 +26,16 @@ export const metadata: Metadata = {
 }
 
 export default async function AnimilairPage() {
-  const [initialUser, catalog] = await Promise.all([
+  const [initialUser, catalog, heroDescription] = await Promise.all([
     getCurrentUser(),
     getAnimilairCatalog(),
+    getAnimilairHeroDescription(),
   ])
 
   return (
     <>
       <div className="bg-aurora" />
-      <AnimilairClient initialUser={initialUser} catalog={catalog} />
+      <AnimilairClient initialUser={initialUser} catalog={catalog} heroDescription={heroDescription} />
     </>
   )
 }

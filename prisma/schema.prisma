@@ -813,11 +813,12 @@ model app_animilair_product_reviews {
 }
 
 model app_site_settings {
-  id                  Int    @id @default(1)
-  maintenance_enabled Int    @default(0)
-  maintenance_title   String @default("Технічні роботи")
-  maintenance_message String @default("Ми оновлюємо Eyzencore. Сайт незабаром повернеться.")
-  updated_at          String
+  id                        Int    @id @default(1)
+  maintenance_enabled       Int    @default(0)
+  maintenance_title         String @default("Технічні роботи")
+  maintenance_message       String @default("Ми оновлюємо Eyzencore. Сайт незабаром повернеться.")
+  animilair_hero_description String @default("")
+  updated_at                String
 }
 
 model user_login_sessions {

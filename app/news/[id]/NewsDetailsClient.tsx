@@ -150,32 +150,53 @@ function renderNewsBlock(block: NewsContentBlock): ReactNode {
 function NewsGallery({ urls, caption }: { urls: string[]; caption: string }) {
   const [active, setActive] = useState(0)
   const current = urls[active] || urls[0]
+  const goPrev = () => setActive((index) => (index - 1 + urls.length) % urls.length)
+  const goNext = () => setActive((index) => (index + 1) % urls.length)
+
   return (
     <figure className="na-gallery">
       {caption && <h3>{caption}</h3>}
-      <a href={current} target="_blank" rel="noreferrer" className="na-gallery-stage">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={current} alt={caption || `Зображення ${active + 1}`} loading="lazy" />
-        <span>{active + 1} / {urls.length}</span>
-      </a>
+      <div className="na-gallery-viewer">
+        {urls.length > 1 && (
+          <button
+            type="button"
+            className="na-gallery-nav na-gallery-nav-prev"
+            onClick={goPrev}
+            aria-label="Попереднє зображення"
+          >
+            ←
+          </button>
+        )}
+        <a href={current} target="_blank" rel="noreferrer" className="na-gallery-stage">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={current} alt={caption || `Зображення ${active + 1}`} loading="lazy" />
+          <span>{active + 1} / {urls.length}</span>
+        </a>
+        {urls.length > 1 && (
+          <button
+            type="button"
+            className="na-gallery-nav na-gallery-nav-next"
+            onClick={goNext}
+            aria-label="Наступне зображення"
+          >
+            →
+          </button>
+        )}
+      </div>
       {urls.length > 1 && (
-        <div className="na-gallery-controls">
-          <button type="button" onClick={() => setActive((active - 1 + urls.length) % urls.length)}>←</button>
-          <div className="na-gallery-thumbs">
-            {urls.map((url, index) => (
-              <button
-                type="button"
-                className={index === active ? 'active' : ''}
-                onClick={() => setActive(index)}
-                key={`${url}-${index}`}
-                aria-label={`Зображення ${index + 1}`}
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={url} alt="" loading="lazy" />
-              </button>
-            ))}
-          </div>
-          <button type="button" onClick={() => setActive((active + 1) % urls.length)}>→</button>
+        <div className="na-gallery-thumbs">
+          {urls.map((url, index) => (
+            <button
+              type="button"
+              className={index === active ? 'active' : ''}
+              onClick={() => setActive(index)}
+              key={`${url}-${index}`}
+              aria-label={`Зображення ${index + 1}`}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={url} alt="" loading="lazy" />
+            </button>
+          ))}
         </div>
       )}
     </figure>
@@ -293,39 +314,41 @@ export function NewsDetailsClient({ initialUser, post, canManage }: NewsDetailsC
     <PageShell active="news" initialUser={initialUser}>
       <main className="page-main na-page">
         <div className="na-topline">
-          <nav className="na-breadcrumbs" aria-label="Навігація">
-            <Link href="/">Головна</Link>
-            <span aria-hidden="true">/</span>
-            <Link href="/news">Новини</Link>
-            <span aria-hidden="true">/</span>
-            <span aria-current="page">{post.category}</span>
-          </nav>
-          <div className="na-top-actions" aria-label="Дії з новиною">
-            <button type="button" className="na-action" onClick={() => void handleCopyLink()}>
-              <span aria-hidden="true">{isCopied ? '✓' : '⧉'}</span>
-              <span>{isCopied ? 'Скопійовано' : 'Копіювати'}</span>
-            </button>
-            {canManage && (
-              <>
-                <Link href={`${postPath}/edit`} className="na-action">
-                  <span aria-hidden="true">✎</span>
-                  <span>Редагувати</span>
-                </Link>
-                <button
-                  type="button"
-                  className="na-action na-action-danger"
-                  onClick={() => void handleDelete()}
-                  disabled={isDeleting}
-                >
-                  <span aria-hidden="true">×</span>
-                  <span>{isDeleting ? 'Видалення…' : 'Видалити'}</span>
-                </button>
-              </>
-            )}
-            <Link href="/news" className="na-back-link">
-              <span aria-hidden="true">←</span>
-              До новин
-            </Link>
+          <div className="na-topline-stack">
+            <div className="na-top-actions" aria-label="Дії з новиною">
+              <Link href="/news" className="page-back-link">
+                <span aria-hidden="true">←</span>
+                До новин
+              </Link>
+              <button type="button" className="na-action" onClick={() => void handleCopyLink()}>
+                <span aria-hidden="true">{isCopied ? '✓' : '⧉'}</span>
+                <span>{isCopied ? 'Скопійовано' : 'Копіювати'}</span>
+              </button>
+              {canManage && (
+                <>
+                  <Link href={`${postPath}/edit`} className="na-action">
+                    <span aria-hidden="true">✎</span>
+                    <span>Редагувати</span>
+                  </Link>
+                  <button
+                    type="button"
+                    className="na-action na-action-danger"
+                    onClick={() => void handleDelete()}
+                    disabled={isDeleting}
+                  >
+                    <span aria-hidden="true">×</span>
+                    <span>{isDeleting ? 'Видалення…' : 'Видалити'}</span>
+                  </button>
+                </>
+              )}
+            </div>
+            <nav className="na-breadcrumbs" aria-label="Навігація">
+              <Link href="/">Головна</Link>
+              <span aria-hidden="true">/</span>
+              <Link href="/news">Новини</Link>
+              <span aria-hidden="true">/</span>
+              <span aria-current="page">{post.category}</span>
+            </nav>
           </div>
         </div>
 
