@@ -334,6 +334,8 @@ export function NewsDetailsClient({ initialUser, post, canManage }: NewsDetailsC
             <div className="na-meta">
               <span className="na-category">{post.category}</span>
               <time dateTime={post.createdAt}>{formatDate(post.createdAt)}</time>
+              <span className="na-meta-item">{engagement.views} переглядів</span>
+              <span className="na-meta-item">{engagement.likes} лайків</span>
               <span className="na-meta-item">{readTime} хв читання</span>
             </div>
 
@@ -349,10 +351,6 @@ export function NewsDetailsClient({ initialUser, post, canManage }: NewsDetailsC
                 ) : (
                   <strong>{post.authorName}</strong>
                 )}
-              </div>
-              <div className="na-author-stats" aria-label="Статистика новини">
-                <span><strong>{engagement.views}</strong> переглядів</span>
-                <span><strong>{engagement.likes}</strong> лайків</span>
               </div>
             </div>
           </header>
@@ -385,9 +383,25 @@ export function NewsDetailsClient({ initialUser, post, canManage }: NewsDetailsC
                   <span>Опубліковано</span>
                   <strong>{formatDate(post.createdAt)}</strong>
                 </div>
-                <button type="button" className="na-footer-share" onClick={() => void handleCopyLink()}>
-                  {isCopied ? 'Посилання скопійовано ✓' : 'Поділитися новиною'}
-                </button>
+                <div className="na-footer-actions">
+                  <button
+                    type="button"
+                    className={`news-like-button na-footer-like${engagement.likedByMe ? ' active' : ''}`}
+                    onClick={() => void handleToggleLike()}
+                    disabled={isLikeBusy}
+                  >
+                    <span aria-hidden="true">{engagement.likedByMe ? '♥' : '♡'}</span>
+                    Лайк
+                  </button>
+                  <button type="button" className="na-footer-share" onClick={() => void handleCopyLink()}>
+                    {isCopied ? 'Посилання скопійовано ✓' : 'Поділитися новиною'}
+                  </button>
+                </div>
+                {!initialUser && (
+                  <Link href={`/login?next=${encodeURIComponent(postPath)}`} className="news-login-note na-footer-login-note">
+                    Увійдіть, щоб лайкати.
+                  </Link>
+                )}
               </footer>
 
               <section className="news-engagement" aria-label="Взаємодія з новиною">
@@ -400,23 +414,6 @@ export function NewsDetailsClient({ initialUser, post, canManage }: NewsDetailsC
                   <div className="news-engagement-stats" aria-label="Статистика новини">
                     <span><strong>{engagement.commentsCount}</strong> повідомлень</span>
                   </div>
-                </div>
-
-                <div className="news-engagement-actions">
-                  <button
-                    type="button"
-                    className={`news-like-button${engagement.likedByMe ? ' active' : ''}`}
-                    onClick={() => void handleToggleLike()}
-                    disabled={isLikeBusy}
-                  >
-                    <span aria-hidden="true">{engagement.likedByMe ? '♥' : '♡'}</span>
-                    {engagement.likedByMe ? 'Лайк поставлено' : 'Поставити лайк'}
-                  </button>
-                  {!initialUser && (
-                    <Link href={`/login?next=${encodeURIComponent(postPath)}`} className="news-login-note">
-                      Увійдіть, щоб лайкати і писати.
-                    </Link>
-                  )}
                 </div>
 
                 {initialUser ? (
@@ -449,18 +446,19 @@ export function NewsDetailsClient({ initialUser, post, canManage }: NewsDetailsC
                 <div className="news-comments-list">
                   {engagement.comments.length > 0 ? engagement.comments.map((comment) => (
                     <article className="news-comment" key={comment.id}>
-                      <img src={comment.author.avatarUrl || IMAGE_PLACEHOLDER} alt="" loading="lazy" />
-                      <div>
-                        <header>
+                      <header>
+                        <img src={comment.author.avatarUrl || IMAGE_PLACEHOLDER} alt="" loading="lazy" />
+                        <div className="news-comment-author">
                           {comment.author.slug ? (
                             <Link href={`/profile/${comment.author.slug}`}>{comment.author.name}</Link>
                           ) : (
                             <strong>{comment.author.name}</strong>
                           )}
-                          <time dateTime={comment.updatedAt}>{formatDate(comment.updatedAt)}</time>
-                        </header>
-                        <p>{comment.text}</p>
-                      </div>
+                          <span>Повідомлення під новиною</span>
+                        </div>
+                        <time dateTime={comment.updatedAt}>{formatDate(comment.updatedAt)}</time>
+                      </header>
+                      <p>{comment.text}</p>
                     </article>
                   )) : (
                     <div className="news-comments-empty">Поки немає повідомлень. Будьте першим, хто відреагує.</div>
