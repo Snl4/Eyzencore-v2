@@ -9,7 +9,8 @@ import {
   formatAnimilairDate,
 } from '@/components/partners/animilair-chat-utils'
 import type { AuthUser } from '@/lib/auth-db'
-import type { AnimilairAuthor, AnimilairMessageAttachment, AnimilairOrder, AnimilairOrderMessage } from '@/lib/animilair-shared'
+import type { AnimilairAuthor, AnimilairMessageAttachment, AnimilairOrder, AnimilairOrderMessage, AnimilairProductReview } from '@/lib/animilair-shared'
+import { AnimilairRatingStars } from '@/components/partners/AnimilairRatingStars'
 
 const CHAT_POLL_MS = 2000
 const PRESENCE_POLL_MS = 30000
@@ -32,6 +33,7 @@ type Props = {
   embedded?: boolean
   productPreview?: ProductPreview
   onLoginRequest?: () => void
+  onReviewSubmitted?: () => void
 }
 
 export function AnimilairOrderChat({
@@ -46,10 +48,14 @@ export function AnimilairOrderChat({
   embedded = false,
   productPreview,
   onLoginRequest,
+  onReviewSubmitted,
 }: Props) {
   const [messages, setMessages] = useState<AnimilairOrderMessage[]>(initialMessages)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [orderReview, setOrderReview] = useState<AnimilairProductReview | null>(null)
+  const [reviewRating, setReviewRating] = useState(5)
+  const [reviewBody, setReviewBody] = useState('')
   const [welcomeMessage, setWelcomeMessage] = useState(productPreview?.author.welcomeMessage || '')
   const [isOnline, setIsOnline] = useState(productPreview?.author.isOnline || false)
   const [editingWelcome, setEditingWelcome] = useState(false)
@@ -143,6 +149,52 @@ export function AnimilairOrderChat({
     onActiveOrderIdChange?.(payload.order.id)
     return payload.order.id
   }, [activeOrderId, onActiveOrderIdChange, onOrderCreated, productPreview, user])
+
+  useEffect(() => {
+    if (!activeOrderId || !user || !activeOrder || activeOrder.status !== 'completed') {
+      setOrderReview(null)
+      return
+    }
+    let cancelled = false
+    void (async () => {
+      try {
+        const response = await fetch(`/api/partners/animilair/orders/${activeOrderId}/review`, { cache: 'no-store' })
+        const payload = await response.json() as { review?: AnimilairProductReview | null }
+        if (!cancelled && response.ok) {
+          setOrderReview(payload.review || null)
+        }
+      } catch {
+        if (!cancelled) setOrderReview(null)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [activeOrder?.status, activeOrderId, user])
+
+  const submitReview = async () => {
+    if (!activeOrderId || !user) return
+    setBusy(true)
+    setError('')
+    try {
+      const response = await fetch(`/api/partners/animilair/orders/${activeOrderId}/review`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rating: reviewRating, body: reviewBody }),
+      })
+      const payload = await response.json() as { review?: AnimilairProductReview; error?: string }
+      if (!response.ok || !payload.review) {
+        throw new Error(payload.error || 'Не вдалося зберегти відгук')
+      }
+      setOrderReview(payload.review)
+      setReviewBody('')
+      onReviewSubmitted?.()
+    } catch (reviewError) {
+      setError(reviewError instanceof Error ? reviewError.message : 'Не вдалося зберегти відгук')
+    } finally {
+      setBusy(false)
+    }
+  }
 
   useEffect(() => {
     setWelcomeMessage(productPreview?.author.welcomeMessage || '')
@@ -279,6 +331,12 @@ export function AnimilairOrderChat({
         : !['completed', 'canceled'].includes(activeOrder.status)
     )
   )
+  const showReviewForm = Boolean(
+    activeOrder
+    && activeOrder.status === 'completed'
+    && isCustomerForSelected
+    && !orderReview
+  )
 
   const authorHeader = author ? (
     <header className="animilair-chat-author-head">
@@ -404,26 +462,65 @@ export function AnimilairOrderChat({
 
       {activeOrder && (
         <div className="animilair-order-actions">
+          {productPreview && (
+            <span className="animilair-order-status inline">{animilairStatusLabel(activeOrder.status)}</span>
+          )}
           {(isAdmin || isDesignerForSelected) && activeOrder.status === 'new' && (
             <button className="btn btn-primary" type="button" disabled={busy} onClick={() => void updateStatus('in_progress')}>
               Прийняти замовлення
             </button>
           )}
-          {(isAdmin || isDesignerForSelected) && activeOrder.status === 'in_progress' && (
+          {(isAdmin || isDesignerForSelected) && ['in_progress', 'waiting_customer'].includes(activeOrder.status) && (
             <>
-              <button className="btn btn-secondary" type="button" disabled={busy} onClick={() => void updateStatus('waiting_customer')}>
-                Чекаю відповідь
-              </button>
-              <button className="btn btn-primary" type="button" disabled={busy} onClick={() => void updateStatus('completed')}>
-                Завершити
+              {activeOrder.status === 'in_progress' && (
+                <button className="btn btn-secondary" type="button" disabled={busy} onClick={() => void updateStatus('waiting_customer')}>
+                  Чекаю відповідь
+                </button>
+              )}
+              <button className="btn btn-primary" type="button" disabled={busy} onClick={() => void updateStatus('awaiting_confirmation')}>
+                Роботу завершено
               </button>
             </>
+          )}
+          {isCustomerForSelected && activeOrder.status === 'awaiting_confirmation' && (
+            <button className="btn btn-primary" type="button" disabled={busy} onClick={() => void updateStatus('completed')}>
+              Підтвердити виконання
+            </button>
           )}
           {isCustomerForSelected && !['completed', 'canceled'].includes(activeOrder.status) && (
             <button className="btn btn-secondary" type="button" disabled={busy} onClick={() => void updateStatus('canceled')}>
               Скасувати
             </button>
           )}
+        </div>
+      )}
+
+      {showReviewForm && (
+        <div className="animilair-review-form">
+          <strong>Залиште відгук про послугу</strong>
+          <p>Оцініть роботу дизайнера від 1 до 5 зірок.</p>
+          <AnimilairRatingStars value={reviewRating} onChange={setReviewRating} />
+          <label>
+            Коментар (необовʼязково)
+            <textarea
+              rows={3}
+              value={reviewBody}
+              onChange={(event) => setReviewBody(event.target.value)}
+              maxLength={2000}
+              placeholder="Що сподобалось або що можна покращити"
+            />
+          </label>
+          <button className="btn btn-primary" type="button" disabled={busy} onClick={() => void submitReview()}>
+            Надіслати відгук
+          </button>
+        </div>
+      )}
+
+      {orderReview && (
+        <div className="animilair-review-summary">
+          <strong>Ваш відгук збережено</strong>
+          <AnimilairRatingStars value={orderReview.rating} size="sm" />
+          {orderReview.body ? <p>{orderReview.body}</p> : null}
         </div>
       )}
 

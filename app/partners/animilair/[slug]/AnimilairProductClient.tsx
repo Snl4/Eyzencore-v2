@@ -1,13 +1,15 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { PageShell } from '@/components/layout/PageShell'
 import { Breadcrumbs } from '@/components/ui/Breadcrumbs'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { AnimilairOrderChat } from '@/components/partners/AnimilairOrderChat'
 import type { AuthUser } from '@/lib/auth-db'
-import type { AnimilairOrder, AnimilairOrderMessage, AnimilairProduct } from '@/lib/animilair-shared'
+import type { AnimilairOrder, AnimilairOrderMessage, AnimilairProduct, AnimilairProductReview } from '@/lib/animilair-shared'
+import { AnimilairRatingStars } from '@/components/partners/AnimilairRatingStars'
+import { formatAnimilairDate } from '@/components/partners/animilair-chat-utils'
 import { IMAGE_PLACEHOLDER } from '@/lib/placeholders'
 
 type Props = {
@@ -17,6 +19,7 @@ type Props = {
   initialProductOrders?: AnimilairOrder[]
   initialActiveOrderId?: number | null
   initialMessages?: AnimilairOrderMessage[]
+  initialReviews?: AnimilairProductReview[]
 }
 
 type ProductForm = {
@@ -61,6 +64,7 @@ export function AnimilairProductClient({
   initialProductOrders = [],
   initialActiveOrderId = null,
   initialMessages = [],
+  initialReviews = [],
 }: Props) {
   const router = useRouter()
   const confirmAction = useConfirm()
@@ -78,6 +82,7 @@ export function AnimilairProductClient({
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [editOpen, setEditOpen] = useState(false)
+  const [reviews, setReviews] = useState(initialReviews)
   const [productForm, setProductForm] = useState<ProductForm>({
     title: product.title,
     category: product.category,
@@ -89,6 +94,10 @@ export function AnimilairProductClient({
     tags: product.tags.join(', '),
     media: product.media.map((item) => item.url).filter(Boolean).join('\n'),
   })
+
+  useEffect(() => {
+    setReviews(initialReviews)
+  }, [initialReviews])
 
   const uploadCover = async (file: File) => {
     const data = new FormData()
@@ -186,6 +195,13 @@ export function AnimilairProductClient({
               )}
             </div>
             <h1>{product.title}</h1>
+            {product.ratingCount > 0 && product.ratingAverage && (
+              <div className="animilair-product-rating-head">
+                <AnimilairRatingStars value={product.ratingAverage} size="sm" />
+                <strong>{product.ratingAverage.toFixed(1)}</strong>
+                <span>{product.ratingCount} {product.ratingCount === 1 ? 'відгук' : product.ratingCount < 5 ? 'відгуки' : 'відгуків'}</span>
+              </div>
+            )}
 
             <div className="animilair-detail-gallery">
               {activeImage ? (
@@ -229,14 +245,32 @@ export function AnimilairProductClient({
                 <li>Дизайнер приймає замовлення і уточнює деталі в чаті.</li>
                 <li>Усі правки та обговорення залишаються прямо на Eyzencore.</li>
                 <li>Після готовності дизайнер передає результат у чаті.</li>
+                <li>Ви підтверджуєте виконання та залишаєте оцінку від 1 до 5.</li>
               </ol>
             </section>
 
             <section className="animilair-detail-section">
               <h2>Відгуки</h2>
-              <div className="animilair-review-empty">
-                Поки немає відгуків по цій послузі. Перші завершені замовлення зʼявляться тут.
-              </div>
+              {reviews.length > 0 ? (
+                <div className="animilair-review-list">
+                  {reviews.map((review) => (
+                    <article className="animilair-review-card" key={review.id}>
+                      <div className="animilair-review-card-head">
+                        <div>
+                          <strong>{review.customerName}</strong>
+                          <small>{formatAnimilairDate(review.createdAt)}</small>
+                        </div>
+                        <AnimilairRatingStars value={review.rating} size="sm" />
+                      </div>
+                      {review.body ? <p>{review.body}</p> : null}
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <div className="animilair-review-empty">
+                  Поки немає відгуків по цій послузі. Перші завершені замовлення зʼявляться тут.
+                </div>
+              )}
             </section>
           </article>
 
@@ -273,6 +307,9 @@ export function AnimilairProductClient({
                   canEditWelcome: canManage,
                 }}
                 onLoginRequest={() => router.push('/login')}
+                onReviewSubmitted={() => {
+                  router.refresh()
+                }}
               />
             )}
           </aside>

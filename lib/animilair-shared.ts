@@ -39,7 +39,21 @@ export type AnimilairProduct = {
   tags: string[]
   featured: boolean
   viewCount: number
+  ratingAverage: number | null
+  ratingCount: number
   media: Array<{ id: number; type: string; url: string; caption: string }>
+}
+
+export type AnimilairProductReview = {
+  id: number
+  productId: number
+  orderId: number
+  customerId: string
+  customerName: string
+  customerAvatarUrl: string | null
+  rating: number
+  body: string
+  createdAt: string
 }
 
 export type AnimilairOrder = {
@@ -89,7 +103,8 @@ export const ANIMILAIR_ORDER_STATUS_MESSAGES: Record<string, string> = {
   new: 'Статус замовлення: нове',
   in_progress: 'Дизайнер прийняв замовлення в роботу.',
   waiting_customer: 'Дизайнер очікує відповідь замовника.',
-  completed: 'Замовлення позначено як виконане.',
+  awaiting_confirmation: 'Дизайнер передав роботу. Підтвердіть, що замовлення виконане.',
+  completed: 'Замовлення підтверджено та завершене.',
   canceled: 'Замовлення скасовано.',
 }
 

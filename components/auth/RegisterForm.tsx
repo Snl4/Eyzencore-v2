@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -32,8 +32,16 @@ export function RegisterForm() {
   const [verificationCode, setVerificationCode] = useState<string>('')
   const [verificationSent, setVerificationSent] = useState<boolean>(false)
   const [status, setStatus] = useState<RegisterStatus>({ type: null, message: '' })
+  const codeInputRef = useRef<HTMLInputElement>(null)
   const strength = useMemo(() => getPasswordStrength(password), [password])
   const strengthLabel = useMemo(() => ['Слабкий', 'Середній', 'Сильний'][Math.max(0, strength - 1)] || '', [strength])
+
+  useEffect(() => {
+    if (verificationSent) {
+      codeInputRef.current?.focus()
+    }
+  }, [verificationSent])
+
   const handleSubmitRegister = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault()
     if (!terms) {
@@ -64,12 +72,12 @@ export function RegisterForm() {
       }
       if (!verificationSent) {
         setVerificationSent(true)
-        setStatus({ type: 'success', message: 'Код надіслано на пошту. Введіть його нижче.' })
+        setStatus({ type: 'success', message: `Код надіслано на ${email}. Введіть його в полі нижче.` })
         setIsLoading(false)
         return
       }
-      setStatus({ type: 'success', message: 'Акаунт створено. Переходимо в кабінет...' })
-      router.push('/settings')
+      setStatus({ type: 'success', message: 'Акаунт створено. Переходимо до профілю...' })
+      router.push('/profile')
       router.refresh()
     } catch {
       setStatus({ type: 'error', message: 'Помилка мережі. Спробуйте ще раз.' })
@@ -108,31 +116,15 @@ export function RegisterForm() {
       </div>
       <div className="field">
         <label>Email</label>
-        <input className="input" type="email" placeholder="ваш@email.com" value={email} onChange={(event) => setEmail(event.target.value)} required />
+        <input className="input" type="email" placeholder="ваш@email.com" value={email} onChange={(event) => setEmail(event.target.value)} required readOnly={verificationSent} />
       </div>
-      {verificationSent && (
-        <div className="field">
-          <label>Код із пошти</label>
-          <input
-            className="input"
-            type="text"
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            maxLength={6}
-            placeholder="000000"
-            value={verificationCode}
-            onChange={(event) => setVerificationCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
-            required
-          />
-        </div>
-      )}
       <div className="field">
         <label>
           Пароль
           {password && <span style={{ fontWeight: 400, fontSize: 11.5, color: ['var(--red)', 'var(--amber)', 'var(--green)'][Math.max(0, strength - 1)] || 'var(--fg-3)', fontFamily: 'var(--font-mono)' }}>{strengthLabel}</span>}
         </label>
         <div className="input-wrap">
-          <input className="input" type={showPassword ? 'text' : 'password'} placeholder="Мінімум 8 символів" value={password} onChange={(event) => setPassword(event.target.value)} required style={{ paddingRight: 40 }} />
+          <input className="input" type={showPassword ? 'text' : 'password'} placeholder="Мінімум 8 символів" value={password} onChange={(event) => setPassword(event.target.value)} required style={{ paddingRight: 40 }} readOnly={verificationSent} />
           <button type="button" className="ico-r" onClick={() => setShowPassword(!showPassword)}>
             {showPassword ? <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24M1 1l22 22" /></svg> : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>}
           </button>
@@ -145,6 +137,34 @@ export function RegisterForm() {
           </div>
         )}
       </div>
+      {verificationSent && (
+        <>
+          {status.type === 'success' && (
+            <div className="auth-feedback auth-feedback-success" style={{ marginBottom: 12, display: 'flex', gap: 8, alignItems: 'center' }}>
+              {AuthIcons.success}
+              <span>{status.message}</span>
+            </div>
+          )}
+          <div className="field">
+            <label>Код із пошти</label>
+            <input
+              ref={codeInputRef}
+              className="input"
+              type="text"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              maxLength={6}
+              placeholder="000000"
+              value={verificationCode}
+              onChange={(event) => setVerificationCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
+              required
+            />
+            <p style={{ margin: '8px 0 0', color: 'var(--fg-3)', fontSize: 12.5, lineHeight: 1.5 }}>
+              Перевірте вхідні та папку «Спам». Код дійсний обмежений час.
+            </p>
+          </div>
+        </>
+      )}
       <label className="checkbox-row">
         <input type="checkbox" checked={terms} onChange={(event) => setTerms(event.target.checked)} />
         <span>
@@ -156,7 +176,7 @@ export function RegisterForm() {
         <input type="checkbox" checked={news} onChange={(event) => setNews(event.target.checked)} />
         <span style={{ color: 'var(--fg-2)' }}>Надсилати новини про оновлення платформи (раз на місяць)</span>
       </label>
-      {status.type && (
+      {status.type && (status.type === 'error' || status.type === 'loading' || (status.type === 'success' && !verificationSent)) && (
         <div className={status.type === 'error' ? 'auth-feedback auth-feedback-error' : 'auth-feedback auth-feedback-success'} style={{ marginBottom: 16, display: 'flex', gap: 8, alignItems: 'center' }}>
           {status.type === 'loading' ? AuthIcons.loading : status.type === 'success' ? AuthIcons.success : AuthIcons.error}
           <span>{status.message}</span>

@@ -798,6 +798,20 @@ model app_animilair_product_views {
   @@index([created_at], map: "idx_animilair_product_views_created")
 }
 
+model app_animilair_product_reviews {
+  id          Int    @id @default(autoincrement())
+  product_id  Int
+  order_id    Int    @unique
+  customer_id String
+  rating      Int
+  body        String @default("")
+  created_at  String
+  updated_at  String
+
+  @@index([product_id, created_at], map: "idx_animilair_reviews_product")
+  @@index([customer_id], map: "idx_animilair_reviews_customer")
+}
+
 model app_site_settings {
   id                  Int    @id @default(1)
   maintenance_enabled Int    @default(0)

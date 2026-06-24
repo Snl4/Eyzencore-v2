@@ -9,6 +9,7 @@ import {
   getAnimilairMessages,
   getAnimilairOrdersForProduct,
   getAnimilairProduct,
+  getAnimilairProductReviews,
   getAnimilairRequestIp,
   recordAnimilairProductView,
 } from '@/lib/animilair-db'
@@ -69,10 +70,13 @@ export default async function AnimilairProductPage({ params }: Props) {
   const productOrders = auth
     ? await getAnimilairOrdersForProduct(product.id, auth.user, role)
     : []
-  const activeOrder = productOrders.find((order) => order.status !== 'canceled') || productOrders[0] || null
+  const activeOrder = productOrders.find((order) => !['canceled', 'completed'].includes(order.status))
+    || productOrders[0]
+    || null
   const initialMessages = auth && activeOrder
     ? await getAnimilairMessages(activeOrder.id, auth.user, role)
     : []
+  const initialReviews = await getAnimilairProductReviews(product.id)
 
   return (
     <>
@@ -84,6 +88,7 @@ export default async function AnimilairProductPage({ params }: Props) {
         initialProductOrders={productOrders}
         initialActiveOrderId={activeOrder?.id ?? null}
         initialMessages={initialMessages}
+        initialReviews={initialReviews}
       />
     </>
   )

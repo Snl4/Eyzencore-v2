@@ -20,6 +20,7 @@ import {
   type AnimilairOrder,
   type AnimilairOrderMessage,
   type AnimilairProduct,
+  type AnimilairProductReview,
 } from '@/lib/animilair-shared'
 
 export {
@@ -43,7 +44,27 @@ export {
 
 type CountRow = { c: number | bigint | null }
 
+type ReviewRow = {
+  id: number | bigint
+  product_id: number | bigint
+  order_id: number | bigint
+  customer_id: string
+  customer_name?: string | null
+  customer_avatar_url?: string | null
+  rating: number | bigint
+  body: string
+  created_at: string
+  updated_at: string
+}
+
+type ProductRating = {
+  average: number | null
+  count: number
+}
+
 const ANIMILAIR_ORDER_STATUS_BODIES = new Set(Object.values(ANIMILAIR_ORDER_STATUS_MESSAGES))
+const ANIMILAIR_SUPPORT_EMAIL = 'animilair-support@eyzencore.internal'
+const ANIMILAIR_SUPPORT_PROFILE_SLUG = 'eyzencore-support'
 
 type AuthorRow = {
   id: number | bigint
@@ -219,6 +240,47 @@ async function getAnimilairProductViewCounts(productIds: number[]): Promise<Map<
   return counts
 }
 
+async function getAnimilairProductRatingStats(productIds: number[]): Promise<Map<number, ProductRating>> {
+  if (productIds.length === 0) return new Map()
+  const placeholders = productIds.map(() => '?').join(',')
+  const rows = await prisma.$queryRawUnsafe<Array<{
+    product_id: number | bigint
+    average_rating: number | null
+    review_count: number | bigint | null
+  }>>(
+    `SELECT product_id,
+            AVG(rating) AS average_rating,
+            COUNT(*) AS review_count
+     FROM app_animilair_product_reviews
+     WHERE product_id IN (${placeholders})
+     GROUP BY product_id`,
+    ...productIds
+  )
+  const stats = new Map<number, ProductRating>()
+  for (const row of rows) {
+    const count = countToNumber(row.review_count)
+    stats.set(Number(row.product_id), {
+      average: count > 0 ? Number(row.average_rating || 0) : null,
+      count,
+    })
+  }
+  return stats
+}
+
+function mapReview(row: ReviewRow): AnimilairProductReview {
+  return {
+    id: Number(row.id),
+    productId: Number(row.product_id),
+    orderId: Number(row.order_id),
+    customerId: row.customer_id,
+    customerName: String(row.customer_name || 'Користувач'),
+    customerAvatarUrl: row.customer_avatar_url || null,
+    rating: Math.max(1, Math.min(5, Number(row.rating) || 1)),
+    body: String(row.body || '').trim(),
+    createdAt: row.created_at,
+  }
+}
+
 export async function recordAnimilairProductView(input: {
   productId: number
   userId?: string | null
@@ -240,7 +302,12 @@ export async function recordAnimilairProductView(input: {
   return Number(result) > 0
 }
 
-function mapProduct(row: ProductRow, media: MediaRow[] = [], viewCount = 0): AnimilairProduct {
+function mapProduct(
+  row: ProductRow,
+  media: MediaRow[] = [],
+  viewCount = 0,
+  rating: ProductRating = { average: null, count: 0 }
+): AnimilairProduct {
   const author = row.author_name
     ? {
         id: Number(row.author_id),
@@ -273,6 +340,8 @@ function mapProduct(row: ProductRow, media: MediaRow[] = [], viewCount = 0): Ani
     tags: parseJson<string[]>(row.tags_json, []),
     featured: Boolean(Number(row.featured || 0)),
     viewCount,
+    ratingAverage: rating.count > 0 ? Number(rating.average || 0) : null,
+    ratingCount: rating.count,
     media: media
       .filter((item) => Number(item.product_id) === Number(row.id))
       .map((item) => ({
@@ -388,7 +457,32 @@ async function uniqueAuthorSlug(name: string) {
   return `${base}-${Date.now()}`
 }
 
+async function ensureAnimilairSupportUser() {
+  const existing = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
+    `SELECT id FROM app_users WHERE id = ? LIMIT 1`,
+    ANIMILAIR_SUPPORT_USER_ID
+  )
+  if (existing[0]) return
+
+  const now = nowIso()
+  await prisma.$executeRawUnsafe(
+    `INSERT INTO app_users (
+      id, email, password_hash, full_name, profile_slug, bio, location, website, telegram, discord,
+      avatar_url, banner_url, role, created_at, updated_at, is_legacy, theme
+    ) VALUES (?, ?, ?, ?, ?, '', '', NULL, NULL, NULL, ?, NULL, 'ADMIN', ?, ?, 0, 'dark')`,
+    ANIMILAIR_SUPPORT_USER_ID,
+    ANIMILAIR_SUPPORT_EMAIL,
+    createHash('sha256').update(`${ANIMILAIR_SUPPORT_USER_ID}:no-login`).digest('hex'),
+    ANIMILAIR_SUPPORT_NAME,
+    ANIMILAIR_SUPPORT_PROFILE_SLUG,
+    ANIMILAIR_SUPPORT_AVATAR,
+    now,
+    now
+  )
+}
+
 export async function ensureAnimilairSeedData() {
+  await ensureAnimilairSupportUser()
   const now = nowIso()
   const authors = [
     {
@@ -531,9 +625,16 @@ export async function getAnimilairCatalog() {
     (product) => isValidCoverUrl(product.cover_url) && isAnimilairCatalogCategory(product.category)
   )
   const viewCounts = await getAnimilairProductViewCounts(visibleProductRows.map((product) => Number(product.id)))
-  const products = visibleProductRows.map((product) =>
-    mapProduct(product, media, viewCounts.get(Number(product.id)) || 0)
-  )
+  const ratingStats = await getAnimilairProductRatingStats(visibleProductRows.map((product) => Number(product.id)))
+  const products = visibleProductRows.map((product) => {
+    const productId = Number(product.id)
+    return mapProduct(
+      product,
+      media,
+      viewCounts.get(productId) || 0,
+      ratingStats.get(productId) || { average: null, count: 0 }
+    )
+  })
   const authorIdsWithProducts = new Set(products.map((product) => product.authorId))
   const designerUserIds = new Set(designerRows.map((row) => row.id))
   const visibleAuthors = authors.filter((author) => {
@@ -563,7 +664,7 @@ export async function getAnimilairProduct(slugOrId: string | number) {
   )
   const product = rows[0]
   if (!product) return null
-  const [media, viewRows] = await Promise.all([
+  const [media, viewRows, ratingRows] = await Promise.all([
     prisma.$queryRawUnsafe<MediaRow[]>(
       `SELECT * FROM app_animilair_product_media WHERE product_id = ? ORDER BY position ASC, id ASC`,
       Number(product.id)
@@ -572,8 +673,18 @@ export async function getAnimilairProduct(slugOrId: string | number) {
       `SELECT COUNT(*) AS c FROM app_animilair_product_views WHERE product_id = ?`,
       Number(product.id)
     ),
+    prisma.$queryRawUnsafe<Array<{ average_rating: number | null; review_count: number | bigint | null }>>(
+      `SELECT AVG(rating) AS average_rating, COUNT(*) AS review_count
+       FROM app_animilair_product_reviews
+       WHERE product_id = ?`,
+      Number(product.id)
+    ),
   ])
-  return mapProduct(product, media, countToNumber(viewRows[0]?.c))
+  const reviewCount = countToNumber(ratingRows[0]?.review_count)
+  return mapProduct(product, media, countToNumber(viewRows[0]?.c), {
+    average: reviewCount > 0 ? Number(ratingRows[0]?.average_rating || 0) : null,
+    count: reviewCount,
+  })
 }
 
 export async function getOrCreateDesignerAuthor(user: AuthUser, role: UserRole) {
@@ -699,7 +810,16 @@ export async function getAnimilairProductsForManager(user: AuthUser, role: UserR
     `SELECT * FROM app_animilair_product_media ORDER BY product_id ASC, position ASC, id ASC`
   )
   const viewCounts = await getAnimilairProductViewCounts(rows.map((product) => Number(product.id)))
-  return rows.map((product) => mapProduct(product, media, viewCounts.get(Number(product.id)) || 0))
+  const ratingStats = await getAnimilairProductRatingStats(rows.map((product) => Number(product.id)))
+  return rows.map((product) => {
+    const productId = Number(product.id)
+    return mapProduct(
+      product,
+      media,
+      viewCounts.get(productId) || 0,
+      ratingStats.get(productId) || { average: null, count: 0 }
+    )
+  })
 }
 
 async function getAnimilairProductRow(slugOrId: string | number) {
@@ -1043,21 +1163,47 @@ export async function updateAnimilairOrderStatus(input: {
   if (!order) throw new Error('Замовлення не знайдено')
 
   const nextStatus = String(input.status || '').trim()
-  const allowed = new Set(['new', 'in_progress', 'waiting_customer', 'completed', 'canceled'])
+  const allowed = new Set(['new', 'in_progress', 'waiting_customer', 'awaiting_confirmation', 'completed', 'canceled'])
   if (!allowed.has(nextStatus)) throw new Error('Некоректний статус замовлення')
 
   const isAdmin = role === 'ADMIN'
   const isDesigner = order.authorUserId === input.user.id
   const isCustomer = order.customerId === input.user.id
-  const canDesignerUpdate = isAdmin || isDesigner
-  const canCustomerCancel = isCustomer && nextStatus === 'canceled'
-  if (!canDesignerUpdate && !canCustomerCancel) {
+  const currentStatus = order.status
+
+  const designerTransitions: Record<string, string[]> = {
+    new: ['in_progress'],
+    in_progress: ['waiting_customer', 'awaiting_confirmation'],
+    waiting_customer: ['in_progress', 'awaiting_confirmation'],
+  }
+  const customerTransitions: Record<string, string[]> = {
+    new: ['canceled'],
+    in_progress: ['canceled'],
+    waiting_customer: ['canceled'],
+    awaiting_confirmation: ['completed', 'canceled'],
+  }
+
+  let canUpdate = false
+  if (isAdmin) {
+    canUpdate = true
+  } else if (isDesigner && designerTransitions[currentStatus]?.includes(nextStatus)) {
+    canUpdate = true
+  } else if (isCustomer && customerTransitions[currentStatus]?.includes(nextStatus)) {
+    canUpdate = true
+  }
+
+  if (!canUpdate) {
     throw new Error('Немає доступу до зміни статусу')
+  }
+
+  if (nextStatus === 'completed' && currentStatus !== 'awaiting_confirmation' && !isAdmin) {
+    throw new Error('Замовлення можна завершити лише після підтвердження покупцем')
   }
 
   const statusMessages = ANIMILAIR_ORDER_STATUS_MESSAGES
 
   const now = nowIso()
+  await ensureAnimilairSupportUser()
   await prisma.$executeRawUnsafe(
     `UPDATE app_animilair_orders SET status = ?, updated_at = ? WHERE id = ?`,
     nextStatus,
@@ -1074,4 +1220,85 @@ export async function updateAnimilairOrderStatus(input: {
   )
 
   return getAnimilairOrder(input.orderId, input.user, role)
+}
+
+export async function getAnimilairProductReviews(productId: number, limit = 20) {
+  const rows = await prisma.$queryRawUnsafe<ReviewRow[]>(
+    `SELECT r.*, u.full_name AS customer_name, u.avatar_url AS customer_avatar_url
+     FROM app_animilair_product_reviews r
+     JOIN app_users u ON u.id = r.customer_id
+     WHERE r.product_id = ?
+     ORDER BY datetime(r.created_at) DESC, r.id DESC
+     LIMIT ?`,
+    productId,
+    Math.max(1, Math.min(limit, 50))
+  )
+  return rows.map(mapReview)
+}
+
+export async function getAnimilairOrderReview(orderId: number, user: AuthUser, role: UserRole = 'USER') {
+  await getAnimilairOrder(orderId, user, role)
+  const rows = await prisma.$queryRawUnsafe<ReviewRow[]>(
+    `SELECT r.*, u.full_name AS customer_name, u.avatar_url AS customer_avatar_url
+     FROM app_animilair_product_reviews r
+     JOIN app_users u ON u.id = r.customer_id
+     WHERE r.order_id = ?
+     LIMIT 1`,
+    orderId
+  )
+  return rows[0] ? mapReview(rows[0]) : null
+}
+
+export async function createAnimilairProductReview(input: {
+  orderId: number
+  user: AuthUser
+  role?: UserRole
+  rating: number
+  body?: string
+}) {
+  const role = input.role || 'USER'
+  const order = await getAnimilairOrder(input.orderId, input.user, role)
+  if (!order) throw new Error('Замовлення не знайдено')
+  if (order.customerId !== input.user.id && role !== 'ADMIN') {
+    throw new Error('Відгук може залишити лише покупець')
+  }
+  if (order.status !== 'completed') {
+    throw new Error('Відгук доступний лише після завершення замовлення')
+  }
+
+  const existing = await prisma.$queryRawUnsafe<Array<{ id: number | bigint }>>(
+    `SELECT id FROM app_animilair_product_reviews WHERE order_id = ? LIMIT 1`,
+    input.orderId
+  )
+  if (existing[0]) throw new Error('Відгук по цьому замовленню вже залишено')
+
+  const rating = Math.round(Number(input.rating))
+  if (!Number.isFinite(rating) || rating < 1 || rating > 5) {
+    throw new Error('Оцінка має бути від 1 до 5')
+  }
+  const body = String(input.body || '').trim().slice(0, 2000)
+  const now = nowIso()
+
+  await prisma.$executeRawUnsafe(
+    `INSERT INTO app_animilair_product_reviews
+      (product_id, order_id, customer_id, rating, body, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    order.productId,
+    order.id,
+    order.customerId,
+    rating,
+    body,
+    now,
+    now
+  )
+
+  const rows = await prisma.$queryRawUnsafe<ReviewRow[]>(
+    `SELECT r.*, u.full_name AS customer_name, u.avatar_url AS customer_avatar_url
+     FROM app_animilair_product_reviews r
+     JOIN app_users u ON u.id = r.customer_id
+     WHERE r.order_id = ?
+     LIMIT 1`,
+    order.id
+  )
+  return rows[0] ? mapReview(rows[0]) : null
 }

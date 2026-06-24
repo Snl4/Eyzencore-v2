@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { PageShell } from '@/components/layout/PageShell'
+import { AnimilairRatingStars } from '@/components/partners/AnimilairRatingStars'
 import { Breadcrumbs } from '@/components/ui/Breadcrumbs'
 import type { AuthUser } from '@/lib/auth-db'
 import type { AnimilairAuthor, AnimilairProduct } from '@/lib/animilair-shared'
@@ -253,6 +253,12 @@ export function AnimilairClient({ initialUser, catalog }: Props) {
                     </div>
                     <h3>{product.title}</h3>
                     <p>{product.shortDesc}</p>
+                    {product.ratingCount > 0 && product.ratingAverage && (
+                      <div className="animilair-product-rating-inline">
+                        <AnimilairRatingStars value={product.ratingAverage} size="sm" />
+                        <span>{product.ratingAverage.toFixed(1)} · {product.ratingCount}</span>
+                      </div>
+                    )}
                     <div className="animilair-product-foot">
                       <span>Термін: {product.deliveryDays ? `${product.deliveryDays} дн.` : 'обговорюється'}</span>
                       <strong>{formatPrice(product.priceFrom)}</strong>

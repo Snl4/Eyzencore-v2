@@ -1420,7 +1420,7 @@
 
 .animilair-detail-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(520px, 46%);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 380px);
   gap: 28px;
   align-items: start;
 }
@@ -1532,13 +1532,148 @@
   background: var(--bg-2);
 }
 
+.animilair-product-rating-head,
+.animilair-product-rating-inline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.animilair-product-rating-head {
+  margin: -10px 0 18px;
+  color: var(--fg-2);
+  font-size: 14px;
+}
+
+.animilair-product-rating-head strong {
+  color: var(--fg);
+  font-size: 18px;
+}
+
+.animilair-product-rating-inline {
+  margin: 8px 0 2px;
+  color: var(--fg-3);
+  font-size: 12px;
+}
+
+.animilair-rating-stars {
+  display: inline-flex;
+  gap: 2px;
+  color: color-mix(in srgb, var(--accent) 72%, #f5c542);
+  font-size: 18px;
+  line-height: 1;
+}
+
+.animilair-rating-stars.sm {
+  font-size: 14px;
+}
+
+.animilair-rating-stars span,
+.animilair-rating-stars button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  line-height: 1;
+}
+
+.animilair-rating-stars button {
+  cursor: pointer;
+  opacity: .45;
+}
+
+.animilair-rating-stars button.active,
+.animilair-rating-stars span.active {
+  opacity: 1;
+}
+
+.animilair-rating-stars.interactive button:hover,
+.animilair-rating-stars.interactive button.active {
+  opacity: 1;
+  transform: scale(1.04);
+}
+
+.animilair-review-list {
+  display: grid;
+  gap: 12px;
+}
+
+.animilair-review-card {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 16px;
+  background: var(--bg-2);
+}
+
+.animilair-review-card-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: start;
+  margin-bottom: 8px;
+}
+
+.animilair-review-card-head small {
+  display: block;
+  margin-top: 4px;
+  color: var(--fg-3);
+  font-size: 12px;
+}
+
+.animilair-review-card p {
+  margin: 0;
+  color: var(--fg-2);
+  line-height: 1.65;
+  white-space: pre-wrap;
+}
+
+.animilair-review-form,
+.animilair-review-summary {
+  display: grid;
+  gap: 10px;
+  margin: 0 16px 12px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--accent) 5%, var(--bg-2));
+}
+
+.animilair-review-form p,
+.animilair-review-summary p {
+  margin: 0;
+  color: var(--fg-2);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.animilair-review-form label {
+  display: grid;
+  gap: 6px;
+  color: var(--fg-2);
+  font-size: 13px;
+}
+
+.animilair-review-form textarea {
+  width: 100%;
+  resize: vertical;
+}
+
+.animilair-order-status.inline {
+  align-self: center;
+  margin-right: auto;
+}
+
 .animilair-detail-side {
   position: sticky;
   top: 86px;
   display: grid;
   grid-template-columns: 1fr;
-  gap: 14px;
+  gap: 12px;
   align-items: start;
+  width: 100%;
+  max-width: 380px;
   min-height: min(72vh, 680px);
 }
 
@@ -1550,15 +1685,6 @@
   display: grid;
   gap: 12px;
   align-content: start;
-}
-
-.animilair-buy-card-compact > strong {
-  font-size: 32px;
-}
-
-.animilair-buy-card-compact {
-  gap: 10px;
-  padding: 16px;
 }
 
 .animilair-buy-note {
@@ -1774,12 +1900,31 @@
   gap: 14px;
 }
 
+.animilair-buy-card.animilair-buy-card-compact {
+  gap: 12px;
+  padding: 18px;
+}
+
+.animilair-buy-card.animilair-buy-card-compact > span {
+  margin: 0;
+  line-height: 1.2;
+  letter-spacing: 0.06em;
+}
+
+.animilair-buy-card.animilair-buy-card-compact > strong {
+  margin: 0;
+  font-size: 28px;
+  line-height: 1.1;
+  letter-spacing: -0.04em;
+}
+
 .animilair-buy-card > span,
 .animilair-buy-row span {
   color: var(--fg-3);
   font-size: 12px;
   font-weight: 800;
   text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
 
 .animilair-buy-card > strong {
@@ -1790,12 +1935,27 @@
 
 .animilair-buy-row {
   display: flex;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 12px 14px;
+  padding: 11px 14px;
   border: 1px solid var(--line);
   border-radius: 14px;
   background: var(--bg-2);
+}
+
+.animilair-buy-row b {
+  color: var(--fg);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.animilair-buy-card.animilair-buy-card-compact .animilair-buy-note {
+  margin: 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
 }
 
 .animilair-buy-card ul {
@@ -2059,7 +2219,7 @@
   justify-self: end;
 }
 
-.animilair-message img {
+.animilair-message > img {
   width: 38px;
   height: 38px;
   border-radius: 12px;
@@ -2114,7 +2274,11 @@
 
 .animilair-message-image img {
   display: block;
+  width: auto;
+  height: auto;
   max-width: min(280px, 100%);
+  max-height: 320px;
+  object-fit: contain;
   border-radius: 12px;
   border: 1px solid var(--line);
 }
@@ -2323,6 +2487,7 @@
   .animilair-detail-side {
     position: static;
     grid-template-columns: 1fr;
+    max-width: none;
     min-height: auto;
   }
 
@@ -2387,8 +2552,8 @@
     grid-template-columns: 1fr;
   }
 
-  .animilair-buy-card-compact > strong {
-    font-size: 28px;
+  .animilair-buy-card.animilair-buy-card-compact > strong {
+    font-size: 24px;
   }
 }
 .na-action {
