@@ -4,6 +4,11 @@ type AnimilairManagerUser = {
   id: string
 }
 
+export const ANIMILAIR_DEFAULT_WELCOME =
+  'Привіт! Напишіть, що потрібно зробити — обговоримо деталі, бюджет і терміни прямо в чаті.'
+
+export const ANIMILAIR_ONLINE_WINDOW_MS = 5 * 60 * 1000
+
 export type AnimilairAuthor = {
   id: number
   userId: string | null
@@ -14,6 +19,9 @@ export type AnimilairAuthor = {
   avatarUrl: string | null
   bannerUrl: string | null
   socials: Record<string, string>
+  welcomeMessage: string
+  isOnline: boolean
+  lastSeenAt: string | null
 }
 
 export type AnimilairProduct = {

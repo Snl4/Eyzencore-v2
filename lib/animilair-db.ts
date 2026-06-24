@@ -4,8 +4,10 @@ import { prisma } from '@/lib/prisma'
 import type { AuthUser, UserRole } from '@/lib/auth-db'
 import { IMAGE_PLACEHOLDER } from '@/lib/placeholders'
 import {
+  ANIMILAIR_DEFAULT_WELCOME,
   ANIMILAIR_MESSAGE_MAX_ATTACHMENTS,
   ANIMILAIR_MESSAGE_MAX_LENGTH,
+  ANIMILAIR_ONLINE_WINDOW_MS,
   ANIMILAIR_ORDER_STATUS_MESSAGES,
   ANIMILAIR_SUPPORT_AVATAR,
   ANIMILAIR_SUPPORT_NAME,
@@ -21,8 +23,10 @@ import {
 } from '@/lib/animilair-shared'
 
 export {
+  ANIMILAIR_DEFAULT_WELCOME,
   ANIMILAIR_MESSAGE_MAX_ATTACHMENTS,
   ANIMILAIR_MESSAGE_MAX_LENGTH,
+  ANIMILAIR_ONLINE_WINDOW_MS,
   ANIMILAIR_ORDER_STATUS_MESSAGES,
   ANIMILAIR_SUPPORT_AVATAR,
   ANIMILAIR_SUPPORT_NAME,
@@ -50,6 +54,8 @@ type AuthorRow = {
   bio: string
   avatar_url: string | null
   banner_url: string | null
+  welcome_message?: string | null
+  last_seen_at?: string | null
   socials_json: string
 }
 
@@ -64,6 +70,8 @@ type ProductRow = {
   author_avatar_url?: string | null
   author_banner_url?: string | null
   author_socials_json?: string | null
+  author_welcome_message?: string | null
+  author_last_seen_at?: string | null
   slug: string
   title: string
   category: string
@@ -153,7 +161,16 @@ function isValidCoverUrl(value: string | null | undefined): boolean {
   return true
 }
 
+function isAnimilairAuthorOnline(lastSeenAt: string | null | undefined): boolean {
+  if (!lastSeenAt) return false
+  const seen = Date.parse(lastSeenAt)
+  if (!Number.isFinite(seen)) return false
+  return Date.now() - seen <= ANIMILAIR_ONLINE_WINDOW_MS
+}
+
 function mapAuthor(row: AuthorRow): AnimilairAuthor {
+  const welcomeMessage = String(row.welcome_message || '').trim() || ANIMILAIR_DEFAULT_WELCOME
+  const lastSeenAt = row.last_seen_at || null
   return {
     id: Number(row.id),
     userId: row.user_id,
@@ -164,6 +181,9 @@ function mapAuthor(row: AuthorRow): AnimilairAuthor {
     avatarUrl: row.avatar_url,
     bannerUrl: row.banner_url,
     socials: parseJson<Record<string, string>>(row.socials_json, {}),
+    welcomeMessage,
+    lastSeenAt,
+    isOnline: isAnimilairAuthorOnline(lastSeenAt),
   }
 }
 
@@ -232,6 +252,9 @@ function mapProduct(row: ProductRow, media: MediaRow[] = [], viewCount = 0): Ani
         avatarUrl: row.author_avatar_url || null,
         bannerUrl: row.author_banner_url || null,
         socials: parseJson<Record<string, string>>(row.author_socials_json, {}),
+        welcomeMessage: String(row.author_welcome_message || '').trim() || ANIMILAIR_DEFAULT_WELCOME,
+        lastSeenAt: row.author_last_seen_at || null,
+        isOnline: isAnimilairAuthorOnline(row.author_last_seen_at),
       }
     : null
 
@@ -488,7 +511,9 @@ export async function getAnimilairCatalog() {
     prisma.$queryRawUnsafe<ProductRow[]>(
       `SELECT p.*, a.user_id AS author_user_id, a.slug AS author_slug, a.name AS author_name,
               a.role AS author_role, a.bio AS author_bio, a.avatar_url AS author_avatar_url,
-              a.banner_url AS author_banner_url, a.socials_json AS author_socials_json
+              a.banner_url AS author_banner_url, a.socials_json AS author_socials_json,
+            a.welcome_message AS author_welcome_message, a.last_seen_at AS author_last_seen_at,
+              a.welcome_message AS author_welcome_message, a.last_seen_at AS author_last_seen_at
        FROM app_animilair_products p
        JOIN app_animilair_authors a ON a.id = p.author_id
        WHERE p.status = 'published'
@@ -527,7 +552,8 @@ export async function getAnimilairProduct(slugOrId: string | number) {
   const rows = await prisma.$queryRawUnsafe<ProductRow[]>(
     `SELECT p.*, a.user_id AS author_user_id, a.slug AS author_slug, a.name AS author_name,
             a.role AS author_role, a.bio AS author_bio, a.avatar_url AS author_avatar_url,
-            a.banner_url AS author_banner_url, a.socials_json AS author_socials_json
+            a.banner_url AS author_banner_url, a.socials_json AS author_socials_json,
+            a.welcome_message AS author_welcome_message, a.last_seen_at AS author_last_seen_at
      FROM app_animilair_products p
      JOIN app_animilair_authors a ON a.id = p.author_id
      WHERE ${field} AND p.status = 'published'
@@ -650,14 +676,18 @@ export async function getAnimilairProductsForManager(user: AuthUser, role: UserR
     isAdmin
       ? `SELECT p.*, a.user_id AS author_user_id, a.slug AS author_slug, a.name AS author_name,
                 a.role AS author_role, a.bio AS author_bio, a.avatar_url AS author_avatar_url,
-                a.banner_url AS author_banner_url, a.socials_json AS author_socials_json
+                a.banner_url AS author_banner_url, a.socials_json AS author_socials_json,
+            a.welcome_message AS author_welcome_message, a.last_seen_at AS author_last_seen_at,
+              a.welcome_message AS author_welcome_message, a.last_seen_at AS author_last_seen_at
          FROM app_animilair_products p
          JOIN app_animilair_authors a ON a.id = p.author_id
          WHERE p.status != 'deleted'
          ORDER BY datetime(p.updated_at) DESC, p.id DESC`
       : `SELECT p.*, a.user_id AS author_user_id, a.slug AS author_slug, a.name AS author_name,
                 a.role AS author_role, a.bio AS author_bio, a.avatar_url AS author_avatar_url,
-                a.banner_url AS author_banner_url, a.socials_json AS author_socials_json
+                a.banner_url AS author_banner_url, a.socials_json AS author_socials_json,
+            a.welcome_message AS author_welcome_message, a.last_seen_at AS author_last_seen_at,
+              a.welcome_message AS author_welcome_message, a.last_seen_at AS author_last_seen_at
          FROM app_animilair_products p
          JOIN app_animilair_authors a ON a.id = p.author_id
          WHERE p.status != 'deleted' AND a.user_id = ?
@@ -676,7 +706,8 @@ async function getAnimilairProductRow(slugOrId: string | number) {
   const rows = await prisma.$queryRawUnsafe<ProductRow[]>(
     `SELECT p.*, a.user_id AS author_user_id, a.slug AS author_slug, a.name AS author_name,
             a.role AS author_role, a.bio AS author_bio, a.avatar_url AS author_avatar_url,
-            a.banner_url AS author_banner_url, a.socials_json AS author_socials_json
+            a.banner_url AS author_banner_url, a.socials_json AS author_socials_json,
+            a.welcome_message AS author_welcome_message, a.last_seen_at AS author_last_seen_at
      FROM app_animilair_products p
      JOIN app_animilair_authors a ON a.id = p.author_id
      WHERE ${field} AND p.status != 'deleted'
@@ -783,7 +814,7 @@ export async function createAnimilairOrder(input: {
 
   const title = input.title.trim().slice(0, 140)
   const brief = input.brief.trim().slice(0, 5000)
-  if (!title || !brief) throw new Error('Заповніть назву та опис замовлення')
+  if (!title) throw new Error('Заповніть назву замовлення')
 
   const now = nowIso()
   await prisma.$executeRawUnsafe(
@@ -803,16 +834,99 @@ export async function createAnimilairOrder(input: {
   const idRows = await prisma.$queryRawUnsafe<Array<{ id: number | bigint }>>('SELECT last_insert_rowid() AS id')
   const orderId = Number(idRows[0]?.id || 0)
 
-  await prisma.$executeRawUnsafe(
-    `INSERT INTO app_animilair_order_messages (order_id, user_id, body, attachments_json, created_at)
-     VALUES (?, ?, ?, '[]', ?)`,
-    orderId,
-    input.user.id,
-    brief,
-    now
-  )
+  if (brief) {
+    await prisma.$executeRawUnsafe(
+      `INSERT INTO app_animilair_order_messages (order_id, user_id, body, attachments_json, created_at)
+       VALUES (?, ?, ?, '[]', ?)`,
+      orderId,
+      input.user.id,
+      brief,
+      now
+    )
+  }
 
   return getAnimilairOrder(orderId, input.user, 'USER')
+}
+
+export async function ensureAnimilairCustomerOrder(input: {
+  productId: number
+  user: AuthUser
+  role?: UserRole
+}) {
+  const role = input.role || 'USER'
+  const product = await getAnimilairProduct(input.productId)
+  if (!product) throw new Error('Послугу не знайдено')
+
+  if (product.author?.userId === input.user.id) {
+    throw new Error('Дизайнер не може замовити власну послугу')
+  }
+
+  const existing = await getAnimilairOrdersForProduct(input.productId, input.user, role)
+  const active = existing.find(
+    (order) => order.customerId === input.user.id && !['canceled', 'completed'].includes(order.status)
+  )
+  if (active) return active
+
+  return createAnimilairOrder({
+    productId: input.productId,
+    user: input.user,
+    title: `Замовлення: ${product.title}`,
+    brief: '',
+    budget: product.priceFrom ? `${product.priceFrom} грн` : '',
+    deadline: product.deliveryDays ? `${product.deliveryDays} дн.` : null,
+  })
+}
+
+export async function touchAnimilairAuthorPresence(userId: string) {
+  const now = nowIso()
+  await prisma.$executeRawUnsafe(
+    `UPDATE app_animilair_authors SET last_seen_at = ?, updated_at = ? WHERE user_id = ?`,
+    now,
+    now,
+    userId
+  )
+}
+
+export async function getAnimilairAuthorPresence(authorUserId: string | null) {
+  if (!authorUserId) {
+    return { isOnline: false, lastSeenAt: null as string | null }
+  }
+  const rows = await prisma.$queryRawUnsafe<Array<{ last_seen_at: string | null }>>(
+    `SELECT last_seen_at FROM app_animilair_authors WHERE user_id = ? LIMIT 1`,
+    authorUserId
+  )
+  const lastSeenAt = rows[0]?.last_seen_at || null
+  return { isOnline: isAnimilairAuthorOnline(lastSeenAt), lastSeenAt }
+}
+
+export async function updateAnimilairAuthorWelcome(input: {
+  user: AuthUser
+  role: UserRole
+  authorId: number
+  welcomeMessage: string
+}) {
+  const rows = await prisma.$queryRawUnsafe<AuthorRow[]>(
+    `SELECT * FROM app_animilair_authors WHERE id = ? LIMIT 1`,
+    input.authorId
+  )
+  const row = rows[0]
+  if (!row) throw new Error('Автора не знайдено')
+  if (!canManageAnimilairProduct(input.user, input.role, row.user_id)) {
+    throw new Error('Немає доступу до редагування вітання')
+  }
+  const welcomeMessage = input.welcomeMessage.trim().slice(0, 600)
+  const now = nowIso()
+  await prisma.$executeRawUnsafe(
+    `UPDATE app_animilair_authors SET welcome_message = ?, updated_at = ? WHERE id = ?`,
+    welcomeMessage,
+    now,
+    input.authorId
+  )
+  const updated = await prisma.$queryRawUnsafe<AuthorRow[]>(
+    `SELECT * FROM app_animilair_authors WHERE id = ? LIMIT 1`,
+    input.authorId
+  )
+  return mapAuthor(updated[0])
 }
 
 export async function getAnimilairOrders(user: AuthUser, role: UserRole = 'USER') {

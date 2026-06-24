@@ -1536,7 +1536,7 @@
   position: sticky;
   top: 86px;
   display: grid;
-  grid-template-columns: minmax(200px, 250px) minmax(0, 1fr);
+  grid-template-columns: minmax(160px, 200px) minmax(0, 1fr);
   gap: 14px;
   align-items: stretch;
   min-height: min(72vh, 680px);
@@ -1646,6 +1646,117 @@
 
 .animilair-chat-error {
   margin: 0 16px 8px;
+}
+
+.animilair-chat-author-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.animilair-chat-author-profile {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  min-width: 0;
+}
+
+.animilair-chat-author-profile strong {
+  display: block;
+  font-size: 16px;
+}
+
+.animilair-chat-author-profile p {
+  margin: 2px 0 0;
+  color: var(--fg-3);
+  font-size: 13px;
+}
+
+.animilair-chat-avatar-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.animilair-chat-avatar-wrap img,
+.animilair-chat-avatar-wrap .animilair-message-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  object-fit: cover;
+}
+
+.animilair-chat-avatar-wrap::after {
+  content: '';
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  border: 2px solid var(--bg-1);
+  background: var(--fg-3);
+}
+
+.animilair-chat-avatar-wrap.online::after {
+  background: var(--green);
+}
+
+.animilair-chat-presence {
+  display: inline-flex;
+  margin-top: 4px;
+  color: var(--fg-3);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.animilair-chat-presence.online {
+  color: var(--green);
+}
+
+.animilair-message.welcome > div {
+  background: color-mix(in srgb, var(--accent) 7%, var(--bg-2));
+  border-color: color-mix(in srgb, var(--accent) 18%, var(--line));
+}
+
+.animilair-welcome-editor {
+  display: grid;
+  gap: 10px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg-2);
+}
+
+.animilair-welcome-editor label {
+  display: grid;
+  gap: 7px;
+  color: var(--fg-2);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.animilair-welcome-editor textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg);
+  color: var(--fg);
+  padding: 12px 13px;
+  font: inherit;
+  resize: vertical;
+}
+
+.animilair-welcome-edit-btn {
+  flex-shrink: 0;
+  font-size: 12px;
+  padding: 8px 12px;
+}
+
+.animilair-detail-chat-placeholder.compact {
+  padding: 16px 20px 20px;
+  border-top: 1px solid var(--line);
 }
 
 .animilair-buy-card,

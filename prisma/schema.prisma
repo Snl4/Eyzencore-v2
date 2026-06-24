@@ -709,6 +709,8 @@ model app_animilair_authors {
   bio          String @default("")
   avatar_url   String?
   banner_url   String?
+  welcome_message String @default("")
+  last_seen_at String?
   socials_json String @default("{}")
   position     Int    @default(0)
   is_active    Int    @default(1)

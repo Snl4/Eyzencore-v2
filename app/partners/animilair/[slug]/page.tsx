@@ -62,6 +62,10 @@ export default async function AnimilairProductPage({ params }: Props) {
     ? await resolveUserRole({ userId: auth.user.id, role: auth.user.user_metadata.role })
     : 'USER'
   const canManage = canManageAnimilairProduct(initialUser, role, product.author?.userId || null)
+  if (auth?.user?.id && product.author?.userId === auth.user.id) {
+    const { touchAnimilairAuthorPresence } = await import('@/lib/animilair-db')
+    await touchAnimilairAuthorPresence(auth.user.id)
+  }
   const productOrders = auth
     ? await getAnimilairOrdersForProduct(product.id, auth.user, role)
     : []

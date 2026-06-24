@@ -135,13 +135,14 @@ export function AnimilairClient({ initialUser, catalog }: Props) {
   return (
     <PageShell active="animilair" initialUser={initialUser}>
       <main className="page-main animilair-page">
+        <Breadcrumbs items={[
+          { label: 'Eyzencore', href: '/' },
+          { label: 'Партнери' },
+          { label: 'AnimiLair Studio' },
+        ]} />
+
         <section className="animilair-hero">
           <div className="animilair-hero-copy">
-            <Breadcrumbs items={[
-              { label: 'Eyzencore', href: '/' },
-              { label: 'Партнери' },
-              { label: 'AnimiLair Studio' },
-            ]} />
             <div className="animilair-eyebrow">Партнерський маркетплейс</div>
             <h1>AnimiLair Studio</h1>
             <p>
