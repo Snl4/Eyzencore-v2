@@ -5,11 +5,9 @@ import {
   listServers,
 } from '@/lib/auth-db'
 
-export const getCachedPublicServers = unstable_cache(
-  async () => listServers(),
-  ['public-servers-v3-rating'],
-  { revalidate: 15 }
-)
+export async function getCachedPublicServers() {
+  return listServers()
+}
 
 export const getCachedPublicNews = unstable_cache(
   async (limit: number) => listNewsPosts(limit),
