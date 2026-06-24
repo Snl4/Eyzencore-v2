@@ -6,6 +6,8 @@ import { resolveUserRole } from '@/lib/auth-db'
 import {
   buildAnimilairViewFingerprint,
   canManageAnimilairProduct,
+  getAnimilairMessages,
+  getAnimilairOrdersForProduct,
   getAnimilairProduct,
   getAnimilairRequestIp,
   recordAnimilairProductView,
@@ -60,11 +62,25 @@ export default async function AnimilairProductPage({ params }: Props) {
     ? await resolveUserRole({ userId: auth.user.id, role: auth.user.user_metadata.role })
     : 'USER'
   const canManage = canManageAnimilairProduct(initialUser, role, product.author?.userId || null)
+  const productOrders = auth
+    ? await getAnimilairOrdersForProduct(product.id, auth.user, role)
+    : []
+  const activeOrder = productOrders.find((order) => order.status !== 'canceled') || productOrders[0] || null
+  const initialMessages = auth && activeOrder
+    ? await getAnimilairMessages(activeOrder.id, auth.user, role)
+    : []
 
   return (
     <>
       <div className="bg-aurora" />
-      <AnimilairProductClient initialUser={initialUser} product={displayProduct} canManage={canManage} />
+      <AnimilairProductClient
+        initialUser={initialUser}
+        product={displayProduct}
+        canManage={canManage}
+        initialProductOrders={productOrders}
+        initialActiveOrderId={activeOrder?.id ?? null}
+        initialMessages={initialMessages}
+      />
     </>
   )
 }

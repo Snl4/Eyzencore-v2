@@ -1,19 +1,22 @@
 'use client'
 
-import Link from 'next/link'
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { PageShell } from '@/components/layout/PageShell'
 import { Breadcrumbs } from '@/components/ui/Breadcrumbs'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
+import { AnimilairOrderChat } from '@/components/partners/AnimilairOrderChat'
 import type { AuthUser } from '@/lib/auth-db'
-import type { AnimilairProduct } from '@/lib/animilair-shared'
+import type { AnimilairOrder, AnimilairOrderMessage, AnimilairProduct } from '@/lib/animilair-shared'
 import { IMAGE_PLACEHOLDER } from '@/lib/placeholders'
 
 type Props = {
   initialUser: AuthUser | null
   product: AnimilairProduct
   canManage?: boolean
+  initialProductOrders?: AnimilairOrder[]
+  initialActiveOrderId?: number | null
+  initialMessages?: AnimilairOrderMessage[]
 }
 
 type OrderForm = {
@@ -59,9 +62,19 @@ function formatPrice(value: number | null) {
   return `від ${value.toLocaleString('uk-UA')} грн`
 }
 
-export function AnimilairProductClient({ initialUser, product, canManage = false }: Props) {
+export function AnimilairProductClient({
+  initialUser,
+  product,
+  canManage = false,
+  initialProductOrders = [],
+  initialActiveOrderId = null,
+  initialMessages = [],
+}: Props) {
   const router = useRouter()
   const confirmAction = useConfirm()
+  const [productOrders, setProductOrders] = useState(initialProductOrders)
+  const [activeOrderId, setActiveOrderId] = useState<number | null>(initialActiveOrderId)
+  const [chatMessages, setChatMessages] = useState(initialMessages)
   const images = useMemo(() => {
     const urls = [
       cleanImageUrl(product.coverUrl),
@@ -168,18 +181,25 @@ export function AnimilairProductClient({ initialUser, product, canManage = false
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ productId: product.id, ...form }),
       })
-      const payload = await response.json() as { error?: string; order?: { id: number } }
+      const payload = await response.json() as { error?: string; order?: AnimilairOrder }
       if (!response.ok || !payload.order?.id) {
         throw new Error(payload.error || 'Не вдалося створити замовлення')
       }
-      setMessage({ type: 'success', text: 'Замовлення створено. Відкриваю чат...' })
-      setTimeout(() => router.push(`/partners/animilair/orders?order=${payload.order?.id}`), 350)
+      const order = payload.order
+      setProductOrders((current) => [order, ...current.filter((item) => item.id !== order.id)])
+      setActiveOrderId(order.id)
+      const messagesResponse = await fetch(`/api/partners/animilair/orders/${order.id}/messages`, { cache: 'no-store' })
+      const messagesPayload = await messagesResponse.json() as { messages?: AnimilairOrderMessage[] }
+      setChatMessages(Array.isArray(messagesPayload.messages) ? messagesPayload.messages : [])
+      setMessage({ type: 'success', text: 'Замовлення створено. Чат відкрито — можете уточнити деталі.' })
     } catch (error) {
       setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Помилка замовлення' })
     } finally {
       setBusy(false)
     }
   }
+
+  const hasActiveOrder = Boolean(activeOrderId && productOrders.some((order) => order.id === activeOrderId))
 
   return (
     <PageShell active="animilair" initialUser={initialUser}>
@@ -267,68 +287,84 @@ export function AnimilairProductClient({ initialUser, product, canManage = false
           </article>
 
           <aside className="animilair-detail-side">
-            <div className="animilair-buy-card">
-              <span>Договірна ціна</span>
-              <strong>{formatPrice(product.priceFrom)}</strong>
-              <div className="animilair-buy-row">
-                <span>Термін</span>
-                <b>{product.deliveryDays ? `${product.deliveryDays} дн.` : 'обговорюється'}</b>
+            <div className="animilair-detail-side-stack">
+              <div className="animilair-buy-card animilair-buy-card-compact">
+                <span>Договірна ціна</span>
+                <strong>{formatPrice(product.priceFrom)}</strong>
+                <div className="animilair-buy-row">
+                  <span>Термін</span>
+                  <b>{product.deliveryDays ? `${product.deliveryDays} дн.` : 'обговорюється'}</b>
+                </div>
+                {!hasActiveOrder && (
+                  <button className="btn btn-primary" type="button" disabled={busy || !form.brief.trim()} onClick={() => void submitOrder()}>
+                    {busy ? 'Створюємо...' : 'Створити замовлення'}
+                  </button>
+                )}
+                {hasActiveOrder && (
+                  <p className="animilair-buy-note">Замовлення активне — листуйтесь у чаті праворуч.</p>
+                )}
               </div>
-              <button className="btn btn-primary" type="button" disabled={busy || !form.brief.trim()} onClick={() => void submitOrder()}>
-                {busy ? 'Створюємо...' : 'Створити замовлення'}
-              </button>
-              <a className="btn btn-secondary" href="#brief">Обговорити замовлення</a>
-              <ul>
-                <li>Чат з автором відкриється одразу після заявки.</li>
-                <li>Контакти можна додати в ТЗ, але деталі краще вести тут.</li>
-                <li>Адміністратор бачить замовлення для модерації.</li>
-              </ul>
-            </div>
 
-            <div className="animilair-author-panel">
-              {cleanImageUrl(product.author?.avatarUrl) && (
-                <img src={cleanImageUrl(product.author?.avatarUrl)} alt="" />
+              <div className="animilair-author-panel">
+                {cleanImageUrl(product.author?.avatarUrl) && (
+                  <img src={cleanImageUrl(product.author?.avatarUrl)} alt="" />
+                )}
+                <div>
+                  <h3>{product.author?.name || 'AnimiLair Studio'}</h3>
+                  <p>{product.author?.role || 'Designer'}</p>
+                </div>
+                <span className="animilair-online">зазвичай відповідає швидко</span>
+              </div>
+
+              {!hasActiveOrder && (
+                <div className="animilair-brief-card" id="brief">
+                  <h3>ТЗ для замовлення</h3>
+                  <label>
+                    Назва
+                    <input value={form.title} onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))} />
+                  </label>
+                  <label>
+                    Опишіть, що треба зробити
+                    <textarea
+                      rows={5}
+                      value={form.brief}
+                      onChange={(event) => setForm((current) => ({ ...current, brief: event.target.value }))}
+                      placeholder="Стиль, розміри, текст, кольори, дедлайн, посилання на сервер і референси..."
+                    />
+                  </label>
+                  <label>
+                    Бюджет
+                    <input value={form.budget} onChange={(event) => setForm((current) => ({ ...current, budget: event.target.value }))} />
+                  </label>
+                  <label>
+                    Дедлайн
+                    <input value={form.deadline} onChange={(event) => setForm((current) => ({ ...current, deadline: event.target.value }))} />
+                  </label>
+                  <label>
+                    Контакт
+                    <input value={form.contact} onChange={(event) => setForm((current) => ({ ...current, contact: event.target.value }))} placeholder="Discord або Telegram" />
+                  </label>
+                  {message && <div className={`animilair-form-message ${message.type}`}>{message.text}</div>}
+                </div>
               )}
-              <div>
-                <h3>{product.author?.name || 'AnimiLair Studio'}</h3>
-                <p>{product.author?.role || 'Designer'}</p>
-              </div>
-              <span className="animilair-online">зазвичай відповідає швидко</span>
             </div>
 
-            <div className="animilair-brief-card" id="brief">
-              <h3>ТЗ для замовлення</h3>
-              <label>
-                Назва
-                <input value={form.title} onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))} />
-              </label>
-              <label>
-                Опишіть, що треба зробити
-                <textarea
-                  rows={7}
-                  value={form.brief}
-                  onChange={(event) => setForm((current) => ({ ...current, brief: event.target.value }))}
-                  placeholder="Стиль, розміри, текст, кольори, дедлайн, посилання на сервер і референси..."
-                />
-              </label>
-              <label>
-                Бюджет
-                <input value={form.budget} onChange={(event) => setForm((current) => ({ ...current, budget: event.target.value }))} />
-              </label>
-              <label>
-                Дедлайн
-                <input value={form.deadline} onChange={(event) => setForm((current) => ({ ...current, deadline: event.target.value }))} />
-              </label>
-              <label>
-                Контакт
-                <input value={form.contact} onChange={(event) => setForm((current) => ({ ...current, contact: event.target.value }))} placeholder="Discord або Telegram" />
-              </label>
-              {message && <div className={`animilair-form-message ${message.type}`}>{message.text}</div>}
-            </div>
+            <AnimilairOrderChat
+              key={activeOrderId ?? 'new'}
+              user={initialUser}
+              orders={productOrders}
+              activeOrderId={activeOrderId}
+              onActiveOrderIdChange={setActiveOrderId}
+              onOrdersChange={(orders) => {
+                const forProduct = orders.filter((order) => order.productId === product.id)
+                setProductOrders(forProduct)
+              }}
+              initialMessages={chatMessages}
+              embedded
+              onLoginRequest={() => router.push('/login')}
+            />
           </aside>
         </section>
-
-        <Link href="/partners/animilair" className="btn btn-secondary">← До всіх послуг</Link>
       </main>
 
       {editOpen && (

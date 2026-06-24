@@ -1420,7 +1420,7 @@
 
 .animilair-detail-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(320px, 420px);
+  grid-template-columns: minmax(0, 1fr) minmax(520px, 46%);
   gap: 28px;
   align-items: start;
 }
@@ -1536,7 +1536,116 @@
   position: sticky;
   top: 86px;
   display: grid;
-  gap: 16px;
+  grid-template-columns: minmax(200px, 250px) minmax(0, 1fr);
+  gap: 14px;
+  align-items: stretch;
+  min-height: min(72vh, 680px);
+}
+
+.animilair-detail-side-stack {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+
+.animilair-buy-card-compact > strong {
+  font-size: 32px;
+}
+
+.animilair-buy-card-compact {
+  gap: 10px;
+  padding: 16px;
+}
+
+.animilair-buy-note {
+  margin: 0;
+  color: var(--fg-2);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.animilair-detail-chat-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xl);
+  background: color-mix(in srgb, var(--bg-1) 96%, transparent);
+  box-shadow: var(--shadow-sm);
+}
+
+.animilair-detail-chat-panel .animilair-chat-head h2 {
+  font-size: 18px;
+  margin: 4px 0 0;
+  line-height: 1.25;
+}
+
+.animilair-detail-chat-panel .animilair-chat-head {
+  padding: 16px 18px;
+}
+
+.animilair-detail-chat-panel .animilair-chat-messages.embedded {
+  flex: 1;
+  min-height: 240px;
+  max-height: none;
+  overflow: auto;
+}
+
+.animilair-detail-chat-panel .animilair-order-actions {
+  padding: 10px 16px;
+}
+
+.animilair-detail-chat-placeholder,
+.animilair-detail-chat-closed {
+  display: grid;
+  gap: 10px;
+  align-content: center;
+  justify-items: start;
+  flex: 1;
+  padding: 24px;
+  text-align: left;
+}
+
+.animilair-detail-chat-placeholder p,
+.animilair-detail-chat-closed {
+  margin: 0;
+  color: var(--fg-2);
+  line-height: 1.65;
+  font-size: 14px;
+}
+
+.animilair-detail-chat-placeholder strong {
+  font-size: 18px;
+}
+
+.animilair-detail-chat-orders {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 16px 0;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 10px;
+}
+
+.animilair-detail-chat-order {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--bg-2);
+  color: var(--fg-2);
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.animilair-detail-chat-order.active {
+  border-color: color-mix(in srgb, var(--accent) 30%, var(--line));
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: var(--accent);
+}
+
+.animilair-chat-error {
+  margin: 0 16px 8px;
 }
 
 .animilair-buy-card,
@@ -2096,6 +2205,16 @@
     grid-template-columns: 1fr;
   }
 
+  .animilair-detail-side {
+    position: static;
+    grid-template-columns: 1fr;
+    min-height: auto;
+  }
+
+  .animilair-detail-chat-panel {
+    min-height: min(62vh, 560px);
+  }
+
   .animilair-authors,
   .animilair-products {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2105,8 +2224,8 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .animilair-detail-side {
-    position: static;
+  .animilair-detail-side-stack {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -2151,6 +2270,14 @@
 
   .animilair-buy-card > strong {
     font-size: 36px;
+  }
+
+  .animilair-detail-side-stack {
+    grid-template-columns: 1fr;
+  }
+
+  .animilair-buy-card-compact > strong {
+    font-size: 28px;
   }
 }
 .na-action {

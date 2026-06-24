@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto'
+import { buildServerDashboardSlug } from '@/lib/server-slug'
 import { prisma } from '@/lib/prisma'
 import type { AuthUser, UserRole } from '@/lib/auth-db'
 import { IMAGE_PLACEHOLDER } from '@/lib/placeholders'
@@ -132,13 +133,13 @@ function toNumber(value: number | bigint | null | undefined): number | null {
 }
 
 function slugify(value: string) {
-  return value
-    .toLowerCase()
-    .trim()
-    .replace(/['"`]/g, '')
-    .replace(/[^a-z0-9а-яіїєґё]+/gi, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 80) || `product-${Date.now()}`
+  const trimmed = String(value || '').trim()
+  if (!trimmed) return `product-${Date.now()}`
+  const slug = buildServerDashboardSlug(trimmed)
+  if (slug === 'server' && !/[a-z0-9\u0400-\u04ff]/i.test(trimmed)) {
+    return `product-${Date.now()}`
+  }
+  return slug.slice(0, 80) || `product-${Date.now()}`
 }
 
 function roleCanSell(role: UserRole) {
@@ -335,13 +336,15 @@ function mapMessage(row: MessageRow): AnimilairOrderMessage {
   }
 }
 
-async function uniqueProductSlug(title: string) {
+async function uniqueProductSlug(title: string, excludeId?: number) {
   const base = slugify(title)
   for (let index = 0; index < 20; index += 1) {
     const slug = index === 0 ? base : `${base}-${index + 1}`
     const rows = await prisma.$queryRawUnsafe<Array<{ id: number | bigint }>>(
-      `SELECT id FROM app_animilair_products WHERE slug = ? LIMIT 1`,
-      slug
+      excludeId
+        ? `SELECT id FROM app_animilair_products WHERE slug = ? AND id != ? LIMIT 1`
+        : `SELECT id FROM app_animilair_products WHERE slug = ? LIMIT 1`,
+      ...(excludeId ? [slug, excludeId] : [slug])
     )
     if (!rows[0]) return slug
   }
@@ -711,11 +714,13 @@ export async function updateAnimilairProduct(input: {
   const now = nowIso()
   const tags = (input.tags || []).map((tag) => tag.trim()).filter(Boolean).slice(0, 8)
   const productId = Number(row.id)
+  const slug = await uniqueProductSlug(title, productId)
   await prisma.$executeRawUnsafe(
     `UPDATE app_animilair_products
-     SET title = ?, category = ?, short_desc = ?, description = ?, price_from = ?, delivery_days = ?,
+     SET slug = ?, title = ?, category = ?, short_desc = ?, description = ?, price_from = ?, delivery_days = ?,
          cover_url = ?, tags_json = ?, updated_at = ?
      WHERE id = ?`,
+    slug,
     title,
     input.category.trim().slice(0, 40) || 'design',
     shortDesc,
@@ -825,6 +830,25 @@ export async function getAnimilairOrders(user: AuthUser, role: UserRole = 'USER'
      ${isAdmin ? '' : isDesigner ? 'WHERE o.customer_id = ? OR a.user_id = ?' : 'WHERE o.customer_id = ?'}
      ORDER BY datetime(o.updated_at) DESC, o.id DESC`,
     ...(isAdmin ? [] : isDesigner ? [user.id, user.id] : [user.id])
+  )
+  return rows.map(mapOrder)
+}
+
+export async function getAnimilairOrdersForProduct(productId: number, user: AuthUser, role: UserRole = 'USER') {
+  const isAdmin = role === 'ADMIN'
+  const isDesigner = role === 'DESIGNER'
+  const rows = await prisma.$queryRawUnsafe<OrderRow[]>(
+    `SELECT o.*, p.title AS product_title, p.slug AS product_slug,
+            a.user_id AS author_user_id, a.name AS author_name,
+            u.full_name AS customer_name, u.avatar_url AS customer_avatar_url
+     FROM app_animilair_orders o
+     JOIN app_animilair_products p ON p.id = o.product_id
+     JOIN app_animilair_authors a ON a.id = p.author_id
+     JOIN app_users u ON u.id = o.customer_id
+     WHERE o.product_id = ?
+     ${isAdmin ? '' : isDesigner ? 'AND (o.customer_id = ? OR a.user_id = ?)' : 'AND o.customer_id = ?'}
+     ORDER BY datetime(o.updated_at) DESC, o.id DESC`,
+    ...(isAdmin ? [productId] : isDesigner ? [productId, user.id, user.id] : [productId, user.id])
   )
   return rows.map(mapOrder)
 }
