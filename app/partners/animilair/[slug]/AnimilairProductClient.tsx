@@ -66,7 +66,6 @@ export function AnimilairProductClient({
   const confirmAction = useConfirm()
   const [productOrders, setProductOrders] = useState(initialProductOrders)
   const [activeOrderId, setActiveOrderId] = useState<number | null>(initialActiveOrderId)
-  const [chatMessages, setChatMessages] = useState(initialMessages)
   const [authorProfile, setAuthorProfile] = useState(product.author)
   const images = useMemo(() => {
     const urls = [
@@ -269,7 +268,7 @@ export function AnimilairProductClient({
                   setActiveOrderId(order.id)
                 }}
                 onAuthorUpdated={setAuthorProfile}
-                initialMessages={chatMessages}
+                initialMessages={initialMessages}
                 embedded
                 productPreview={{
                   productId: product.id,
