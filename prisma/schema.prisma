@@ -702,6 +702,7 @@ model email_verification_codes {
 
 model app_animilair_authors {
   id           Int    @id @default(autoincrement())
+  user_id      String? @unique
   slug         String @unique
   name         String
   role         String @default("")
@@ -715,6 +716,7 @@ model app_animilair_authors {
   updated_at   String
 
   @@index([position], map: "idx_animilair_authors_position")
+  @@index([user_id], map: "idx_animilair_authors_user")
 }
 
 model app_animilair_products {

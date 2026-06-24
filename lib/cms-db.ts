@@ -380,7 +380,7 @@ export async function updateCmsEntity(
           email: text(input.email, 320).toLowerCase(),
           full_name: text(input.full_name, 120),
           profile_slug: nullableText(input.profile_slug, 120),
-          role: ['USER', 'OWNER', 'ADMIN'].includes(text(input.role).toUpperCase())
+          role: ['USER', 'OWNER', 'DESIGNER', 'ADMIN'].includes(text(input.role).toUpperCase())
             ? text(input.role).toUpperCase()
             : 'USER',
           bio: text(input.bio, 2000),

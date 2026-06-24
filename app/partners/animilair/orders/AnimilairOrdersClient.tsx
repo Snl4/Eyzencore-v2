@@ -51,10 +51,8 @@ export function AnimilairOrdersClient({ initialUser, initialOrders }: Props) {
     if (!response.ok) return
     const payload = await response.json() as { orders?: AnimilairOrder[] }
     const nextOrders = Array.isArray(payload.orders) ? payload.orders : []
-    if (nextOrders.length > 0) {
-      setOrders(nextOrders)
-      setSelectedId((current) => current || nextOrders[0]?.id || null)
-    }
+    setOrders(nextOrders)
+    setSelectedId((current) => current || nextOrders[0]?.id || null)
   }
 
   const loadMessages = async (orderId: number) => {
@@ -115,7 +113,7 @@ export function AnimilairOrdersClient({ initialUser, initialOrders }: Props) {
         {orders.length === 0 ? (
           <section className="set-card animilair-empty-orders">
             <h2>Замовлень поки немає</h2>
-            <p>Оберіть послугу AnimiLair Studio та створіть перше замовлення. Після цього тут зʼявиться чат.</p>
+            <p>Оберіть послугу AnimiLair Studio та створіть перше замовлення. Після цього тут з’явиться чат.</p>
             <Link href="/partners/animilair#works" className="btn btn-primary">Переглянути послуги</Link>
           </section>
         ) : (
@@ -131,6 +129,7 @@ export function AnimilairOrdersClient({ initialUser, initialOrders }: Props) {
                   <span className="animilair-order-status">{statusLabel(order.status)}</span>
                   <strong>{order.title}</strong>
                   <small>{order.productTitle} · {formatDate(order.updatedAt)}</small>
+                  <small>{order.customerId === initialUser.id ? `Дизайнер: ${order.authorName}` : `Клієнт: ${order.customerName}`}</small>
                 </button>
               ))}
             </aside>
@@ -171,7 +170,7 @@ export function AnimilairOrdersClient({ initialUser, initialOrders }: Props) {
                   <div className="animilair-chat-compose">
                     <textarea
                       rows={3}
-                      placeholder="Напишіть уточнення, прикріпіть посилання на референси або опишіть правки..."
+                      placeholder="Напишіть уточнення, посилання на референси або правки..."
                       value={body}
                       onChange={(event) => setBody(event.target.value)}
                     />

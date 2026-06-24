@@ -11,7 +11,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
   const body = await request.json() as { role?: string }
-  const validRoles: UserRole[] = ['USER', 'OWNER', 'ADMIN']
+  const validRoles: UserRole[] = ['USER', 'OWNER', 'DESIGNER', 'ADMIN']
   if (!body.role || !validRoles.includes(body.role as UserRole)) {
     return NextResponse.json({ error: 'Invalid role' }, { status: 400 })
   }

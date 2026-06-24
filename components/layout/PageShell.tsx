@@ -29,9 +29,16 @@ export function PageShell({ children, active, initialUser = null, sidebarRole, h
   const isOwner = resolvedRole === 'OWNER' || resolvedRole === 'ADMIN';
   const isAdminUser = user?.email === ADMIN_EMAIL;
   const rawSections = sidebarRole ? getDashboardSidebarSections(sidebarRole) : getSidebarSections(isOwner);
+  const partnerSection: { label: string; items: Array<{ ico: string; name: string; key: string; href: string; badge?: string }> } = {
+    label: 'Партнери',
+    items: [
+      { ico: 'bullhorn', name: 'AnimiLair Studio', key: 'animilair', href: '/partners/animilair' },
+    ],
+  };
+  const sectionsWithPartners = [...rawSections, partnerSection];
   const allSections = isAdminUser
-    ? [...rawSections, { label: 'Адмін', items: [{ ico: 'shield', name: 'CMS панель', key: 'admin', href: '/cms' }] }]
-    : rawSections;
+    ? [...sectionsWithPartners, { label: 'Адмін', items: [{ ico: 'shield', name: 'CMS панель', key: 'admin', href: '/cms' }] }]
+    : sectionsWithPartners;
   const sections = hiddenKeys.length === 0
     ? allSections
     : allSections.map((s) => ({ ...s, items: s.items.filter((item) => !hiddenKeys.includes(item.key)) })).filter((s) => s.items.length > 0);

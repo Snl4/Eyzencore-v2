@@ -1,5 +1,6 @@
 import { notFound, redirect } from 'next/navigation'
 import { DashboardClient } from '@/app/servers/[id]/dashboard/DashboardClient'
+import type { UserRole } from '@/lib/auth-db'
 import { getServerDashboardSnapshot, listServers, listServersByOwner, resolveUserRole } from '@/lib/auth-db'
 import { getCurrentUser } from '@/lib/auth-server'
 import { isMatchingServerSlug } from '@/lib/server-slug'
@@ -10,7 +11,7 @@ interface DashboardBySlugPageProps {
 
 export const dynamic = 'force-dynamic'
 
-async function findServerForUser(input: { userId: string; role: 'USER' | 'OWNER' | 'ADMIN'; serverSlug: string }) {
+async function findServerForUser(input: { userId: string; role: UserRole; serverSlug: string }) {
   const ownedServers = await listServersByOwner(input.userId)
   const fromOwned = ownedServers.find((server) => isMatchingServerSlug({ name: server.name, slug: input.serverSlug }))
   if (fromOwned) {

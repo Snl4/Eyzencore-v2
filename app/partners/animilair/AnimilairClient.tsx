@@ -28,6 +28,18 @@ type OrderForm = {
   contact: string
 }
 
+type ProductForm = {
+  title: string
+  category: string
+  shortDesc: string
+  description: string
+  priceFrom: string
+  deliveryDays: string
+  coverUrl: string
+  tags: string
+  media: string
+}
+
 const EMPTY_ORDER: OrderForm = {
   productId: 0,
   title: '',
@@ -37,6 +49,18 @@ const EMPTY_ORDER: OrderForm = {
   contact: '',
 }
 
+const EMPTY_PRODUCT: ProductForm = {
+  title: '',
+  category: 'design',
+  shortDesc: '',
+  description: '',
+  priceFrom: '',
+  deliveryDays: '',
+  coverUrl: '',
+  tags: '',
+  media: '',
+}
+
 const CATEGORY_LABELS: Record<string, string> = {
   all: 'Усе',
   branding: 'Брендинг',
@@ -44,6 +68,9 @@ const CATEGORY_LABELS: Record<string, string> = {
   motion: 'Анімація',
   social: 'Соцмережі',
   design: 'Дизайн',
+  discord: 'Discord',
+  builds: 'Побудови',
+  models: '3D-моделі',
 }
 
 function formatPrice(value: number | null) {
@@ -51,13 +78,21 @@ function formatPrice(value: number | null) {
   return `від ${value.toLocaleString('uk-UA')} грн`
 }
 
+function canCreateProduct(user: AuthUser | null) {
+  const role = String(user?.user_metadata.role || '').toUpperCase()
+  return role === 'DESIGNER' || role === 'ADMIN'
+}
+
 export function AnimilairClient({ initialUser, catalog }: Props) {
   const router = useRouter()
   const [category, setCategory] = useState('all')
   const [selected, setSelected] = useState<AnimilairProduct | null>(null)
+  const [createOpen, setCreateOpen] = useState(false)
   const [form, setForm] = useState<OrderForm>(EMPTY_ORDER)
+  const [productForm, setProductForm] = useState<ProductForm>(EMPTY_PRODUCT)
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const sellerMode = canCreateProduct(initialUser)
 
   const categories = useMemo(() => {
     const values = Array.from(new Set(catalog.products.map((product) => product.category)))
@@ -97,14 +132,50 @@ export function AnimilairClient({ initialUser, catalog }: Props) {
         throw new Error(payload.error || 'Не вдалося створити замовлення')
       }
       setMessage({ type: 'success', text: 'Замовлення створено. Відкриваю чат...' })
-      setTimeout(() => {
-        router.push('/partners/animilair/orders')
-      }, 500)
+      setTimeout(() => router.push('/partners/animilair/orders'), 450)
     } catch (error) {
       setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Помилка замовлення' })
     } finally {
       setBusy(false)
     }
+  }
+
+  const submitProduct = async () => {
+    setBusy(true)
+    setMessage(null)
+    try {
+      const response = await fetch('/api/partners/animilair', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(productForm),
+      })
+      const payload = await response.json() as { error?: string }
+      if (!response.ok) {
+        throw new Error(payload.error || 'Не вдалося створити товар')
+      }
+      setMessage({ type: 'success', text: 'Товар створено. Оновлюю сторінку...' })
+      setCreateOpen(false)
+      setProductForm(EMPTY_PRODUCT)
+      router.refresh()
+    } catch (error) {
+      setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Помилка створення товару' })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const uploadCover = async (file: File) => {
+    const data = new FormData()
+    data.append('file', file)
+    data.append('kind', 'misc')
+    const response = await fetch('/api/uploads', { method: 'POST', body: data })
+    const payload = await response.json() as { url?: string; error?: string }
+    if (!response.ok || !payload.url) {
+      setMessage({ type: 'error', text: payload.error || 'Не вдалося завантажити зображення' })
+      return
+    }
+    const url = payload.url
+    setProductForm((current) => ({ ...current, coverUrl: url, media: current.media ? `${current.media}\n${url}` : url }))
   }
 
   return (
@@ -121,31 +192,38 @@ export function AnimilairClient({ initialUser, catalog }: Props) {
             <h1>AnimiLair Studio</h1>
             <p>
               Дизайн, Minecraft-реклама, рендери, банери, логотипи й анімації для серверів.
-              Оберіть послугу, перегляньте портфоліо автора і створіть замовлення прямо на Eyzencore.
+              Переглядайте портфоліо авторів, замовляйте послугу прямо на сайті та ведіть чат із дизайнером.
             </p>
             <div className="animilair-hero-actions">
               <a href="#works" className="btn btn-primary">Переглянути роботи</a>
               <Link href="/partners/animilair/orders" className="btn btn-secondary">Мої замовлення</Link>
+              {sellerMode && (
+                <button type="button" className="btn btn-secondary" onClick={() => { setCreateOpen(true); setMessage(null) }}>
+                  Створити товар
+                </button>
+              )}
             </div>
           </div>
           <div className="animilair-hero-card">
             <span className="animilair-live-dot" />
             <p>Creative desk</p>
             <strong>Портфоліо → заявка → чат із замовником</strong>
-            <div className="animilair-mini-grid">
-              <span>Logo</span>
-              <span>Render</span>
-              <span>Motion</span>
-              <span>Promo</span>
+            <div className="animilair-hero-photos" aria-label="Приклади робіт AnimiLair">
+              <span style={{ backgroundImage: "url('/images/animilair-logo.jpg')" }} />
+              <span style={{ backgroundImage: "url('/images/placeholder-minecraft.jpg')" }} />
             </div>
           </div>
         </section>
+
+        {message && !selected && !createOpen && (
+          <div className={`animilair-form-message ${message.type}`}>{message.text}</div>
+        )}
 
         <section className="animilair-section">
           <div className="animilair-section-head">
             <div>
               <span className="animilair-eyebrow">Автори</span>
-              <h2>Команда, яка буде робити ваш візуал</h2>
+              <h2>Команда, яка робить ваш візуал</h2>
             </div>
           </div>
           <div className="animilair-authors">
@@ -228,6 +306,76 @@ export function AnimilairClient({ initialUser, catalog }: Props) {
         </section>
       </main>
 
+      {createOpen && (
+        <div className="modal-backdrop is-open animilair-order-backdrop" onClick={() => setCreateOpen(false)} role="dialog" aria-modal="true">
+          <div className="modal-card is-open animilair-order-modal" onClick={(event) => event.stopPropagation()}>
+            <header className="modal-head">
+              <div>
+                <h3>Новий товар AnimiLair</h3>
+                <p>Ціну ставить дизайнер, покупець надсилає тільки ТЗ.</p>
+              </div>
+              <button className="btn btn-ghost modal-close" type="button" onClick={() => setCreateOpen(false)}>×</button>
+            </header>
+            <div className="modal-body animilair-order-form">
+              <label>
+                Назва
+                <input value={productForm.title} onChange={(event) => setProductForm((current) => ({ ...current, title: event.target.value }))} />
+              </label>
+              <div className="animilair-form-grid">
+                <label>
+                  Категорія
+                  <input placeholder="design, render, discord..." value={productForm.category} onChange={(event) => setProductForm((current) => ({ ...current, category: event.target.value }))} />
+                </label>
+                <label>
+                  Теги
+                  <input placeholder="logo, banner, minecraft" value={productForm.tags} onChange={(event) => setProductForm((current) => ({ ...current, tags: event.target.value }))} />
+                </label>
+              </div>
+              <label>
+                Короткий опис
+                <textarea rows={3} value={productForm.shortDesc} onChange={(event) => setProductForm((current) => ({ ...current, shortDesc: event.target.value }))} />
+              </label>
+              <label>
+                Що входить у послугу
+                <textarea rows={6} value={productForm.description} onChange={(event) => setProductForm((current) => ({ ...current, description: event.target.value }))} />
+              </label>
+              <div className="animilair-form-grid">
+                <label>
+                  Ціна від, грн
+                  <input type="number" min="0" value={productForm.priceFrom} onChange={(event) => setProductForm((current) => ({ ...current, priceFrom: event.target.value }))} />
+                </label>
+                <label>
+                  Термін, днів
+                  <input type="number" min="1" value={productForm.deliveryDays} onChange={(event) => setProductForm((current) => ({ ...current, deliveryDays: event.target.value }))} />
+                </label>
+              </div>
+              <label>
+                Обкладинка
+                <input type="file" accept="image/*" onChange={(event) => {
+                  const file = event.target.files?.[0]
+                  if (file) void uploadCover(file)
+                }} />
+              </label>
+              <label>
+                Або URL обкладинки
+                <input value={productForm.coverUrl} onChange={(event) => setProductForm((current) => ({ ...current, coverUrl: event.target.value }))} />
+              </label>
+              <label>
+                Портфоліо, по одному URL в рядок
+                <textarea rows={4} value={productForm.media} onChange={(event) => setProductForm((current) => ({ ...current, media: event.target.value }))} />
+              </label>
+              {message && <div className={`animilair-form-message ${message.type}`}>{message.text}</div>}
+            </div>
+            <footer className="modal-foot">
+              <button type="button" className="btn btn-secondary" onClick={() => setCreateOpen(false)}>Скасувати</button>
+              <button type="button" className="btn btn-primary" disabled={busy || !productForm.title.trim() || !productForm.shortDesc.trim() || !productForm.description.trim()} onClick={() => void submitProduct()}>
+                {busy ? 'Створюємо...' : 'Опублікувати товар'}
+              </button>
+            </footer>
+          </div>
+        </div>
+      )}
+
       {selected && (
         <div className="modal-backdrop is-open animilair-order-backdrop" onClick={() => setSelected(null)} role="dialog" aria-modal="true">
           <div className="modal-card is-open animilair-order-modal" onClick={(event) => event.stopPropagation()}>
@@ -244,7 +392,7 @@ export function AnimilairClient({ initialUser, catalog }: Props) {
                 <input value={form.title} onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))} />
               </label>
               <label>
-                Опис задачі
+                Технічне завдання
                 <textarea
                   rows={7}
                   placeholder="Опишіть сервер, стиль, кольори, що саме треба зробити, де буде використовуватись робота."
@@ -259,11 +407,11 @@ export function AnimilairClient({ initialUser, catalog }: Props) {
                 </label>
                 <label>
                   Дедлайн
-                  <input placeholder="Наприклад: до пʼятниці" value={form.deadline} onChange={(event) => setForm((current) => ({ ...current, deadline: event.target.value }))} />
+                  <input placeholder="Наприклад: до п’ятниці" value={form.deadline} onChange={(event) => setForm((current) => ({ ...current, deadline: event.target.value }))} />
                 </label>
               </div>
               <label>
-                Контакт для звʼязку
+                Контакт для зв’язку
                 <input placeholder="Telegram або Discord" value={form.contact} onChange={(event) => setForm((current) => ({ ...current, contact: event.target.value }))} />
               </label>
               {message && <div className={`animilair-form-message ${message.type}`}>{message.text}</div>}

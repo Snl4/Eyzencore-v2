@@ -107,7 +107,10 @@ function buildHeader(user: AuthUser): ProfileHeaderData {
     avatarUrl: meta.avatar_url,
     bannerUrl: meta.banner_url,
     role: meta.role || 'user',
-    tags: meta.is_legacy ? ['OLD'] : [],
+    tags: [
+      ...(String(meta.role || '').toUpperCase() === 'DESIGNER' ? ['DESIGNER'] : []),
+      ...(meta.is_legacy ? ['OLD'] : []),
+    ],
   };
 }
 

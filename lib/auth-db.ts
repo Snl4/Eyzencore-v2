@@ -11,7 +11,7 @@ const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 30;
 const PASSWORD_RESET_TOKEN_TTL_SECONDS = 60 * 30;
 const DEFAULT_VOTE_COOLDOWN_HOURS = 24;
 
-export type UserRole = 'USER' | 'OWNER' | 'ADMIN';
+export type UserRole = 'USER' | 'OWNER' | 'DESIGNER' | 'ADMIN';
 
 type DbUserRow = {
   id: string;
@@ -405,6 +405,9 @@ function normalizeUserRole(role: string | null | undefined): UserRole {
   }
   if (normalizedRole === 'OWNER') {
     return 'OWNER';
+  }
+  if (normalizedRole === 'DESIGNER') {
+    return 'DESIGNER';
   }
   return 'USER';
 }

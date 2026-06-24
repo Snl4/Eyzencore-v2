@@ -18,7 +18,7 @@ type AdminClientProps = {
   initialStats: AdminStatsRow
 }
 
-const ROLE_OPTIONS = ['USER', 'OWNER', 'ADMIN'] as const
+const ROLE_OPTIONS = ['USER', 'OWNER', 'DESIGNER', 'ADMIN'] as const
 
 const formatDate = (iso: string): string => {
   const date = new Date(iso)

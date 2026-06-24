@@ -18,11 +18,21 @@ export interface ProfileHeaderData {
   tags: string[];
 }
 
-export function ProfileHeader({ data }: { data: ProfileHeaderData }) {
-  const normalizedRole = String(data.role || '').toUpperCase();
-  const showOwner = normalizedRole === 'OWNER';
-  const showAdmin = normalizedRole === 'ADMIN';
+function getProfileTags(data: ProfileHeaderData) {
+  const role = String(data.role || '').toUpperCase();
+  const roleTags = role === 'ADMIN'
+    ? ['ADMIN']
+    : role === 'OWNER'
+      ? ['OWNER']
+      : role === 'DESIGNER'
+        ? ['DESIGNER']
+        : [];
 
+  return Array.from(new Set([...roleTags, ...data.tags.map((tag) => String(tag).toUpperCase())]));
+}
+
+export function ProfileHeader({ data }: { data: ProfileHeaderData }) {
+  const tags = getProfileTags(data);
   const coverStyle = {
     backgroundImage: `url(${JSON.stringify(data.bannerUrl || IMAGE_PLACEHOLDER).slice(1, -1)})`,
     backgroundSize: 'cover',
@@ -35,30 +45,25 @@ export function ProfileHeader({ data }: { data: ProfileHeaderData }) {
       <div className="profile-card">
         <div
           className="profile-avatar"
-          style={
-            {
-                  backgroundImage: `url(${JSON.stringify(data.avatarUrl || IMAGE_PLACEHOLDER).slice(1, -1)})`,
-                  backgroundSize: 'cover',
-                  backgroundPosition: 'center',
-                  color: 'transparent',
-                }
-          }
+          style={{
+            backgroundImage: `url(${JSON.stringify(data.avatarUrl || IMAGE_PLACEHOLDER).slice(1, -1)})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            color: 'transparent',
+          }}
         />
         <div className="profile-info">
           <h2 className="profile-name">
-            <span className="profile-name-tags">
-              {data.tags.map((tag) => (
-                <span
-                  key={tag}
-                  className="tag tag-old"
-                >
-                  {tag}
-                </span>
-              ))}
-            </span>
-            {data.fullName || 'Без імені'}
-            {showOwner && <span className="tag tag-accent">OWNER</span>}
-            {showAdmin && <span className="tag tag-accent">ADMIN</span>}
+            <span className="profile-name-text">{data.fullName || 'Без імені'}</span>
+            {tags.length > 0 && (
+              <span className="profile-name-tags" aria-label="Теги користувача">
+                {tags.map((tag) => (
+                  <span key={tag} className={`tag ${tag === 'OLD' ? 'tag-old' : 'tag-accent'}`}>
+                    {tag}
+                  </span>
+                ))}
+              </span>
+            )}
           </h2>
           <div className="profile-handle-row">
             <a
