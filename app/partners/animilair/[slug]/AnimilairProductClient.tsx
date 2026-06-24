@@ -241,21 +241,18 @@ export function AnimilairProductClient({
           </article>
 
           <aside className="animilair-detail-side">
-            <div className="animilair-detail-side-stack">
-              <div className="animilair-buy-card animilair-buy-card-compact">
-                <span>Договірна ціна</span>
-                <strong>{formatPrice(product.priceFrom)}</strong>
-                <div className="animilair-buy-row">
-                  <span>Термін</span>
-                  <b>{product.deliveryDays ? `${product.deliveryDays} дн.` : 'обговорюється'}</b>
-                </div>
-                <p className="animilair-buy-note">Опишіть задачу в чаті — дизайнер відповість і уточнить деталі.</p>
+            <div className="animilair-buy-card animilair-buy-card-compact animilair-buy-card-top">
+              <span>Договірна ціна</span>
+              <strong>{formatPrice(product.priceFrom)}</strong>
+              <div className="animilair-buy-row">
+                <span>Термін</span>
+                <b>{product.deliveryDays ? `${product.deliveryDays} дн.` : 'обговорюється'}</b>
               </div>
+              <p className="animilair-buy-note">Опишіть задачу в чаті — дизайнер відповість і уточнить деталі.</p>
             </div>
 
             {chatAuthor && (
               <AnimilairOrderChat
-                key={activeOrderId ?? 'preview'}
                 user={initialUser}
                 orders={productOrders}
                 activeOrderId={activeOrderId}

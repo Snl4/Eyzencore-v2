@@ -11,7 +11,7 @@ import {
 import type { AuthUser } from '@/lib/auth-db'
 import type { AnimilairAuthor, AnimilairMessageAttachment, AnimilairOrder, AnimilairOrderMessage } from '@/lib/animilair-shared'
 
-const CHAT_POLL_MS = 4000
+const CHAT_POLL_MS = 2000
 const PRESENCE_POLL_MS = 30000
 
 type ProductPreview = {
@@ -56,6 +56,9 @@ export function AnimilairOrderChat({
   const [welcomeDraft, setWelcomeDraft] = useState(productPreview?.author.welcomeMessage || '')
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const lastMessageIdRef = useRef(initialMessages.at(-1)?.id || 0)
+  const sendingRef = useRef(false)
+  const loadRequestRef = useRef(0)
+  const messagesLengthRef = useRef(initialMessages.length)
 
   const activeOrder = orders.find((order) => order.id === activeOrderId) || null
   const role = String(user?.user_metadata.role || '').toUpperCase()
@@ -75,26 +78,28 @@ export function AnimilairOrderChat({
 
   const loadMessages = useCallback(async (orderId: number, silent = false) => {
     if (!user) return
+    const requestId = ++loadRequestRef.current
     if (!silent) setError('')
     try {
       const response = await fetch(`/api/partners/animilair/orders/${orderId}/messages`, { cache: 'no-store' })
       const payload = await response.json() as { messages?: AnimilairOrderMessage[]; error?: string }
+      if (requestId !== loadRequestRef.current) return
       if (!response.ok) {
         if (!silent) setError(payload.error || 'Не вдалося завантажити повідомлення')
         return
       }
       const nextMessages = Array.isArray(payload.messages) ? payload.messages : []
       const latestId = nextMessages.at(-1)?.id || 0
-      if (latestId !== lastMessageIdRef.current) {
-        lastMessageIdRef.current = latestId
-        setMessages(nextMessages)
-        if (latestId > 0) {
-          requestAnimationFrame(() => scrollToBottom(!silent))
-        }
-      } else if (!silent) {
-        setMessages(nextMessages)
+      if (silent && sendingRef.current) return
+      if (silent && latestId === lastMessageIdRef.current && nextMessages.length === messagesLengthRef.current) return
+      lastMessageIdRef.current = latestId
+      messagesLengthRef.current = nextMessages.length
+      setMessages(nextMessages)
+      if (latestId > 0) {
+        requestAnimationFrame(() => scrollToBottom(!silent))
       }
     } catch {
+      if (requestId !== loadRequestRef.current) return
       if (!silent) setError('Не вдалося завантажити повідомлення')
     }
   }, [scrollToBottom, user])
@@ -146,7 +151,7 @@ export function AnimilairOrderChat({
   }, [productPreview?.author.welcomeMessage, productPreview?.author.isOnline])
 
   useEffect(() => {
-    if (!activeOrderId || !user) return
+    if (!activeOrderId || !user || sendingRef.current) return
     void loadMessages(activeOrderId)
   }, [activeOrderId, loadMessages, user])
 
@@ -184,6 +189,7 @@ export function AnimilairOrderChat({
     if (!payload.body && payload.attachments.length === 0) return
     setBusy(true)
     setError('')
+    sendingRef.current = true
     try {
       let orderId = activeOrderId
       if (!orderId && productPreview) {
@@ -202,12 +208,15 @@ export function AnimilairOrderChat({
       }
       const nextMessages = Array.isArray(result.messages) ? result.messages : []
       lastMessageIdRef.current = nextMessages.at(-1)?.id || lastMessageIdRef.current
+      messagesLengthRef.current = nextMessages.length
       setMessages(nextMessages)
       void reloadOrders()
       requestAnimationFrame(() => scrollToBottom())
+      void loadMessages(orderId, false)
     } catch (sendError) {
       setError(sendError instanceof Error ? sendError.message : 'Помилка повідомлення')
     } finally {
+      sendingRef.current = false
       setBusy(false)
     }
   }
