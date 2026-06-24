@@ -160,13 +160,8 @@ export function AnimilairClient({ initialUser, catalog }: Props) {
               )}
             </div>
           </div>
-          <div className="animilair-hero-card animilair-logo-card">
-            <span className="animilair-live-dot" />
-            <div
-              className="animilair-hero-photo single"
-              aria-label="AnimiLair Studio"
-              style={{ backgroundImage: "url('/images/animilair-logo.jpg')" }}
-            />
+          <div className="animilair-hero-logo">
+            <img src="/images/animilair-logo.jpg" alt="AnimiLair Studio" />
           </div>
         </section>
 
@@ -174,30 +169,32 @@ export function AnimilairClient({ initialUser, catalog }: Props) {
           <div className={`animilair-form-message ${message.type}`}>{message.text}</div>
         )}
 
-        <section className="animilair-section">
-          <div className="animilair-section-head">
-            <div>
-              <span className="animilair-eyebrow">Автори</span>
-              <h2>Дизайнери та студії</h2>
+        {catalog.authors.length > 0 && (
+          <section className="animilair-section">
+            <div className="animilair-section-head">
+              <div>
+                <span className="animilair-eyebrow">Автори</span>
+                <h2>Дизайнери та студії</h2>
+              </div>
             </div>
-          </div>
-          <div className="animilair-authors">
-            {catalog.authors.map((author) => (
-              <article className="animilair-author-card compact" key={author.id}>
-                <div className="animilair-author-main">
-                  {cleanImageUrl(author.avatarUrl) ? (
-                    <div className="animilair-author-avatar" style={{ backgroundImage: `url(${cleanImageUrl(author.avatarUrl)})` }} />
-                  ) : null}
-                  <div>
-                    <h3>{author.name}</h3>
-                    <p>{author.role}</p>
+            <div className="animilair-authors">
+              {catalog.authors.map((author) => (
+                <article className="animilair-author-card compact" key={author.id}>
+                  <div className="animilair-author-main">
+                    {cleanImageUrl(author.avatarUrl) ? (
+                      <div className="animilair-author-avatar" style={{ backgroundImage: `url(${cleanImageUrl(author.avatarUrl)})` }} />
+                    ) : null}
+                    <div>
+                      <h3>{author.name}</h3>
+                      <p>{author.role}</p>
+                    </div>
                   </div>
-                </div>
-                <p className="animilair-author-bio">{author.bio}</p>
-              </article>
-            ))}
-          </div>
-        </section>
+                  {author.bio ? <p className="animilair-author-bio">{author.bio}</p> : null}
+                </article>
+              ))}
+            </div>
+          </section>
+        )}
 
         <section className="animilair-section" id="works">
           <div className="animilair-section-head">
@@ -220,19 +217,28 @@ export function AnimilairClient({ initialUser, catalog }: Props) {
           </div>
 
           <div className="animilair-products animilair-market-grid">
-            {products.map((product) => {
+            {products.length === 0 ? (
+              <div className="set-card animilair-catalog-empty">
+                <p>Тут зʼявляться товари після публікації дизайнерами. Якщо ви дизайнер — натисніть «Створити товар».</p>
+              </div>
+            ) : products.map((product) => {
               const cover = cleanImageUrl(product.coverUrl)
               return (
                 <article
-                  className="animilair-product-card animilair-market-card"
+                  className="animilair-product-card"
                   key={product.id}
                   onClick={() => router.push(`/partners/animilair/${product.slug}`)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault()
+                      router.push(`/partners/animilair/${product.slug}`)
+                    }
+                  }}
+                  role="link"
+                  tabIndex={0}
+                  aria-label={product.title}
                 >
-                  {cover ? (
-                    <div className="animilair-product-cover" style={{ backgroundImage: `url(${cover})` }}>
-                      <span className="animilair-card-views">◉ {Math.max(31, product.id * 137).toLocaleString('uk-UA')}</span>
-                    </div>
-                  ) : null}
+                  <div className="animilair-product-cover" style={{ backgroundImage: `url(${cover})` }} />
                   <div className="animilair-product-body">
                     <div className="animilair-product-meta">
                       <span>{product.author?.name || 'AnimiLair'}</span>
@@ -242,7 +248,7 @@ export function AnimilairClient({ initialUser, catalog }: Props) {
                     <p>{product.shortDesc}</p>
                     <div className="animilair-product-foot">
                       <span>Термін: {product.deliveryDays ? `${product.deliveryDays} дн.` : 'обговорюється'}</span>
-                      <strong className="animilair-market-price">{formatPrice(product.priceFrom)}</strong>
+                      <strong>{formatPrice(product.priceFrom)}</strong>
                     </div>
                   </div>
                 </article>

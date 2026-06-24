@@ -1025,6 +1025,21 @@
   margin-top: 26px;
 }
 
+.animilair-hero-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 360px;
+}
+
+.animilair-hero-logo img {
+  width: 100%;
+  max-width: 420px;
+  height: auto;
+  border-radius: var(--radius-xl);
+  object-fit: contain;
+}
+
 .animilair-hero-card {
   position: relative;
   display: flex;
@@ -1233,26 +1248,11 @@
   background-position: center;
 }
 
-.animilair-product-cover::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(180deg, rgba(0,0,0,.05), rgba(0,0,0,.42));
-}
-
-.animilair-product-cover span {
-  position: absolute;
-  z-index: 1;
-  top: 12px;
-  left: 12px;
-  padding: 6px 9px;
-  border-radius: 999px;
-  background: rgba(15, 23, 42, .78);
-  color: #fff;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 800;
-  text-transform: uppercase;
+.animilair-product-body h3 {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .animilair-product-body {
@@ -1284,6 +1284,10 @@
   color: var(--fg-2);
   line-height: 1.65;
   font-size: 13.5px;
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .animilair-tags {
@@ -1332,64 +1336,23 @@
 .animilair-product-foot strong {
   display: block;
   margin-top: 3px;
-  font-size: 13px;
+  font-size: 15px;
+  color: var(--fg);
+  white-space: nowrap;
 }
 
 .animilair-market-grid {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
-.animilair-market-card {
+.animilair-catalog-empty {
+  grid-column: 1 / -1;
+  text-align: center;
+  color: var(--fg-2);
+}
+
+.animilair-product-card[role="link"] {
   cursor: pointer;
-  border-color: rgba(255, 255, 255, .1);
-  background: #171717;
-  color: #f8fafc;
-  box-shadow: 0 18px 48px rgba(0, 0, 0, .22);
-}
-
-.animilair-market-card:hover {
-  transform: translateY(-4px);
-  border-color: rgba(255, 255, 255, .24);
-  box-shadow: 0 26px 70px rgba(0, 0, 0, .32);
-}
-
-.animilair-market-card .animilair-product-cover {
-  min-height: 180px;
-}
-
-.animilair-market-card .animilair-product-cover::after {
-  background: linear-gradient(180deg, rgba(0,0,0,.1), rgba(0,0,0,.18));
-}
-
-.animilair-market-card .animilair-product-meta,
-.animilair-market-card .animilair-product-body p,
-.animilair-market-card .animilair-product-foot span {
-  color: rgba(248, 250, 252, .62);
-}
-
-.animilair-market-card .animilair-product-meta span:first-child {
-  color: rgba(248, 250, 252, .82);
-}
-
-.animilair-market-card .animilair-product-body h3 {
-  color: #fff;
-  font-size: 17px;
-  line-height: 1.18;
-}
-
-.animilair-market-card .animilair-product-body p {
-  display: -webkit-box;
-  min-height: 44px;
-  overflow: hidden;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-}
-
-.animilair-market-price {
-  color: #fff;
-  font-size: 23px !important;
-  line-height: 1;
-  white-space: nowrap;
 }
 
 .animilair-detail-page {
@@ -1912,7 +1875,7 @@
   }
 
   .animilair-hero-copy,
-  .animilair-hero-card {
+  .animilair-hero-logo {
     min-height: auto;
   }
 

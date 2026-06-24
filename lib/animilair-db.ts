@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import type { AuthUser, UserRole } from '@/lib/auth-db'
+import { IMAGE_PLACEHOLDER } from '@/lib/placeholders'
 
 export type AnimilairAuthor = {
   id: number
@@ -162,6 +163,13 @@ function slugify(value: string) {
 
 function roleCanSell(role: UserRole) {
   return role === 'DESIGNER' || role === 'ADMIN'
+}
+
+function isValidCoverUrl(value: string | null | undefined): boolean {
+  const url = String(value || '').trim()
+  if (!url) return false
+  if (url === IMAGE_PLACEHOLDER || url.includes('/images/placeholder-minecraft.jpg')) return false
+  return true
 }
 
 function mapAuthor(row: AuthorRow): AnimilairAuthor {
@@ -395,7 +403,7 @@ export async function ensureAnimilairSeedData() {
 
 export async function getAnimilairCatalog() {
   await ensureAnimilairSeedData()
-  const [authors, products, media] = await Promise.all([
+  const [authors, productRows, media, designerRows] = await Promise.all([
     prisma.$queryRawUnsafe<AuthorRow[]>(
       `SELECT * FROM app_animilair_authors WHERE is_active = 1 ORDER BY position ASC, id ASC`
     ),
@@ -411,11 +419,23 @@ export async function getAnimilairCatalog() {
     prisma.$queryRawUnsafe<MediaRow[]>(
       `SELECT * FROM app_animilair_product_media ORDER BY product_id ASC, position ASC, id ASC`
     ),
+    prisma.$queryRawUnsafe<Array<{ id: string }>>(
+      `SELECT id FROM app_users WHERE UPPER(role) IN ('DESIGNER', 'ADMIN')`
+    ),
   ])
-
+  const products = productRows
+    .filter((product) => isValidCoverUrl(product.cover_url))
+    .map((product) => mapProduct(product, media))
+  const authorIdsWithProducts = new Set(products.map((product) => product.authorId))
+  const designerUserIds = new Set(designerRows.map((row) => row.id))
+  const visibleAuthors = authors.filter((author) => {
+    if (authorIdsWithProducts.has(Number(author.id))) return true
+    if (author.user_id && designerUserIds.has(author.user_id)) return true
+    return false
+  })
   return {
-    authors: authors.map(mapAuthor),
-    products: products.map((product) => mapProduct(product, media)),
+    authors: visibleAuthors.map(mapAuthor),
+    products,
   }
 }
 
