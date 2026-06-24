@@ -332,8 +332,6 @@ export function NewsDetailsClient({ initialUser, post, canManage }: NewsDetailsC
             <div className="na-meta">
               <span className="na-category">{post.category}</span>
               <time dateTime={post.createdAt}>{formatDate(post.createdAt)}</time>
-              <span className="na-meta-item">{engagement.views} переглядів</span>
-              <span className="na-meta-item">{engagement.likes} лайків</span>
               <span className="na-meta-item">{readTime} хв читання</span>
             </div>
 
@@ -349,6 +347,10 @@ export function NewsDetailsClient({ initialUser, post, canManage }: NewsDetailsC
                 ) : (
                   <strong>{post.authorName}</strong>
                 )}
+              </div>
+              <div className="na-author-stats" aria-label="Статистика новини">
+                <span><strong>{engagement.views}</strong> переглядів</span>
+                <span><strong>{engagement.likes}</strong> лайків</span>
               </div>
             </div>
           </header>
@@ -394,8 +396,6 @@ export function NewsDetailsClient({ initialUser, post, canManage }: NewsDetailsC
                     <p>Можна залишити одне повідомлення під новиною. Якщо зміните думку, просто оновіть його.</p>
                   </div>
                   <div className="news-engagement-stats" aria-label="Статистика новини">
-                    <span><strong>{engagement.views}</strong> переглядів</span>
-                    <span><strong>{engagement.likes}</strong> лайків</span>
                     <span><strong>{engagement.commentsCount}</strong> повідомлень</span>
                   </div>
                 </div>
