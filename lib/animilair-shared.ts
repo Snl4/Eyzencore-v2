@@ -111,6 +111,10 @@ export const ANIMILAIR_ORDER_STATUS_MESSAGES: Record<string, string> = {
   canceled: 'Замовлення скасовано.',
 }
 
+export function isAnimilairOrderClosed(status: string): boolean {
+  return status === 'completed' || status === 'canceled'
+}
+
 const ANIMILAIR_EXCLUDED_CATEGORIES = new Set(['plugins', 'promo', 'promotion'])
 
 export function isAnimilairCatalogCategory(category: string): boolean {

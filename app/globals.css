@@ -828,24 +828,13 @@
   padding-bottom: 72px;
 }
 .na-topline {
-  width: min(820px, 100%);
+  width: min(1080px, 100%);
   margin: 2px auto 18px;
-}
-.na-topline-stack {
-  display: grid;
-  gap: 10px;
-  min-width: 0;
-  width: 100%;
-}
-.na-top-actions {
-  display: flex;
-  justify-content: flex-start;
-  flex-wrap: wrap;
-  gap: 8px;
 }
 .na-breadcrumbs {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
   min-width: 0;
   margin: 0;
@@ -853,13 +842,41 @@
   font-size: 12px;
   font-family: var(--font-mono);
 }
-.na-breadcrumbs a {
+.na-breadcrumbs a,
+.na-breadcrumbs .na-crumb-btn {
   color: var(--fg-2);
   text-decoration: none;
   transition: color 160ms ease;
 }
-.na-breadcrumbs a:hover {
+.na-breadcrumbs a:hover,
+.na-breadcrumbs .na-crumb-btn:hover:not(:disabled) {
   color: var(--accent);
+}
+.na-breadcrumbs .na-crumb-btn {
+  border: none;
+  background: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  font-family: inherit;
+  font-size: inherit;
+  cursor: pointer;
+}
+.na-breadcrumbs .na-crumb-btn:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+.na-breadcrumbs .na-crumb-btn-danger:hover:not(:disabled) {
+  color: var(--red);
+}
+.na-breadcrumbs [aria-current="page"] {
+  color: var(--fg-2);
+}
+.na-breadcrumbs a:focus-visible,
+.na-breadcrumbs .na-crumb-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 4px;
 }
 .na-back-link,
 .page-back-link {
@@ -891,7 +908,7 @@
   outline-offset: 3px;
 }
 .na-article {
-  width: min(820px, 100%);
+  width: min(1080px, 100%);
   margin: 0 auto;
 }
 .na-header {
@@ -1786,6 +1803,38 @@
   color: var(--fg-2);
   font-size: 13px;
   line-height: 1.5;
+}
+
+.animilair-order-closed-panel {
+  display: grid;
+  gap: 10px;
+  margin: 0 16px 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--bg-2) 92%, transparent);
+}
+
+.animilair-order-closed-panel strong {
+  font-size: 14px;
+  color: var(--fg);
+}
+
+.animilair-order-closed-panel p {
+  margin: 0;
+  color: var(--fg-2);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.animilair-order-closed-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.animilair-chat-card .animilair-order-closed-panel {
+  margin: 0 20px 12px;
 }
 
 .animilair-chat-head.compact {
@@ -3210,10 +3259,6 @@
   .na-header { margin-bottom: 22px; }
   .na-topline {
     margin-bottom: 14px;
-  }
-  .na-top-actions {
-    width: 100%;
-    justify-content: flex-start;
   }
   .na-back-link {
     min-height: 34px;

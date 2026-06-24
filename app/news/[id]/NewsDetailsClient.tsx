@@ -314,42 +314,34 @@ export function NewsDetailsClient({ initialUser, post, canManage }: NewsDetailsC
     <PageShell active="news" initialUser={initialUser}>
       <main className="page-main na-page">
         <div className="na-topline">
-          <div className="na-topline-stack">
-            <div className="na-top-actions" aria-label="Дії з новиною">
-              <Link href="/news" className="page-back-link">
-                <span aria-hidden="true">←</span>
-                До новин
-              </Link>
-              <button type="button" className="na-action" onClick={() => void handleCopyLink()}>
-                <span aria-hidden="true">{isCopied ? '✓' : '⧉'}</span>
-                <span>{isCopied ? 'Скопійовано' : 'Копіювати'}</span>
-              </button>
-              {canManage && (
-                <>
-                  <Link href={`${postPath}/edit`} className="na-action">
-                    <span aria-hidden="true">✎</span>
-                    <span>Редагувати</span>
-                  </Link>
-                  <button
-                    type="button"
-                    className="na-action na-action-danger"
-                    onClick={() => void handleDelete()}
-                    disabled={isDeleting}
-                  >
-                    <span aria-hidden="true">×</span>
-                    <span>{isDeleting ? 'Видалення…' : 'Видалити'}</span>
-                  </button>
-                </>
-              )}
-            </div>
-            <nav className="na-breadcrumbs" aria-label="Навігація">
-              <Link href="/">Головна</Link>
-              <span aria-hidden="true">/</span>
-              <Link href="/news">Новини</Link>
-              <span aria-hidden="true">/</span>
-              <span aria-current="page">{post.category}</span>
-            </nav>
-          </div>
+          <nav className="na-breadcrumbs" aria-label="Навігація">
+            <Link href="/news">← До новин</Link>
+            <span aria-hidden="true">/</span>
+            <button type="button" className="na-crumb-btn" onClick={() => void handleCopyLink()}>
+              {isCopied ? 'Скопійовано' : 'Копіювати'}
+            </button>
+            {canManage && (
+              <>
+                <span aria-hidden="true">/</span>
+                <Link href={`${postPath}/edit`}>Редагувати</Link>
+                <span aria-hidden="true">/</span>
+                <button
+                  type="button"
+                  className="na-crumb-btn na-crumb-btn-danger"
+                  onClick={() => void handleDelete()}
+                  disabled={isDeleting}
+                >
+                  {isDeleting ? 'Видалення…' : 'Видалити'}
+                </button>
+              </>
+            )}
+            <span aria-hidden="true">/</span>
+            <Link href="/">Головна</Link>
+            <span aria-hidden="true">/</span>
+            <Link href="/news">Новини</Link>
+            <span aria-hidden="true">/</span>
+            <span aria-current="page">{post.category}</span>
+          </nav>
         </div>
 
         <article className="na-article">

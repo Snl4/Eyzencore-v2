@@ -13,6 +13,7 @@ import {
   getAnimilairRequestIp,
   recordAnimilairProductView,
 } from '@/lib/animilair-db'
+import { isAnimilairOrderClosed } from '@/lib/animilair-shared'
 import { buildPageMetadata } from '@/lib/seo'
 import { AnimilairProductClient } from './AnimilairProductClient'
 
@@ -70,10 +71,12 @@ export default async function AnimilairProductPage({ params }: Props) {
   const productOrders = auth
     ? await getAnimilairOrdersForProduct(product.id, auth.user, role)
     : []
-  const activeOrder = productOrders.find((order) => !['canceled', 'completed'].includes(order.status))
-    || productOrders[0]
-    || null
-  const initialMessages = auth && activeOrder
+  const activeOrder = canManage
+    ? productOrders.find((order) => !isAnimilairOrderClosed(order.status)) || productOrders[0] || null
+    : productOrders.find(
+        (order) => order.customerId === auth?.user?.id && !isAnimilairOrderClosed(order.status)
+      ) || null
+  const initialMessages = auth && activeOrder && !isAnimilairOrderClosed(activeOrder.status)
     ? await getAnimilairMessages(activeOrder.id, auth.user, role)
     : []
   const initialReviews = await getAnimilairProductReviews(product.id)

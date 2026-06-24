@@ -1,6 +1,7 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import Link from 'next/link'
 import { AnimilairChatCompose } from '@/components/partners/AnimilairChatCompose'
 import { AnimilairMessageContent } from '@/components/partners/AnimilairMessageContent'
 import {
@@ -10,6 +11,7 @@ import {
 } from '@/components/partners/animilair-chat-utils'
 import type { AuthUser } from '@/lib/auth-db'
 import type { AnimilairAuthor, AnimilairMessageAttachment, AnimilairOrder, AnimilairOrderMessage, AnimilairProductReview } from '@/lib/animilair-shared'
+import { isAnimilairOrderClosed } from '@/lib/animilair-shared'
 import { AnimilairRatingStars } from '@/components/partners/AnimilairRatingStars'
 
 const CHAT_POLL_MS = 2000
@@ -25,7 +27,7 @@ type Props = {
   user: AuthUser | null
   orders: AnimilairOrder[]
   activeOrderId: number | null
-  onActiveOrderIdChange?: (orderId: number) => void
+  onActiveOrderIdChange?: (orderId: number | null) => void
   onOrdersChange?: (orders: AnimilairOrder[]) => void
   onOrderCreated?: (order: AnimilairOrder) => void
   onAuthorUpdated?: (author: AnimilairAuthor) => void
@@ -75,6 +77,30 @@ export function AnimilairOrderChat({
       : productPreview?.canEditWelcome
   )
   const isCustomerForSelected = Boolean(activeOrder && activeOrder.customerId === user?.id)
+  const chatOrders = useMemo(() => {
+    if (!productPreview || isDesignerForSelected || isAdmin) return orders
+    return orders.filter(
+      (order) => order.customerId === user?.id && !isAnimilairOrderClosed(order.status)
+    )
+  }, [isAdmin, isDesignerForSelected, orders, productPreview, user?.id])
+  const closedCustomerOrder = useMemo(() => {
+    if (!productPreview || productPreview.canEditWelcome || !user) return null
+    if (activeOrder && activeOrder.customerId === user.id && isAnimilairOrderClosed(activeOrder.status)) {
+      return activeOrder
+    }
+    if (!activeOrder) {
+      return orders.find(
+        (order) => order.customerId === user.id && isAnimilairOrderClosed(order.status)
+      ) || null
+    }
+    return null
+  }, [activeOrder, orders, productPreview, user])
+  const productClosedCustomerView = Boolean(closedCustomerOrder)
+  const reviewOrder = activeOrder?.status === 'completed' && isCustomerForSelected
+    ? activeOrder
+    : productClosedCustomerView && closedCustomerOrder?.status === 'completed'
+      ? closedCustomerOrder
+      : null
   const author = productPreview?.author || null
   const showWelcome = Boolean(productPreview && welcomeMessage)
 
@@ -135,7 +161,9 @@ export function AnimilairOrderChat({
 
   const ensureOrder = useCallback(async (): Promise<number | null> => {
     if (!user || !productPreview) return activeOrderId
-    if (activeOrderId) return activeOrderId
+    if (activeOrderId && activeOrder && !isAnimilairOrderClosed(activeOrder.status)) {
+      return activeOrderId
+    }
     const response = await fetch('/api/partners/animilair/orders', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -148,17 +176,36 @@ export function AnimilairOrderChat({
     onOrderCreated?.(payload.order)
     onActiveOrderIdChange?.(payload.order.id)
     return payload.order.id
-  }, [activeOrderId, onActiveOrderIdChange, onOrderCreated, productPreview, user])
+  }, [activeOrder, activeOrderId, onActiveOrderIdChange, onOrderCreated, productPreview, user])
+
+  const startNewOrder = useCallback(async () => {
+    if (!user || !productPreview) return
+    setBusy(true)
+    setError('')
+    try {
+      const orderId = await ensureOrder()
+      if (!orderId) return
+      lastMessageIdRef.current = 0
+      messagesLengthRef.current = 0
+      setMessages([])
+      await loadMessages(orderId)
+    } catch (orderError) {
+      setError(orderError instanceof Error ? orderError.message : 'Не вдалося створити замовлення')
+    } finally {
+      setBusy(false)
+    }
+  }, [ensureOrder, loadMessages, productPreview, user])
 
   useEffect(() => {
-    if (!activeOrderId || !user || !activeOrder || activeOrder.status !== 'completed') {
+    const orderId = reviewOrder?.id
+    if (!orderId || !user) {
       setOrderReview(null)
       return
     }
     let cancelled = false
     void (async () => {
       try {
-        const response = await fetch(`/api/partners/animilair/orders/${activeOrderId}/review`, { cache: 'no-store' })
+        const response = await fetch(`/api/partners/animilair/orders/${orderId}/review`, { cache: 'no-store' })
         const payload = await response.json() as { review?: AnimilairProductReview | null }
         if (!cancelled && response.ok) {
           setOrderReview(payload.review || null)
@@ -170,14 +217,15 @@ export function AnimilairOrderChat({
     return () => {
       cancelled = true
     }
-  }, [activeOrder?.status, activeOrderId, user])
+  }, [reviewOrder?.id, user])
 
   const submitReview = async () => {
-    if (!activeOrderId || !user) return
+    const orderId = reviewOrder?.id
+    if (!orderId || !user) return
     setBusy(true)
     setError('')
     try {
-      const response = await fetch(`/api/partners/animilair/orders/${activeOrderId}/review`, {
+      const response = await fetch(`/api/partners/animilair/orders/${orderId}/review`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ rating: reviewRating, body: reviewBody }),
@@ -203,9 +251,9 @@ export function AnimilairOrderChat({
   }, [productPreview?.author.welcomeMessage, productPreview?.author.isOnline])
 
   useEffect(() => {
-    if (!activeOrderId || !user || sendingRef.current) return
+    if (!activeOrderId || !user || sendingRef.current || productClosedCustomerView) return
     void loadMessages(activeOrderId)
-  }, [activeOrderId, loadMessages, user])
+  }, [activeOrderId, loadMessages, productClosedCustomerView, user])
 
   useEffect(() => {
     if (!activeOrderId || !user) return
@@ -244,6 +292,9 @@ export function AnimilairOrderChat({
     sendingRef.current = true
     try {
       let orderId = activeOrderId
+      if (orderId && activeOrder && isAnimilairOrderClosed(activeOrder.status)) {
+        orderId = null
+      }
       if (!orderId && productPreview) {
         orderId = await ensureOrder()
       }
@@ -313,7 +364,19 @@ export function AnimilairOrderChat({
         throw new Error(payload.error || 'Не вдалося оновити статус')
       }
       onOrdersChange?.(orders.map((order) => order.id === payload.order?.id ? payload.order : order))
-      await loadMessages(activeOrderId)
+      if (
+        productPreview
+        && payload.order
+        && payload.order.customerId === user?.id
+        && isAnimilairOrderClosed(payload.order.status)
+      ) {
+        lastMessageIdRef.current = 0
+        messagesLengthRef.current = 0
+        setMessages([])
+        onActiveOrderIdChange?.(null)
+      } else {
+        await loadMessages(activeOrderId)
+      }
     } catch (statusError) {
       setError(statusError instanceof Error ? statusError.message : 'Помилка статусу')
     } finally {
@@ -325,18 +388,16 @@ export function AnimilairOrderChat({
   const avatarUrl = author?.avatarUrl || ''
   const authorName = author?.name || activeOrder?.authorName || 'Дизайнер'
   const canCompose = Boolean(
-    user && (
-      !activeOrder
-        ? productPreview && !productPreview.canEditWelcome
-        : !['completed', 'canceled'].includes(activeOrder.status)
+    user
+    && productPreview
+    && !productPreview.canEditWelcome
+    && (
+      activeOrder
+        ? !isAnimilairOrderClosed(activeOrder.status)
+        : !productClosedCustomerView
     )
   )
-  const showReviewForm = Boolean(
-    activeOrder
-    && activeOrder.status === 'completed'
-    && isCustomerForSelected
-    && !orderReview
-  )
+  const showReviewForm = Boolean(reviewOrder && !orderReview)
 
   const authorHeader = author ? (
     <header className="animilair-chat-author-head">
@@ -430,7 +491,7 @@ export function AnimilairOrderChat({
         </div>
       )}
 
-      {activeOrder && (
+      {activeOrder && !productClosedCustomerView && (
         <header className={`animilair-chat-head${productPreview ? ' compact' : ''}`}>
           <div>
             <span className="animilair-eyebrow">Замовлення #{activeOrder.id}</span>
@@ -451,9 +512,9 @@ export function AnimilairOrderChat({
         </header>
       )}
 
-      {orders.length > 1 && (
+      {chatOrders.length > 1 && (
         <div className="animilair-detail-chat-orders">
-          {orders.map((order) => (
+          {chatOrders.map((order) => (
             <button
               key={order.id}
               type="button"
@@ -466,7 +527,7 @@ export function AnimilairOrderChat({
         </div>
       )}
 
-      {activeOrder && (
+      {activeOrder && !productClosedCustomerView && (
         <div className="animilair-order-status-bar">
           <div className="animilair-order-status-bar-head">
             <strong>Керування замовленням</strong>
@@ -506,11 +567,33 @@ export function AnimilairOrderChat({
                 Підтвердити виконання
               </button>
             )}
-            {isCustomerForSelected && !['completed', 'canceled'].includes(activeOrder.status) && (
+            {isCustomerForSelected && !isAnimilairOrderClosed(activeOrder.status) && (
               <button className="btn btn-secondary" type="button" disabled={busy} onClick={() => void updateStatus('canceled')}>
                 Скасувати
               </button>
             )}
+          </div>
+        </div>
+      )}
+
+      {productClosedCustomerView && closedCustomerOrder && (
+        <div className="animilair-order-closed-panel">
+          <strong>
+            Замовлення #{closedCustomerOrder.id} · {animilairStatusLabel(closedCustomerOrder.status)}
+          </strong>
+          <p>
+            Історія цього чату збережена в розділі «Замовлення». Щоб обговорити нову задачу, створіть нове замовлення.
+          </p>
+          <div className="animilair-order-closed-actions">
+            <Link
+              href={`/partners/animilair/orders?order=${closedCustomerOrder.id}`}
+              className="btn btn-secondary"
+            >
+              Переглянути чат
+            </Link>
+            <button className="btn btn-primary" type="button" disabled={busy} onClick={() => void startNewOrder()}>
+              Замовити знову
+            </button>
           </div>
         </div>
       )}
@@ -582,7 +665,7 @@ export function AnimilairOrderChat({
           )
         })}
 
-        {messages.length === 0 && !showWelcome && (
+        {messages.length === 0 && !showWelcome && !productClosedCustomerView && (
           <p className="animilair-chat-empty">Напишіть перше повідомлення — обговоріть ТЗ прямо тут.</p>
         )}
         <div ref={messagesEndRef} />
@@ -594,7 +677,7 @@ export function AnimilairOrderChat({
         <AnimilairChatCompose busy={busy} onSend={send} />
       ) : productPreview?.canEditWelcome && !activeOrder ? (
         <div className="animilair-detail-chat-closed">Очікуйте повідомлення від клієнта або оберіть замовлення вище.</div>
-      ) : activeOrder && ['completed', 'canceled'].includes(activeOrder.status) ? (
+      ) : activeOrder && isAnimilairOrderClosed(activeOrder.status) && !productPreview ? (
         <div className="animilair-detail-chat-closed">Замовлення закрито. Нові повідомлення недоступні.</div>
       ) : null}
     </div>
