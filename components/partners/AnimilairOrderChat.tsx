@@ -179,16 +179,18 @@ export function AnimilairOrderChat({
 
   const syncProductPageAfterClose = useCallback((closedOrder: AnimilairOrder) => {
     if (!productPreview) return
-    if (closedOrder.status === 'completed' && closedOrder.customerId === user?.id) {
+    const updatedOrders = orders.map((order) => (
+      order.id === closedOrder.id ? closedOrder : order
+    ))
+    if (closedOrder.status === 'canceled' && closedOrder.customerId === user?.id) {
+      onOrdersChange?.(updatedOrders.filter((order) => order.id !== closedOrder.id))
+      onActiveOrderIdChange?.(null)
+      lastMessageIdRef.current = 0
+      messagesLengthRef.current = 0
+      setMessages([])
       return
     }
-    const remaining = orders.filter((order) => order.id !== closedOrder.id)
-    onOrdersChange?.(remaining)
-    const nextActive = remaining.find((order) => !isAnimilairOrderClosed(order.status)) || null
-    onActiveOrderIdChange?.(nextActive?.id ?? null)
-    lastMessageIdRef.current = 0
-    messagesLengthRef.current = 0
-    setMessages([])
+    onOrdersChange?.(updatedOrders)
   }, [onActiveOrderIdChange, onOrdersChange, orders, productPreview, user?.id])
 
   useEffect(() => {
@@ -247,9 +249,8 @@ export function AnimilairOrderChat({
 
   useEffect(() => {
     if (!activeOrderId || !user || sendingRef.current) return
-    if (activeOrder && isAnimilairOrderClosed(activeOrder.status) && productPreview?.canEditWelcome) return
     void loadMessages(activeOrderId)
-  }, [activeOrder, activeOrderId, loadMessages, productPreview?.canEditWelcome, user])
+  }, [activeOrderId, loadMessages, user])
 
   useEffect(() => {
     if (!user) return
@@ -694,12 +695,17 @@ export function AnimilairOrderChat({
         <AnimilairChatCompose busy={busy} onSend={send} />
       ) : productPreview?.canEditWelcome && !activeOrder ? (
         <div className="animilair-detail-chat-closed">Очікуйте повідомлення від клієнта або оберіть замовлення вище.</div>
-      ) : activeOrder && isAnimilairOrderClosed(activeOrder.status) && !productPreview ? (
+      ) : activeOrder && isAnimilairOrderClosed(activeOrder.status) ? (
         <div className="animilair-detail-chat-closed">
-          <p>Замовлення закрито. Нові повідомлення недоступні.</p>
-          <button className="btn btn-secondary" type="button" disabled={busy} onClick={() => void archiveOrder()}>
-            Прибрати зі списку
-          </button>
+          <p>
+            Замовлення {animilairStatusLabel(activeOrder.status).toLowerCase()}.
+            {productPreview ? ' Історія збережена в розділі «Замовлення».' : ' Нові повідомлення недоступні.'}
+          </p>
+          {!productPreview ? (
+            <button className="btn btn-secondary" type="button" disabled={busy} onClick={() => void archiveOrder()}>
+              Прибрати зі списку
+            </button>
+          ) : null}
         </div>
       ) : null}
     </div>

@@ -128,6 +128,34 @@ export function pickAnimilairProductPageOrder(
   return openOrders.find((order) => order.customerId === userId) ?? null
 }
 
+/** Keep a just-closed order visible on the product page until review or archive. */
+export function resolveAnimilairProductPageSelection(input: {
+  orders: AnimilairOrder[]
+  userId: string
+  canManage: boolean
+  currentOrderId: number | null
+}): { orders: AnimilairOrder[]; activeOrderId: number | null } {
+  const current = input.currentOrderId
+    ? input.orders.find((order) => order.id === input.currentOrderId) || null
+    : null
+  if (current && isAnimilairOrderClosed(current.status)) {
+    const isVisible = input.canManage
+      ? current.authorUserId === input.userId
+      : current.customerId === input.userId
+    if (isVisible) {
+      return { orders: [current], activeOrderId: current.id }
+    }
+  }
+  const primary = pickAnimilairProductPageOrder(input.orders, input.userId, input.canManage)
+  if (primary) {
+    return { orders: [primary], activeOrderId: primary.id }
+  }
+  if (current && !isAnimilairOrderClosed(current.status)) {
+    return { orders: [current], activeOrderId: current.id }
+  }
+  return { orders: [], activeOrderId: null }
+}
+
 export type AnimilairOrderProductGroup = {
   productId: number
   productTitle: string
