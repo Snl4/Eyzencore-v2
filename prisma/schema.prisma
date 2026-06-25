@@ -755,21 +755,25 @@ model app_animilair_product_media {
 }
 
 model app_animilair_orders {
-  id          Int     @id @default(autoincrement())
-  product_id  Int
-  customer_id String
-  status      String  @default("new")
-  title       String
-  brief       String
-  budget      String  @default("")
-  deadline    String?
-  contact     String  @default("")
-  created_at  String
-  updated_at  String
+  id                   Int     @id @default(autoincrement())
+  product_id           Int
+  customer_id          String
+  status               String  @default("new")
+  title                String
+  brief                String
+  budget               String  @default("")
+  deadline             String?
+  contact              String  @default("")
+  customer_archived_at String?
+  author_archived_at   String?
+  created_at           String
+  updated_at           String
 
   @@index([customer_id, created_at], map: "idx_animilair_orders_customer")
   @@index([product_id, created_at], map: "idx_animilair_orders_product")
   @@index([status], map: "idx_animilair_orders_status")
+  @@index([customer_id, customer_archived_at], map: "idx_animilair_orders_customer_archive")
+  @@index([author_archived_at], map: "idx_animilair_orders_author_archive")
 }
 
 model app_animilair_order_messages {

@@ -8,7 +8,7 @@ import { Breadcrumbs } from '@/components/ui/Breadcrumbs'
 import { AnimilairOrderChat } from '@/components/partners/AnimilairOrderChat'
 import { formatAnimilairDate, animilairStatusLabel } from '@/components/partners/animilair-chat-utils'
 import type { AuthUser } from '@/lib/auth-db'
-import type { AnimilairOrder } from '@/lib/animilair-shared'
+import { isAnimilairOrderClosed, type AnimilairOrder } from '@/lib/animilair-shared'
 
 type Props = {
   initialUser: AuthUser
@@ -23,11 +23,39 @@ export function AnimilairOrdersClient({ initialUser, initialOrders }: Props) {
     : initialOrders[0]?.id || null
   const [orders, setOrders] = useState(initialOrders)
   const [selectedId, setSelectedId] = useState<number | null>(initialSelected)
+  const [busy, setBusy] = useState(false)
 
   const selected = useMemo(
     () => orders.find((order) => order.id === selectedId) || null,
     [orders, selectedId]
   )
+
+  const archiveOrder = async (orderId: number) => {
+    setBusy(true)
+    try {
+      const response = await fetch(`/api/partners/animilair/orders/${orderId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ archived: true }),
+      })
+      const payload = await response.json() as { success?: boolean; error?: string }
+      if (!response.ok || !payload.success) {
+        throw new Error(payload.error || 'Не вдалося прибрати замовлення')
+      }
+      setOrders((current) => {
+        const nextOrders = current.filter((order) => order.id !== orderId)
+        setSelectedId((currentSelected) => {
+          if (currentSelected !== orderId) return currentSelected
+          return nextOrders[0]?.id ?? null
+        })
+        return nextOrders
+      })
+    } catch (archiveError) {
+      window.alert(archiveError instanceof Error ? archiveError.message : 'Помилка')
+    } finally {
+      setBusy(false)
+    }
+  }
 
   return (
     <PageShell active="animilair-orders" initialUser={initialUser}>
@@ -63,6 +91,27 @@ export function AnimilairOrdersClient({ initialUser, initialOrders }: Props) {
                   className={`animilair-order-item${order.id === selectedId ? ' active' : ''}`}
                   onClick={() => setSelectedId(order.id)}
                 >
+                  {isAnimilairOrderClosed(order.status) && (
+                    <span
+                      className="animilair-order-archive"
+                      role="button"
+                      tabIndex={0}
+                      aria-label="Прибрати зі списку"
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        void archiveOrder(order.id)
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault()
+                          event.stopPropagation()
+                          void archiveOrder(order.id)
+                        }
+                      }}
+                    >
+                      ×
+                    </span>
+                  )}
                   <span className="animilair-order-status">{animilairStatusLabel(order.status)}</span>
                   <strong>{order.title}</strong>
                   <small>{order.productTitle} · {formatAnimilairDate(order.updatedAt)}</small>

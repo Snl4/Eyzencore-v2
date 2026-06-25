@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useState, type ReactNode } from 'react'
 import { PageShell } from '@/components/layout/PageShell'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
+import { LightboxTrigger, useImageLightbox } from '@/components/ui/ImageLightbox'
 import type { AuthUser, NewsContentBlock, NewsPost } from '@/lib/auth-db'
 import { buildNewsPath } from '@/lib/news-slug'
 import { IMAGE_PLACEHOLDER } from '@/lib/placeholders'
@@ -105,16 +106,9 @@ function renderNewsBlock(block: NewsContentBlock): ReactNode {
   if (block.type === 'image' && block.url) {
     return (
       <figure className="na-figure">
-        <a
-          href={block.url}
-          target="_blank"
-          rel="noreferrer"
-          className="na-media-link"
-          aria-label={block.caption ? `Відкрити зображення: ${block.caption}` : 'Відкрити зображення'}
-        >
+        <LightboxTrigger images={block.url} alt={block.caption || ''} className="na-media-link image-lightbox-trigger">
           <img src={block.url} alt={block.caption || ''} className="news-media-content" loading="lazy" />
-          <span className="na-media-hint">Відкрити у повному розмірі ↗</span>
-        </a>
+        </LightboxTrigger>
         {block.caption && <figcaption className="na-caption">{block.caption}</figcaption>}
       </figure>
     )
@@ -149,6 +143,7 @@ function renderNewsBlock(block: NewsContentBlock): ReactNode {
 
 function NewsGallery({ urls, caption }: { urls: string[]; caption: string }) {
   const [active, setActive] = useState(0)
+  const { openImage, lightbox } = useImageLightbox()
   const current = urls[active] || urls[0]
   const goPrev = () => setActive((index) => (index - 1 + urls.length) % urls.length)
   const goNext = () => setActive((index) => (index + 1) % urls.length)
@@ -167,11 +162,16 @@ function NewsGallery({ urls, caption }: { urls: string[]; caption: string }) {
             ←
           </button>
         )}
-        <a href={current} target="_blank" rel="noreferrer" className="na-gallery-stage">
+        <button
+          type="button"
+          className="na-gallery-stage image-lightbox-trigger"
+          onClick={() => openImage(urls, active, caption || undefined)}
+          aria-label="Відкрити зображення у повному розмірі"
+        >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={current} alt={caption || `Зображення ${active + 1}`} loading="lazy" />
           <span>{active + 1} / {urls.length}</span>
-        </a>
+        </button>
         {urls.length > 1 && (
           <button
             type="button"
@@ -199,6 +199,7 @@ function NewsGallery({ urls, caption }: { urls: string[]; caption: string }) {
           ))}
         </div>
       )}
+      {lightbox}
     </figure>
   )
 }

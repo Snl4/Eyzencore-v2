@@ -2,6 +2,7 @@
 
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faLink, faPaperclip } from '@fortawesome/free-solid-svg-icons'
+import { LightboxTrigger } from '@/components/ui/ImageLightbox'
 import type { AnimilairMessageAttachment } from '@/lib/animilair-shared'
 import { formatFileSize } from '@/lib/upload'
 
@@ -12,6 +13,10 @@ export function AnimilairMessageContent({
   body: string
   attachments: AnimilairMessageAttachment[]
 }) {
+  const imageUrls = attachments
+    .filter((attachment) => attachment.type === 'image')
+    .map((attachment) => attachment.url)
+
   return (
     <div className="animilair-message-content">
       {body ? <p>{body}</p> : null}
@@ -19,16 +24,17 @@ export function AnimilairMessageContent({
         <div className="animilair-message-attachments">
           {attachments.map((attachment, index) => {
             if (attachment.type === 'image') {
+              const imageIndex = imageUrls.indexOf(attachment.url)
               return (
-                <a
+                <LightboxTrigger
                   key={`${attachment.url}-${index}`}
-                  className="animilair-message-image"
-                  href={attachment.url}
-                  target="_blank"
-                  rel="noreferrer"
+                  images={imageUrls}
+                  index={imageIndex}
+                  alt={attachment.name}
+                  className="animilair-message-image image-lightbox-trigger"
                 >
                   <img src={attachment.url} alt={attachment.name} />
-                </a>
+                </LightboxTrigger>
               )
             }
             if (attachment.type === 'file') {

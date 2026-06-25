@@ -8,6 +8,7 @@ import { PageShell } from '@/components/layout/PageShell'
 import { Breadcrumbs } from '@/components/ui/Breadcrumbs'
 import type { AuthUser } from '@/lib/auth-db'
 import type { AnimilairAuthor, AnimilairProduct } from '@/lib/animilair-shared'
+import { AnimilairPortfolioUploader } from '@/components/partners/AnimilairPortfolioUploader'
 import { IMAGE_PLACEHOLDER } from '@/lib/placeholders'
 
 type Catalog = {
@@ -24,7 +25,6 @@ type Props = {
 type ProductForm = {
   title: string
   category: string
-  shortDesc: string
   description: string
   priceFrom: string
   deliveryDays: string
@@ -36,7 +36,6 @@ type ProductForm = {
 const EMPTY_PRODUCT: ProductForm = {
   title: '',
   category: 'design',
-  shortDesc: '',
   description: '',
   priceFrom: '',
   deliveryDays: '',
@@ -158,7 +157,6 @@ export function AnimilairClient({ initialUser, catalog, heroDescription: initial
     setProductForm((current) => ({
       ...current,
       coverUrl: url,
-      media: current.media ? `${current.media}\n${url}` : url,
     }))
   }
 
@@ -366,12 +364,13 @@ export function AnimilairClient({ initialUser, catalog, heroDescription: initial
                 </label>
               </div>
               <label>
-                Короткий опис
-                <textarea rows={3} value={productForm.shortDesc} onChange={(event) => setProductForm((current) => ({ ...current, shortDesc: event.target.value }))} />
-              </label>
-              <label>
-                Що входить у послугу
-                <textarea rows={6} value={productForm.description} onChange={(event) => setProductForm((current) => ({ ...current, description: event.target.value }))} />
+                Опис
+                <textarea
+                  rows={8}
+                  placeholder="Опишіть послугу: що входить, для кого підходить, що отримає клієнт"
+                  value={productForm.description}
+                  onChange={(event) => setProductForm((current) => ({ ...current, description: event.target.value }))}
+                />
               </label>
               <div className="animilair-form-grid">
                 <label>
@@ -394,15 +393,17 @@ export function AnimilairClient({ initialUser, catalog, heroDescription: initial
                 Або URL обкладинки
                 <input value={productForm.coverUrl} onChange={(event) => setProductForm((current) => ({ ...current, coverUrl: event.target.value }))} />
               </label>
-              <label>
-                Портфоліо, по одному URL в рядок
-                <textarea rows={4} value={productForm.media} onChange={(event) => setProductForm((current) => ({ ...current, media: event.target.value }))} />
-              </label>
+              <AnimilairPortfolioUploader
+                value={productForm.media}
+                onChange={(media) => setProductForm((current) => ({ ...current, media }))}
+                onError={(text) => setMessage({ type: 'error', text })}
+                disabled={busy}
+              />
               {message && <div className={`animilair-form-message ${message.type}`}>{message.text}</div>}
             </div>
             <footer className="modal-foot">
               <button type="button" className="btn btn-secondary" onClick={() => setCreateOpen(false)}>Скасувати</button>
-              <button type="button" className="btn btn-primary" disabled={busy || !productForm.title.trim() || !productForm.shortDesc.trim() || !productForm.description.trim()} onClick={() => void submitProduct()}>
+              <button type="button" className="btn btn-primary" disabled={busy || !productForm.title.trim() || !productForm.description.trim()} onClick={() => void submitProduct()}>
                 {busy ? 'Створюємо...' : 'Опублікувати товар'}
               </button>
             </footer>

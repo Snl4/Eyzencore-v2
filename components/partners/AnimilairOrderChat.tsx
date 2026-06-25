@@ -384,6 +384,30 @@ export function AnimilairOrderChat({
     }
   }
 
+  const archiveOrder = async () => {
+    if (!activeOrderId || !user) return
+    setBusy(true)
+    setError('')
+    try {
+      const response = await fetch(`/api/partners/animilair/orders/${activeOrderId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ archived: true }),
+      })
+      const payload = await response.json() as { success?: boolean; error?: string }
+      if (!response.ok || !payload.success) {
+        throw new Error(payload.error || 'Не вдалося прибрати замовлення')
+      }
+      const nextOrders = orders.filter((order) => order.id !== activeOrderId)
+      onOrdersChange?.(nextOrders)
+      onActiveOrderIdChange?.(nextOrders[0]?.id ?? null)
+    } catch (archiveError) {
+      setError(archiveError instanceof Error ? archiveError.message : 'Помилка')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const cardClass = `animilair-chat-card${embedded ? ' animilair-detail-chat-panel' : ''}`
   const avatarUrl = author?.avatarUrl || ''
   const authorName = author?.name || activeOrder?.authorName || 'Дизайнер'
@@ -678,7 +702,12 @@ export function AnimilairOrderChat({
       ) : productPreview?.canEditWelcome && !activeOrder ? (
         <div className="animilair-detail-chat-closed">Очікуйте повідомлення від клієнта або оберіть замовлення вище.</div>
       ) : activeOrder && isAnimilairOrderClosed(activeOrder.status) && !productPreview ? (
-        <div className="animilair-detail-chat-closed">Замовлення закрито. Нові повідомлення недоступні.</div>
+        <div className="animilair-detail-chat-closed">
+          <p>Замовлення закрито. Нові повідомлення недоступні.</p>
+          <button className="btn btn-secondary" type="button" disabled={busy} onClick={() => void archiveOrder()}>
+            Прибрати зі списку
+          </button>
+        </div>
       ) : null}
     </div>
   )

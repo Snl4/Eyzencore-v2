@@ -10,7 +10,9 @@ import type { AuthUser } from '@/lib/auth-db'
 import type { AnimilairOrder, AnimilairOrderMessage, AnimilairProduct, AnimilairProductReview } from '@/lib/animilair-shared'
 import { AnimilairRatingStars } from '@/components/partners/AnimilairRatingStars'
 import { formatAnimilairDate } from '@/components/partners/animilair-chat-utils'
+import { AnimilairPortfolioUploader } from '@/components/partners/AnimilairPortfolioUploader'
 import { IMAGE_PLACEHOLDER } from '@/lib/placeholders'
+import { useImageLightbox } from '@/components/ui/ImageLightbox'
 
 type Props = {
   initialUser: AuthUser | null
@@ -25,13 +27,18 @@ type Props = {
 type ProductForm = {
   title: string
   category: string
-  shortDesc: string
   description: string
   priceFrom: string
   deliveryDays: string
   coverUrl: string
   tags: string
   media: string
+}
+
+function getProductFormDescription(product: { shortDesc: string; description: string }): string {
+  const full = String(product.description || '').trim()
+  if (full) return full
+  return String(product.shortDesc || '').trim()
 }
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -68,6 +75,7 @@ export function AnimilairProductClient({
 }: Props) {
   const router = useRouter()
   const confirmAction = useConfirm()
+  const { openImage, lightbox } = useImageLightbox()
   const [productOrders, setProductOrders] = useState(initialProductOrders)
   const [activeOrderId, setActiveOrderId] = useState<number | null>(initialActiveOrderId)
   const [authorProfile, setAuthorProfile] = useState(product.author)
@@ -86,8 +94,7 @@ export function AnimilairProductClient({
   const [productForm, setProductForm] = useState<ProductForm>({
     title: product.title,
     category: product.category,
-    shortDesc: product.shortDesc,
-    description: product.description,
+    description: getProductFormDescription(product),
     priceFrom: product.priceFrom ? String(product.priceFrom) : '',
     deliveryDays: product.deliveryDays ? String(product.deliveryDays) : '',
     coverUrl: cleanImageUrl(product.coverUrl),
@@ -113,7 +120,6 @@ export function AnimilairProductClient({
     setProductForm((current) => ({
       ...current,
       coverUrl: url,
-      media: current.media ? `${current.media}\n${url}` : url,
     }))
   }
 
@@ -205,7 +211,14 @@ export function AnimilairProductClient({
 
             <div className="animilair-detail-gallery">
               {activeImage ? (
-                <div className="animilair-detail-image" style={{ backgroundImage: `url(${activeImage})` }} />
+                <button
+                  type="button"
+                  className="animilair-detail-image-button"
+                  aria-label="Відкрити зображення"
+                  onClick={() => openImage(images, images.indexOf(activeImage))}
+                >
+                  <div className="animilair-detail-image" style={{ backgroundImage: `url(${activeImage})` }} />
+                </button>
               ) : (
                 <div className="animilair-detail-noimage">
                   <strong>{product.title}</strong>
@@ -229,8 +242,8 @@ export function AnimilairProductClient({
             </div>
 
             <section className="animilair-detail-section">
-              <h2>Що входить</h2>
-              <p>{product.description}</p>
+              <h2>Опис</h2>
+              <p>{product.description || product.shortDesc}</p>
               {product.tags.length > 0 && (
                 <div className="animilair-tags">
                   {product.tags.map((tag) => <span key={tag}>{tag}</span>)}
@@ -342,12 +355,13 @@ export function AnimilairProductClient({
                 </label>
               </div>
               <label>
-                Короткий опис
-                <textarea rows={3} value={productForm.shortDesc} onChange={(event) => setProductForm((current) => ({ ...current, shortDesc: event.target.value }))} />
-              </label>
-              <label>
-                Що входить у послугу
-                <textarea rows={6} value={productForm.description} onChange={(event) => setProductForm((current) => ({ ...current, description: event.target.value }))} />
+                Опис
+                <textarea
+                  rows={8}
+                  placeholder="Опишіть послугу: що входить, для кого підходить, що отримає клієнт"
+                  value={productForm.description}
+                  onChange={(event) => setProductForm((current) => ({ ...current, description: event.target.value }))}
+                />
               </label>
               <div className="animilair-form-grid">
                 <label>
@@ -370,21 +384,24 @@ export function AnimilairProductClient({
                 Або URL обкладинки
                 <input value={productForm.coverUrl} onChange={(event) => setProductForm((current) => ({ ...current, coverUrl: event.target.value }))} />
               </label>
-              <label>
-                Портфоліо, по одному URL в рядок
-                <textarea rows={4} value={productForm.media} onChange={(event) => setProductForm((current) => ({ ...current, media: event.target.value }))} />
-              </label>
+              <AnimilairPortfolioUploader
+                value={productForm.media}
+                onChange={(media) => setProductForm((current) => ({ ...current, media }))}
+                onError={(text) => setMessage({ type: 'error', text })}
+                disabled={busy}
+              />
               {message && <div className={`animilair-form-message ${message.type}`}>{message.text}</div>}
             </div>
             <footer className="modal-foot">
               <button type="button" className="btn btn-secondary" onClick={() => setEditOpen(false)}>Скасувати</button>
-              <button type="button" className="btn btn-primary" disabled={busy || !productForm.title.trim() || !productForm.shortDesc.trim() || !productForm.description.trim()} onClick={() => void submitProductEdit()}>
+              <button type="button" className="btn btn-primary" disabled={busy || !productForm.title.trim() || !productForm.description.trim()} onClick={() => void submitProductEdit()}>
                 {busy ? 'Зберігаємо...' : 'Зберегти зміни'}
               </button>
             </footer>
           </div>
         </div>
       )}
+      {lightbox}
     </PageShell>
   )
 }

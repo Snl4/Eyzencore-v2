@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { LightboxTrigger } from '@/components/ui/ImageLightbox'
 import {
   faFilm,
   faImage,
@@ -147,6 +148,7 @@ export function ForumMediaGallery({
   attachments: ForumAttachment[]
 }) {
   if (!attachments.length) return null
+  const imageUrls = attachments.filter((item) => item.kind === 'image').map((item) => item.url)
 
   return (
     <div className={`forum-media-gallery count-${Math.min(attachments.length, 4)}`}>
@@ -159,15 +161,15 @@ export function ForumMediaGallery({
             <figcaption>{attachment.name}</figcaption>
           </figure>
         ) : (
-          <a
-            className="forum-media-item"
-            href={attachment.url}
+          <LightboxTrigger
             key={`${attachment.url}-${index}`}
-            rel="noreferrer"
-            target="_blank"
+            images={imageUrls}
+            index={imageUrls.indexOf(attachment.url)}
+            alt={attachment.name}
+            className="forum-media-item image-lightbox-trigger"
           >
             <img loading="lazy" src={attachment.url} alt={attachment.name} />
-          </a>
+          </LightboxTrigger>
         )
       )}
     </div>

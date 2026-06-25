@@ -16,6 +16,7 @@ import {
   canManageAnimilairProduct,
   getAnimilairRequestIp,
   isAnimilairCatalogCategory,
+  isAnimilairOrderClosed,
   type AnimilairAuthor,
   type AnimilairMessageAttachment,
   type AnimilairOrder,
@@ -37,6 +38,7 @@ export {
   canManageAnimilairProduct,
   getAnimilairRequestIp,
   isAnimilairCatalogCategory,
+  isAnimilairOrderClosed,
   type AnimilairAuthor,
   type AnimilairMessageAttachment,
   type AnimilairOrder,
@@ -66,7 +68,6 @@ type ProductRating = {
 
 const ANIMILAIR_ORDER_STATUS_BODIES = new Set(Object.values(ANIMILAIR_ORDER_STATUS_MESSAGES))
 const ANIMILAIR_SUPPORT_EMAIL = 'animilair-support@eyzencore.internal'
-const ANIMILAIR_SUPPORT_PROFILE_SLUG = 'eyzencore-support'
 
 type AuthorRow = {
   id: number | bigint
@@ -131,6 +132,8 @@ type OrderRow = {
   budget: string
   deadline: string | null
   contact: string
+  customer_archived_at?: string | null
+  author_archived_at?: string | null
   created_at: string
   updated_at: string
 }
@@ -161,6 +164,14 @@ function parseJson<T>(value: string | null | undefined, fallback: T): T {
 function toNumber(value: number | bigint | null | undefined): number | null {
   if (value === null || value === undefined) return null
   return Number(value)
+}
+
+function splitAnimilairProductDescription(value: string): { shortDesc: string; description: string } {
+  const description = String(value || '').trim().slice(0, 5000)
+  return {
+    shortDesc: description.slice(0, 260),
+    description,
+  }
 }
 
 function slugify(value: string) {
@@ -459,28 +470,32 @@ async function uniqueAuthorSlug(name: string) {
   return `${base}-${Date.now()}`
 }
 
-async function ensureAnimilairSupportUser() {
+async function ensureAnimilairSupportUser(): Promise<void> {
   const existing = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
     `SELECT id FROM app_users WHERE id = ? LIMIT 1`,
     ANIMILAIR_SUPPORT_USER_ID
   )
   if (existing[0]) return
-
   const now = nowIso()
+  const passwordHash = createHash('sha256').update(`${ANIMILAIR_SUPPORT_USER_ID}:no-login`).digest('hex')
   await prisma.$executeRawUnsafe(
-    `INSERT INTO app_users (
-      id, email, password_hash, full_name, profile_slug, bio, location, website, telegram, discord,
-      avatar_url, banner_url, role, created_at, updated_at, is_legacy, theme
-    ) VALUES (?, ?, ?, ?, ?, '', '', NULL, NULL, NULL, ?, NULL, 'ADMIN', ?, ?, 0, 'dark')`,
+    `INSERT OR IGNORE INTO app_users (
+      id, email, password_hash, full_name, profile_slug, bio, location, role, created_at, updated_at, is_legacy, theme
+    ) VALUES (?, ?, ?, ?, NULL, '', '', 'ADMIN', ?, ?, 0, 'dark')`,
     ANIMILAIR_SUPPORT_USER_ID,
     ANIMILAIR_SUPPORT_EMAIL,
-    createHash('sha256').update(`${ANIMILAIR_SUPPORT_USER_ID}:no-login`).digest('hex'),
+    passwordHash,
     ANIMILAIR_SUPPORT_NAME,
-    ANIMILAIR_SUPPORT_PROFILE_SLUG,
-    ANIMILAIR_SUPPORT_AVATAR,
     now,
     now
   )
+  const verified = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
+    `SELECT id FROM app_users WHERE id = ? LIMIT 1`,
+    ANIMILAIR_SUPPORT_USER_ID
+  )
+  if (!verified[0]) {
+    throw new Error('Не вдалося створити системний профіль EyzenCore Support')
+  }
 }
 
 export async function ensureAnimilairSeedData() {
@@ -728,7 +743,6 @@ export async function createAnimilairProduct(input: {
   role: UserRole
   title: string
   category: string
-  shortDesc: string
   description: string
   priceFrom?: number | null
   deliveryDays?: number | null
@@ -738,10 +752,9 @@ export async function createAnimilairProduct(input: {
 }) {
   const author = await getOrCreateDesignerAuthor(input.user, input.role)
   const title = input.title.trim().slice(0, 120)
-  const shortDesc = input.shortDesc.trim().slice(0, 260)
-  const description = input.description.trim().slice(0, 5000)
-  if (!title || !shortDesc || !description) {
-    throw new Error('Заповніть назву, короткий опис і повний опис послуги')
+  const { shortDesc, description } = splitAnimilairProductDescription(input.description)
+  if (!title || !description) {
+    throw new Error('Заповніть назву та опис послуги')
   }
 
   const now = nowIso()
@@ -846,7 +859,6 @@ export async function updateAnimilairProduct(input: {
   role: UserRole
   title: string
   category: string
-  shortDesc: string
   description: string
   priceFrom?: number | null
   deliveryDays?: number | null
@@ -860,10 +872,9 @@ export async function updateAnimilairProduct(input: {
     throw new Error('Немає доступу до редагування цього товару')
   }
   const title = input.title.trim().slice(0, 120)
-  const shortDesc = input.shortDesc.trim().slice(0, 260)
-  const description = input.description.trim().slice(0, 5000)
-  if (!title || !shortDesc || !description) {
-    throw new Error('Заповніть назву, короткий опис і повний опис послуги')
+  const { shortDesc, description } = splitAnimilairProductDescription(input.description)
+  if (!title || !description) {
+    throw new Error('Заповніть назву та опис послуги')
   }
   const now = nowIso()
   const tags = (input.tags || []).map((tag) => tag.trim()).filter(Boolean).slice(0, 8)
@@ -1064,7 +1075,12 @@ export async function getAnimilairOrders(user: AuthUser, role: UserRole = 'USER'
      JOIN app_animilair_products p ON p.id = o.product_id
      JOIN app_animilair_authors a ON a.id = p.author_id
      JOIN app_users u ON u.id = o.customer_id
-     ${isAdmin ? '' : isDesigner ? 'WHERE o.customer_id = ? OR a.user_id = ?' : 'WHERE o.customer_id = ?'}
+     ${isAdmin
+      ? ''
+      : isDesigner
+        ? `WHERE (o.customer_id = ? AND o.customer_archived_at IS NULL)
+                OR (a.user_id = ? AND o.author_archived_at IS NULL)`
+        : 'WHERE o.customer_id = ? AND o.customer_archived_at IS NULL'}
      ORDER BY datetime(o.updated_at) DESC, o.id DESC`,
     ...(isAdmin ? [] : isDesigner ? [user.id, user.id] : [user.id])
   )
@@ -1083,7 +1099,12 @@ export async function getAnimilairOrdersForProduct(productId: number, user: Auth
      JOIN app_animilair_authors a ON a.id = p.author_id
      JOIN app_users u ON u.id = o.customer_id
      WHERE o.product_id = ?
-     ${isAdmin ? '' : isDesigner ? 'AND (o.customer_id = ? OR a.user_id = ?)' : 'AND o.customer_id = ?'}
+     ${isAdmin
+      ? ''
+      : isDesigner
+        ? `AND ((o.customer_id = ? AND o.customer_archived_at IS NULL)
+               OR (a.user_id = ? AND o.author_archived_at IS NULL))`
+        : 'AND o.customer_id = ? AND o.customer_archived_at IS NULL'}
      ORDER BY datetime(o.updated_at) DESC, o.id DESC`,
     ...(isAdmin ? [productId] : isDesigner ? [productId, user.id, user.id] : [productId, user.id])
   )
@@ -1203,25 +1224,64 @@ export async function updateAnimilairOrderStatus(input: {
   }
 
   const statusMessages = ANIMILAIR_ORDER_STATUS_MESSAGES
-
+  const statusBody = statusMessages[nextStatus] || `Статус замовлення: ${nextStatus}`
   const now = nowIso()
   await ensureAnimilairSupportUser()
-  await prisma.$executeRawUnsafe(
-    `UPDATE app_animilair_orders SET status = ?, updated_at = ? WHERE id = ?`,
-    nextStatus,
-    now,
-    input.orderId
-  )
-  await prisma.$executeRawUnsafe(
-    `INSERT INTO app_animilair_order_messages (order_id, user_id, body, attachments_json, created_at)
-     VALUES (?, ?, ?, '[]', ?)`,
-    input.orderId,
-    ANIMILAIR_SUPPORT_USER_ID,
-    statusMessages[nextStatus] || `Статус замовлення: ${nextStatus}`,
-    now
-  )
+  await prisma.$transaction(async (tx) => {
+    await tx.$executeRawUnsafe(
+      `UPDATE app_animilair_orders SET status = ?, updated_at = ? WHERE id = ?`,
+      nextStatus,
+      now,
+      input.orderId
+    )
+    await tx.$executeRawUnsafe(
+      `INSERT INTO app_animilair_order_messages (order_id, user_id, body, attachments_json, created_at)
+       VALUES (?, ?, ?, '[]', ?)`,
+      input.orderId,
+      ANIMILAIR_SUPPORT_USER_ID,
+      statusBody,
+      now
+    )
+  })
 
   return getAnimilairOrder(input.orderId, input.user, role)
+}
+
+export async function archiveAnimilairOrder(input: {
+  orderId: number
+  user: AuthUser
+  role?: UserRole
+}) {
+  const role = input.role || 'USER'
+  const order = await getAnimilairOrder(input.orderId, input.user, role)
+  if (!order) throw new Error('Замовлення не знайдено')
+  if (!isAnimilairOrderClosed(order.status)) {
+    throw new Error('Прибрати зі списку можна лише завершені або скасовані замовлення')
+  }
+  const isAdmin = role === 'ADMIN'
+  const isCustomer = order.customerId === input.user.id
+  const isDesigner = order.authorUserId === input.user.id
+  if (!isAdmin && !isCustomer && !isDesigner) {
+    throw new Error('Немає доступу до цього замовлення')
+  }
+  const now = nowIso()
+  if (isAdmin || isCustomer) {
+    await prisma.$executeRawUnsafe(
+      `UPDATE app_animilair_orders SET customer_archived_at = ?, updated_at = ? WHERE id = ?`,
+      now,
+      now,
+      input.orderId
+    )
+  }
+  if (isAdmin || isDesigner) {
+    await prisma.$executeRawUnsafe(
+      `UPDATE app_animilair_orders SET author_archived_at = ?, updated_at = ? WHERE id = ?`,
+      now,
+      now,
+      input.orderId
+    )
+  }
+  return { success: true }
 }
 
 export async function getAnimilairProductReviews(productId: number, limit = 20) {

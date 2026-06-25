@@ -8,6 +8,7 @@ import { Breadcrumbs } from '@/components/ui/Breadcrumbs'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
 import type { AuthUser } from '@/lib/auth-db'
 import type { AnimilairProduct } from '@/lib/animilair-shared'
+import { AnimilairPortfolioUploader } from '@/components/partners/AnimilairPortfolioUploader'
 import { IMAGE_PLACEHOLDER } from '@/lib/placeholders'
 
 type Props = {
@@ -18,7 +19,6 @@ type Props = {
 type ProductForm = {
   title: string
   category: string
-  shortDesc: string
   description: string
   priceFrom: string
   deliveryDays: string
@@ -30,13 +30,18 @@ type ProductForm = {
 const EMPTY_PRODUCT: ProductForm = {
   title: '',
   category: 'design',
-  shortDesc: '',
   description: '',
   priceFrom: '',
   deliveryDays: '',
   coverUrl: '',
   tags: '',
   media: '',
+}
+
+function getProductFormDescription(product: { shortDesc: string; description: string }): string {
+  const full = String(product.description || '').trim()
+  if (full) return full
+  return String(product.shortDesc || '').trim()
 }
 
 function cleanImageUrl(value: string | null | undefined) {
@@ -54,8 +59,7 @@ function productToForm(product: AnimilairProduct): ProductForm {
   return {
     title: product.title,
     category: product.category,
-    shortDesc: product.shortDesc,
-    description: product.description,
+    description: getProductFormDescription(product),
     priceFrom: product.priceFrom ? String(product.priceFrom) : '',
     deliveryDays: product.deliveryDays ? String(product.deliveryDays) : '',
     coverUrl: cleanImageUrl(product.coverUrl),
@@ -102,7 +106,6 @@ export function AnimilairProductsClient({ initialUser, initialProducts }: Props)
     setProductForm((current) => ({
       ...current,
       coverUrl: url,
-      media: current.media ? `${current.media}\n${url}` : url,
     }))
   }
 
@@ -252,12 +255,13 @@ export function AnimilairProductsClient({ initialUser, initialProducts }: Props)
                 </label>
               </div>
               <label>
-                Короткий опис
-                <textarea rows={3} value={productForm.shortDesc} onChange={(event) => setProductForm((current) => ({ ...current, shortDesc: event.target.value }))} />
-              </label>
-              <label>
-                Що входить у послугу
-                <textarea rows={6} value={productForm.description} onChange={(event) => setProductForm((current) => ({ ...current, description: event.target.value }))} />
+                Опис
+                <textarea
+                  rows={8}
+                  placeholder="Опишіть послугу: що входить, для кого підходить, що отримає клієнт"
+                  value={productForm.description}
+                  onChange={(event) => setProductForm((current) => ({ ...current, description: event.target.value }))}
+                />
               </label>
               <div className="animilair-form-grid">
                 <label>
@@ -280,15 +284,17 @@ export function AnimilairProductsClient({ initialUser, initialProducts }: Props)
                 Або URL обкладинки
                 <input value={productForm.coverUrl} onChange={(event) => setProductForm((current) => ({ ...current, coverUrl: event.target.value }))} />
               </label>
-              <label>
-                Портфоліо, по одному URL в рядок
-                <textarea rows={4} value={productForm.media} onChange={(event) => setProductForm((current) => ({ ...current, media: event.target.value }))} />
-              </label>
+              <AnimilairPortfolioUploader
+                value={productForm.media}
+                onChange={(media) => setProductForm((current) => ({ ...current, media }))}
+                onError={(text) => setMessage({ type: 'error', text })}
+                disabled={busy}
+              />
               {message && <div className={`animilair-form-message ${message.type}`}>{message.text}</div>}
             </div>
             <footer className="modal-foot">
               <button type="button" className="btn btn-secondary" onClick={() => setModalOpen(false)}>Скасувати</button>
-              <button type="button" className="btn btn-primary" disabled={busy || !productForm.title.trim() || !productForm.shortDesc.trim() || !productForm.description.trim()} onClick={() => void submitProduct()}>
+              <button type="button" className="btn btn-primary" disabled={busy || !productForm.title.trim() || !productForm.description.trim()} onClick={() => void submitProduct()}>
                 {busy ? 'Зберігаємо...' : editingSlug ? 'Зберегти зміни' : 'Опублікувати товар'}
               </button>
             </footer>
