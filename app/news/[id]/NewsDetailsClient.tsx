@@ -118,12 +118,14 @@ function renderNewsBlock(block: NewsContentBlock): ReactNode {
     return (
       <figure className="na-figure">
         {youtubeEmbed ? (
-          <iframe
-            src={youtubeEmbed}
-            title={block.caption || 'Відео до новини'}
-            className="news-media-content"
-            allowFullScreen
-          />
+          <div className="na-video-frame">
+            <iframe
+              src={youtubeEmbed}
+              title={block.caption || 'Відео до новини'}
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allowFullScreen
+            />
+          </div>
         ) : isVideoFileUrl(block.url) ? (
           <video src={block.url} controls preload="metadata" className="news-media-content" />
         ) : (

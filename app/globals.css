@@ -658,6 +658,25 @@
   background-color: var(--bg-2);
 }
 
+.na-video-frame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  min-height: 180px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  overflow: hidden;
+  background: #000;
+}
+
+.na-video-frame iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
 @media (max-width: 980px) {
   .news-media-hero {
     min-height: 220px;
@@ -8789,6 +8808,45 @@ button { cursor: pointer; }
   border: 1px solid var(--line);
   border-radius: 10px;
   object-fit: contain;
+}
+.forum-rich-figure {
+  margin: 14px 0;
+}
+.forum-rich-figure img {
+  width: 100%;
+  margin: 0;
+}
+.forum-rich-figure figcaption {
+  margin-top: 8px;
+  color: var(--fg-3);
+  font-size: 12px;
+  text-align: center;
+}
+.forum-rich-gallery {
+  margin: 14px 0;
+}
+.forum-rich-video {
+  position: relative;
+  width: 100%;
+  max-width: min(100%, 900px);
+  aspect-ratio: 16 / 9;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+  background: #000;
+}
+.forum-rich-video iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+.forum-rich-video a {
+  display: grid;
+  place-items: center;
+  min-height: 180px;
+  color: var(--accent);
 }
 .forum-rich-text hr { margin: 20px 0; border: 0; border-top: 1px solid var(--line); }
 .forum-post-content > footer {
