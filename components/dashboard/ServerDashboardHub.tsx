@@ -5,8 +5,8 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import { Breadcrumbs } from '@/components/ui/Breadcrumbs'
 import { ServerDashboardHubNav } from '@/components/dashboard/ServerDashboardHubNav'
-import type { ServerDashboardTab } from '@/lib/server-dashboard-access'
-import { buildServerDashboardTabPath } from '@/lib/server-dashboard-access'
+import type { ServerDashboardTab } from '@/lib/server-dashboard-routes'
+import { buildServerDashboardTabPath } from '@/lib/server-dashboard-routes'
 import { buildServerDashboardSlug, buildServerPublicPath } from '@/lib/server-slug'
 
 export type ServerDashboardHubServer = {

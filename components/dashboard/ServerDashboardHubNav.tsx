@@ -1,8 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import type { ServerDashboardTab } from '@/lib/server-dashboard-access'
-import { buildServerDashboardTabPath } from '@/lib/server-dashboard-access'
+import type { ServerDashboardTab } from '@/lib/server-dashboard-routes'
+import { buildServerDashboardTabPath } from '@/lib/server-dashboard-routes'
 
 const TAB_LABELS: Record<ServerDashboardTab, string> = {
   analytics: 'Аналітика',

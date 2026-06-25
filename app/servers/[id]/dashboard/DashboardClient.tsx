@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { PageShell } from '@/components/layout/PageShell'
 import { ServerDashboardHub } from '@/components/dashboard/ServerDashboardHub'
 import type { AuthUser } from '@/lib/auth-db'
-import { buildServerManagePath } from '@/lib/server-dashboard-access'
+import { buildServerManagePath } from '@/lib/server-dashboard-routes'
 import { buildServerDashboardSlug, buildServerPublicPath } from '@/lib/server-slug'
 import { Area, CartesianGrid, Line, ComposedChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 

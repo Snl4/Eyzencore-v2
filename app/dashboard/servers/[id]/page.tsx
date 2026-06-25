@@ -1,6 +1,6 @@
 import { notFound, redirect } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth-server'
-import { getServerById, resolveUserRole } from '@/lib/auth-db'
+import { resolveUserRole } from '@/lib/auth-db'
 import { buildServerDashboardSlug } from '@/lib/server-slug'
 import { requireOwnedServerForDashboardRoute } from '@/lib/server-dashboard-access'
 import { OwnerServerManageClient } from './OwnerServerManageClient'

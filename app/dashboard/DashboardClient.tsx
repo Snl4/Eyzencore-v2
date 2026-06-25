@@ -180,7 +180,6 @@ export function DashboardClient({ initialUser, initialRole }: DashboardClientPro
                       servers={ownerDashboard.ownedServers}
                       projects={projects}
                       selectedServerId={selectedServerId}
-                      onSelectServer={setSelectedServerId}
                       onProjectsChange={setProjects}
                     />
                     {activeServer && (
@@ -338,10 +337,9 @@ function OwnerServersCard(input: {
   servers: OwnerServerListItem[]
   projects: Project[]
   selectedServerId: number | null
-  onSelectServer: (serverId: number) => void
   onProjectsChange: (projects: Project[]) => void
 }) {
-  const { servers, projects, selectedServerId, onSelectServer, onProjectsChange } = input
+  const { servers, projects, selectedServerId, onProjectsChange } = input
   const confirmAction = useConfirm()
   const [showProjectModal, setShowProjectModal] = useState(false)
   const [editingProject, setEditingProject] = useState<Project | null>(null)
