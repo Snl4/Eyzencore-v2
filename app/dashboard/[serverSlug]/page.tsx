@@ -51,6 +51,7 @@ export default async function DashboardBySlugPage({ params }: DashboardBySlugPag
           addr: server.addr,
           ic: server.ic,
           avatarUrl: server.avatarUrl,
+          verified: Boolean(server.verified),
         }}
         initialSnapshot={snapshot}
       />

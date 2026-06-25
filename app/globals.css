@@ -6817,6 +6817,111 @@ button { cursor: pointer; }
   gap: 14px;
   margin-bottom: 14px;
 }
+.server-hub {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 22px;
+}
+.server-hub-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.server-hub-info {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  flex: 1 1 320px;
+}
+.server-hub-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.server-hub-subtitle {
+  margin: 0;
+  color: var(--fg-3);
+  font-size: 14px;
+  line-height: 1.6;
+  max-width: 720px;
+}
+.server-hub-links {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.server-hub-public-link {
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 500;
+}
+.server-hub-meta {
+  color: var(--fg-3);
+  font: 500 11px/1 var(--font-mono);
+}
+.server-hub-side {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-left: auto;
+}
+.server-hub-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.server-hub-nav {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg-1);
+  width: fit-content;
+  max-width: 100%;
+}
+.server-hub-nav a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--fg-2);
+  border: 1px solid transparent;
+  transition: color .15s, background .15s, border-color .15s;
+}
+.server-hub-nav a:hover {
+  color: var(--fg);
+  background: var(--bg-2);
+}
+.server-hub-nav a.active {
+  background: var(--bg-3);
+  color: var(--fg);
+  border-color: var(--line-strong);
+}
+.server-hub-nav a.needs-attention {
+  color: color-mix(in oklab, var(--amber) 80%, var(--fg));
+}
+.server-hub-nav-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--amber);
+}
+.dash-range-standalone {
+  margin-bottom: 16px;
+  margin-left: auto;
+  width: fit-content;
+  max-width: 100%;
+}
+
 .owner-dashboard-shell {
   display: grid;
   gap: 14px;

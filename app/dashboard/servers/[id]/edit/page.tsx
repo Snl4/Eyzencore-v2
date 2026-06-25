@@ -1,7 +1,9 @@
 import { notFound, redirect } from 'next/navigation'
 import { AddServerClient } from '@/app/add-server/AddServerClient'
-import { getServerById, resolveUserRole } from '@/lib/auth-db'
+import { resolveUserRole } from '@/lib/auth-db'
 import { getCurrentUser } from '@/lib/auth-server'
+import { buildServerDashboardSlug } from '@/lib/server-slug'
+import { requireOwnedServerForDashboardRoute } from '@/lib/server-dashboard-access'
 
 interface DashboardEditServerPageProps {
   params: { id: string }
@@ -10,24 +12,42 @@ interface DashboardEditServerPageProps {
 export const dynamic = 'force-dynamic'
 
 export async function generateMetadata({ params }: DashboardEditServerPageProps) {
-  const server = await getServerById(Number(params.id))
-  if (!server) return { title: 'Server not found' }
-  return { title: `Edit ${server.name} - Dashboard`, description: `Edit server ${server.name} from dashboard` }
+  const user = await getCurrentUser()
+  if (!user) return { title: 'Редагування сервера' }
+  const role = await resolveUserRole({ userId: user.id, role: user.user_metadata.role })
+  const server = await requireOwnedServerForDashboardRoute({
+    routeId: params.id,
+    userId: user.id,
+    role,
+  })
+  if (!server) return { title: 'Сервер не знайдено' }
+  return { title: `Редагування ${server.name}`, description: `Редагування сервера ${server.name}` }
 }
 
 export default async function DashboardEditServerPage({ params }: DashboardEditServerPageProps) {
   const user = await getCurrentUser()
   if (!user) redirect('/auth/login')
-  const server = await getServerById(Number(params.id))
-  if (!server) notFound()
   const role = await resolveUserRole({ userId: user.id, role: user.user_metadata.role })
-  if (server.ownerId !== user.id && role !== 'ADMIN') {
-    redirect(`/dashboard/servers/${server.seed}`)
+  const server = await requireOwnedServerForDashboardRoute({
+    routeId: params.id,
+    userId: user.id,
+    role,
+  })
+  if (!server) notFound()
+  const slug = buildServerDashboardSlug(server.name)
+  if (/^\d+$/.test(params.id)) {
+    redirect(`/dashboard/servers/${slug}/edit`)
   }
   return (
     <>
       <div className="bg-aurora" />
-      <AddServerClient initialServer={server} initialUser={user} sidebarRole={role} activeSection="my-servers" />
+      <AddServerClient
+        initialServer={server}
+        initialUser={user}
+        sidebarRole={role}
+        activeSection="dashboard"
+        dashboardSlug={slug}
+      />
     </>
   )
 }

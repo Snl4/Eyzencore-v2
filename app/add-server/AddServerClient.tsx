@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState, useTransition, type ChangeEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import { PageShell } from '@/components/layout/PageShell'
+import { ServerDashboardHub } from '@/components/dashboard/ServerDashboardHub'
 import { Icons } from '@/components/ui/Icons'
 import { Select } from '@/components/ui/Select'
 import { Toggle } from '@/components/ui/Toggle'
@@ -134,8 +135,9 @@ export function AddServerClient(input: {
   activeSection?: string
   defaultPlatform?: ServerPlatform
   lockPlatform?: boolean
+  dashboardSlug?: string
 }) {
-  const { initialServer, initialUser, sidebarRole, activeSection, defaultPlatform, lockPlatform = false } = input
+  const { initialServer, initialUser, sidebarRole, activeSection, defaultPlatform, lockPlatform = false, dashboardSlug } = input
   const router = useRouter()
   const [step, setStep] = useState<Step>(1)
   const [form, setForm] = useState<ServerForm>(() => {
@@ -364,16 +366,31 @@ export function AddServerClient(input: {
   return (
     <PageShell active={activeSection || 'servers'} initialUser={initialUser} sidebarRole={sidebarRole}>
       <div className="page-main">
-        <div className="page-topbar">
-          <div>
-            <Breadcrumbs items={[
-              { label: 'Простір', href: '/' },
-              { label: 'Сервери', href: isDiscordForm ? '/servers/discord' : '/servers/minecraft' },
-              { label: isEditMode ? 'Редагування' : 'Додавання' },
-            ]} />
-            <h1 className="page-title">{isEditMode ? 'Редагування серверу' : 'Додавання нового серверу'}</h1>
+        {isEditMode && initialServer && dashboardSlug ? (
+          <ServerDashboardHub
+            activeTab="edit"
+            dashboardSlug={dashboardSlug}
+            server={{
+              seed: initialServer.seed,
+              name: initialServer.name,
+              addr: initialServer.addr,
+              avatarUrl: initialServer.avatarUrl,
+              verified: Boolean(initialServer.verified),
+            }}
+            subtitle="Оновіть опис, медіа, теги та посилання сервера."
+          />
+        ) : (
+          <div className="page-topbar">
+            <div>
+              <Breadcrumbs items={[
+                { label: 'Простір', href: '/' },
+                { label: 'Сервери', href: isDiscordForm ? '/servers/discord' : '/servers/minecraft' },
+                { label: isEditMode ? 'Редагування' : 'Додавання' },
+              ]} />
+              <h1 className="page-title">{isEditMode ? 'Редагування серверу' : 'Додавання нового серверу'}</h1>
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="add-shell">
           <div className="add-steps-card">

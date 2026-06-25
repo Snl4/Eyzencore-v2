@@ -1,11 +1,11 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { PageShell } from '@/components/layout/PageShell'
-import { Breadcrumbs } from '@/components/ui/Breadcrumbs'
+import { ServerDashboardHub } from '@/components/dashboard/ServerDashboardHub'
 import type { AuthUser } from '@/lib/auth-db'
+import { buildServerManagePath } from '@/lib/server-dashboard-access'
 import { buildServerDashboardSlug, buildServerPublicPath } from '@/lib/server-slug'
 import { Area, CartesianGrid, Line, ComposedChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 
@@ -118,7 +118,14 @@ interface DashSnapshot {
 
 interface Props {
   initialUser: AuthUser | null
-  server: { seed: number; name: string; addr: string; ic: string; avatarUrl?: string | null }
+  server: {
+    seed: number
+    name: string
+    addr: string
+    ic: string
+    avatarUrl?: string | null
+    verified: boolean
+  }
   initialSnapshot: DashSnapshot
 }
 
@@ -260,29 +267,12 @@ function pctDelta(current: number, prior: number): { sign: '+' | '-' | ''; text:
 const DAY_LABELS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд']
 
 export function DashboardClient({ initialUser, server, initialSnapshot }: Props) {
-  const router = useRouter()
   const [snapshot, setSnapshot] = useState<DashSnapshot>(initialSnapshot)
   const [range, setRange] = useState<DashRange>(initialSnapshot.range || '7d')
   const [feedTab, setFeedTab] = useState<'all' | ActivityKind>('all')
   const [loading, setLoading] = useState(false)
   const [updatedAgo, setUpdatedAgo] = useState<string>('щойно')
-  const [pickerOpen, setPickerOpen] = useState(false)
-  const pickerRef = useRef<HTMLDivElement>(null)
-
-  // Close picker on outside click / Escape
-  useEffect(() => {
-    if (!pickerOpen) return
-    const onClick = (event: MouseEvent) => {
-      if (pickerRef.current && !pickerRef.current.contains(event.target as Node)) setPickerOpen(false)
-    }
-    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') setPickerOpen(false) }
-    document.addEventListener('mousedown', onClick)
-    document.addEventListener('keydown', onKey)
-    return () => {
-      document.removeEventListener('mousedown', onClick)
-      document.removeEventListener('keydown', onKey)
-    }
-  }, [pickerOpen])
+  const dashboardSlug = buildServerDashboardSlug(server.name)
 
   useEffect(() => {
     if (range === initialSnapshot.range) {
@@ -353,86 +343,21 @@ export function DashboardClient({ initialUser, server, initialSnapshot }: Props)
     <PageShell active="dashboard" initialUser={initialUser}>
       <main className="dash-main">
         <div className="dash-shell">
-          {/* Header */}
-          <div className="dash-head">
-            <div className="dash-head-info">
-              <Link href={buildServerPublicPath(server)} className="dash-back">← {server.name}</Link>
-              <Breadcrumbs items={[
-                { label: 'Простір', href: '/' },
-                { label: 'Dashboard', href: '/dashboard' },
-                { label: server.name },
-              ]} />
-              <h1 className="page-title">Дашборд серверу</h1>
-            </div>
-            <div className="dash-server-pick-wrap" ref={pickerRef}>
-              <button
-                type="button"
-                className={`dash-server-pick${pickerOpen ? ' open' : ''}`}
-                onClick={() => setPickerOpen((value) => !value)}
-                aria-haspopup="listbox"
-                aria-expanded={pickerOpen}
-              >
-                <span className="ic" style={server.avatarUrl ? { backgroundImage: `url(${JSON.stringify(server.avatarUrl).slice(1, -1)})`, backgroundSize: 'cover', backgroundPosition: 'center', color: 'transparent' } : undefined}>
-                  {server.avatarUrl ? '' : (server.ic || initials(server.name))}
-                </span>
-                <span className="dash-server-pick-info">
-                  <b>{server.name}</b>
-                  <span>{server.addr}</span>
-                </span>
-                <span className={`dash-server-pick-chev${pickerOpen ? ' open' : ''}`}>
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-                </span>
+          <ServerDashboardHub
+            activeTab="analytics"
+            dashboardSlug={dashboardSlug}
+            server={server}
+            ownedServers={snapshot.ownedServers}
+            subtitle="Статистика, онлайн, активність гравців і джерела трафіку."
+          />
+          <div className="dash-range dash-range-standalone">
+            {(['24h', '7d', '30d', '90d', 'all'] as DashRange[]).map((key) => (
+              <button key={key} className={range === key ? 'active' : ''} onClick={() => setRange(key)} disabled={loading && range === key}>
+                {RANGE_LABELS[key]}
               </button>
-              {pickerOpen && (
-                <div className="dash-server-pick-panel" role="listbox">
-                  <div className="dash-server-pick-head">Мої сервери</div>
-                  {snapshot.ownedServers.length === 0 ? (
-                    <div className="dash-server-pick-empty">Жодного серверу ще не додано</div>
-                  ) : (
-                    snapshot.ownedServers.map((item) => {
-                      const isCurrent = item.seed === server.seed
-                      return (
-                        <button
-                          key={item.seed}
-                          type="button"
-                          role="option"
-                          aria-selected={isCurrent}
-                          className={`dash-server-pick-item${isCurrent ? ' current' : ''}`}
-                          onClick={() => {
-                            setPickerOpen(false)
-                            if (!isCurrent) router.push(`/dashboard/${buildServerDashboardSlug(item.name)}`)
-                          }}
-                        >
-                          <span className="ic" style={item.avatarUrl ? { backgroundImage: `url(${JSON.stringify(item.avatarUrl).slice(1, -1)})`, backgroundSize: 'cover', backgroundPosition: 'center', color: 'transparent' } : undefined}>
-                            {item.avatarUrl ? '' : item.ic}
-                          </span>
-                          <span className="info">
-                            <b>{item.name}</b>
-                            <span>{item.addr}</span>
-                          </span>
-                          {isCurrent && (
-                            <svg className="check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                          )}
-                        </button>
-                      )
-                    })
-                  )}
-                  <div className="dash-server-pick-foot">
-                    <Link href="/add-server" className="dash-server-pick-add">+ Додати новий сервер</Link>
-                  </div>
-                </div>
-              )}
-            </div>
-            <div className="dash-range">
-              {(['24h', '7d', '30d', '90d', 'all'] as DashRange[]).map((key) => (
-                <button key={key} className={range === key ? 'active' : ''} onClick={() => setRange(key)} disabled={loading && range === key}>
-                  {RANGE_LABELS[key]}
-                </button>
-              ))}
-            </div>
+            ))}
           </div>
 
-          {/* Live band */}
           <div className={`live-band ${liveDot}`}>
             <span className="dot" />
             <div className="stat-mini">
@@ -694,7 +619,7 @@ export function DashboardClient({ initialUser, server, initialSnapshot }: Props)
           <div className="dash-card">
             <div className="head">
               <h3>Реферальні кампанії</h3>
-              <Link className="more accent" href={`/dashboard/servers/${server.seed}`}>керувати →</Link>
+              <Link className="more accent" href={buildServerManagePath(server)}>керувати →</Link>
             </div>
             {!snapshot.referralLinks || snapshot.referralLinks.length === 0 ? (
               <div className="dash-empty small with-icon">

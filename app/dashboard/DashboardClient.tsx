@@ -445,13 +445,15 @@ function OwnerServersCard(input: {
   const renderServerRow = (server: OwnerServerListItem, indented = false) => (
     <tr key={server.serverId} className={selectedServerId === server.serverId ? 'is-selected' : ''}>
       <td>
-        <span style={{ paddingLeft: indented ? 16 : 0, display: 'flex', alignItems: 'center', gap: 6 }}>
-          {indented && <span style={{ color: 'var(--fg-3)', fontSize: 12 }}>└</span>}
-          {server.serverName}
-          {server.status === 'active' && (
-            <span className="verify-badge verify-badge--verified" style={{ fontSize: 10, padding: '1px 6px' }}>✓</span>
-          )}
-        </span>
+        <Link href={`/dashboard/${server.dashboardSlug}`} style={{ color: 'var(--fg)', fontWeight: 500 }}>
+          <span style={{ paddingLeft: indented ? 16 : 0, display: 'flex', alignItems: 'center', gap: 6 }}>
+            {indented && <span style={{ color: 'var(--fg-3)', fontSize: 12 }}>└</span>}
+            {server.serverName}
+            {server.status === 'active' && (
+              <span className="verify-badge verify-badge--verified" style={{ fontSize: 10, padding: '1px 6px' }}>✓</span>
+            )}
+          </span>
+        </Link>
       </td>
       <td>
         <span style={{ color: server.status === 'active' ? 'var(--accent)' : 'var(--fg-3)', fontSize: 12 }}>
@@ -462,15 +464,9 @@ function OwnerServersCard(input: {
       <td>{server.totalVotes.toLocaleString()}</td>
       <td>{server.averageRating > 0 ? server.averageRating.toFixed(2) : '-'}</td>
       <td className="dashboard-table-actions">
-        <button type="button" className="btn btn-secondary" onClick={() => onSelectServer(server.serverId)}>
-          Аналітика
-        </button>
-        {server.status !== 'active' && (
-          <Link className="btn btn-primary" href={`/dashboard/servers/${server.dashboardSlug}/verify`}>
-            Верифікувати
-          </Link>
-        )}
-        <Link className="btn btn-secondary" href={`/dashboard/servers/${server.dashboardSlug}`}>Керувати</Link>
+        <Link className="btn btn-primary" href={`/dashboard/${server.dashboardSlug}`}>
+          Відкрити
+        </Link>
       </td>
     </tr>
   )

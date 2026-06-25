@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
 import { ResponsiveContainer, AreaChart, Area, CartesianGrid, XAxis, YAxis, Tooltip } from 'recharts'
 import { PageShell } from '@/components/layout/PageShell'
-import { Breadcrumbs } from '@/components/ui/Breadcrumbs'
+import { ServerDashboardHub } from '@/components/dashboard/ServerDashboardHub'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
 import type { AuthUser, ServerReview, ServerVoteEntry, UserRole } from '@/lib/auth-db'
 
@@ -13,6 +13,7 @@ interface OwnerServerManageClientProps {
   initialUser: AuthUser
   role: UserRole
   serverId: number
+  dashboardSlug: string
 }
 
 type ServerData = {
@@ -77,7 +78,7 @@ function normalizeActivityPayload(payload: Partial<ActivityResponse> | null | un
   }
 }
 
-export function OwnerServerManageClient({ initialUser, role, serverId }: OwnerServerManageClientProps) {
+export function OwnerServerManageClient({ initialUser, role, serverId, dashboardSlug }: OwnerServerManageClientProps) {
   const router = useRouter()
   const confirmAction = useConfirm()
   const [server, setServer] = useState<ServerData | null>(null)
@@ -250,39 +251,26 @@ export function OwnerServerManageClient({ initialUser, role, serverId }: OwnerSe
   }
 
   return (
-    <PageShell active="my-servers" initialUser={initialUser} sidebarRole={role}>
+    <PageShell active="dashboard" initialUser={initialUser} sidebarRole={role}>
       <div className="page-main">
-        <div className="page-topbar">
-          <div>
-            <Breadcrumbs items={[
-              { label: 'Dashboard', href: '/dashboard' },
-              { label: 'Мої сервери', href: '/dashboard?tab=servers' },
-              { label: server?.name || 'Деталі' },
-            ]} />
-            <h1 className="page-title">
-              {server ? server.name : 'Server Details'}
-              {server && (
-                <span
-                  className={`verify-badge ${server.verified ? 'verify-badge--verified' : 'verify-badge--unverified'}`}
-                  style={{ marginLeft: 10, fontSize: 11 }}
-                >
-                  {server.verified ? '✓ Верифіковано' : '○ Не верифіковано'}
-                </span>
-              )}
-            </h1>
-          </div>
-          <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
-            {server && !server.verified && (
-              <Link href={`/dashboard/servers/${server.seed}/verify`} className="btn btn-primary">
-                Верифікувати сервер
-              </Link>
+        {server ? (
+          <ServerDashboardHub
+            activeTab="manage"
+            dashboardSlug={dashboardSlug}
+            server={{
+              seed: server.seed,
+              name: server.name,
+              addr: server.addr,
+              verified: server.verified,
+            }}
+            subtitle="Реферальні посилання, швидка статистика та дії власника."
+            actions={(
+              <button type="button" className="btn btn-secondary" disabled={isDeleting} onClick={() => void handleDeleteServer()}>
+                {isDeleting ? 'Видалення...' : 'Видалити'}
+              </button>
             )}
-            {server && <Link href={`/dashboard/servers/${server.seed}/edit`} className="btn btn-secondary">Редагувати</Link>}
-            <button type="button" className="btn btn-secondary" disabled={isDeleting} onClick={() => void handleDeleteServer()}>
-              {isDeleting ? 'Видалення...' : 'Видалити'}
-            </button>
-          </div>
-        </div>
+          />
+        ) : null}
         {stats && (
           <section className="dashboard-grid">
             <div className="set-card">

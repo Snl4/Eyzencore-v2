@@ -1,6 +1,8 @@
 import { notFound, redirect } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth-server'
-import { getOrCreateVerificationToken, getServerById, resolveUserRole } from '@/lib/auth-db'
+import { getOrCreateVerificationToken, resolveUserRole } from '@/lib/auth-db'
+import { buildServerDashboardSlug } from '@/lib/server-slug'
+import { requireOwnedServerForDashboardRoute } from '@/lib/server-dashboard-access'
 import { VerifyServerClient } from './VerifyServerClient'
 
 interface VerifyServerPageProps {
@@ -10,19 +12,31 @@ interface VerifyServerPageProps {
 export const dynamic = 'force-dynamic'
 
 export async function generateMetadata({ params }: VerifyServerPageProps) {
-  const server = await getServerById(Number(params.id))
-  if (!server) return { title: 'Server not found' }
+  const user = await getCurrentUser()
+  if (!user) return { title: 'Верифікація сервера' }
+  const role = await resolveUserRole({ userId: user.id, role: user.user_metadata.role })
+  const server = await requireOwnedServerForDashboardRoute({
+    routeId: params.id,
+    userId: user.id,
+    role,
+  })
+  if (!server) return { title: 'Сервер не знайдено' }
   return { title: `Верифікація - ${server.name}` }
 }
 
 export default async function VerifyServerPage({ params }: VerifyServerPageProps) {
   const user = await getCurrentUser()
   if (!user) redirect('/auth/login')
-  const server = await getServerById(Number(params.id))
-  if (!server) notFound()
   const role = await resolveUserRole({ userId: user.id, role: user.user_metadata.role })
-  if (server.ownerId !== user.id && role !== 'ADMIN') {
-    redirect(`/dashboard/servers/${server.seed}`)
+  const server = await requireOwnedServerForDashboardRoute({
+    routeId: params.id,
+    userId: user.id,
+    role,
+  })
+  if (!server) notFound()
+  const slug = buildServerDashboardSlug(server.name)
+  if (/^\d+$/.test(params.id)) {
+    redirect(`/dashboard/servers/${slug}/verify`)
   }
   const verification = await getOrCreateVerificationToken(server.seed, user.id)
   return (
@@ -31,6 +45,7 @@ export default async function VerifyServerPage({ params }: VerifyServerPageProps
       <VerifyServerClient
         initialUser={user}
         role={role}
+        dashboardSlug={slug}
         server={{
           id: server.seed,
           name: server.name,

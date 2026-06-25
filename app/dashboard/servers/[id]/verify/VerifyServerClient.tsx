@@ -4,12 +4,13 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { PageShell } from '@/components/layout/PageShell'
-import { Breadcrumbs } from '@/components/ui/Breadcrumbs'
+import { ServerDashboardHub } from '@/components/dashboard/ServerDashboardHub'
 import type { AuthUser, UserRole } from '@/lib/auth-db'
 
 interface VerifyServerClientProps {
   initialUser: AuthUser
   role: UserRole
+  dashboardSlug: string
   server: {
     id: number
     name: string
@@ -27,6 +28,7 @@ type VerifyMethod = 'motd' | 'dns'
 export function VerifyServerClient({
   initialUser,
   role,
+  dashboardSlug,
   server,
   initialToken,
   initialVerifiedAt,
@@ -77,7 +79,7 @@ export function VerifyServerClient({
     setVerifiedAt(new Date().toISOString())
     setSuccessMsg('Сервер успішно верифіковано!')
     setTimeout(() => {
-      router.push(`/dashboard/servers/${server.id}`)
+      router.push(`/dashboard/servers/${dashboardSlug}`)
       router.refresh()
     }, 2000)
   }
@@ -86,26 +88,19 @@ export function VerifyServerClient({
   const isIpAddress = /^\d{1,3}(\.\d{1,3}){3}$/.test(server.addr.split(':')[0])
 
   return (
-    <PageShell active="my-servers" initialUser={initialUser} sidebarRole={role}>
+    <PageShell active="dashboard" initialUser={initialUser} sidebarRole={role}>
       <div className="page-main">
-        <div className="page-topbar">
-          <div>
-            <Breadcrumbs items={[
-              { label: 'Dashboard', href: '/dashboard' },
-              { label: 'Мої сервери', href: '/dashboard?tab=servers' },
-              { label: server.name, href: `/dashboard/servers/${server.id}` },
-              { label: 'Верифікація' },
-            ]} />
-            <h1 className="page-title">
-              Верифікація сервера
-              {isVerified && (
-                <span className="verify-badge verify-badge--verified" style={{ marginLeft: 12 }}>
-                  ✓ Верифіковано
-                </span>
-              )}
-            </h1>
-          </div>
-        </div>
+        <ServerDashboardHub
+          activeTab="verify"
+          dashboardSlug={dashboardSlug}
+          server={{
+            seed: server.id,
+            name: server.name,
+            addr: server.addr,
+            verified: isVerified,
+          }}
+          subtitle="Підтвердіть власність сервера через MOTD, DNS TXT або Discord-бота."
+        />
 
         {isVerified && verifiedAt && (
           <div className="set-card" style={{ borderColor: 'var(--accent)', marginBottom: 0 }}>
@@ -277,7 +272,7 @@ export function VerifyServerClient({
                 {isVerifying ? 'Перевіряємо...' : isVerified ? '✓ Верифіковано' : 'Верифікувати'}
               </button>
             )}
-            <Link href={`/dashboard/servers/${server.id}`} className="btn btn-secondary">
+            <Link href={`/dashboard/servers/${dashboardSlug}`} className="btn btn-secondary">
               Назад
             </Link>
           </div>
