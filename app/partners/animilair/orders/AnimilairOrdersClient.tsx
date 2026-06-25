@@ -31,6 +31,7 @@ export function AnimilairOrdersClient({ initialUser, initialOrders }: Props) {
   )
 
   const archiveOrder = async (orderId: number) => {
+    if (busy) return
     setBusy(true)
     try {
       const response = await fetch(`/api/partners/animilair/orders/${orderId}`, {
@@ -95,13 +96,16 @@ export function AnimilairOrdersClient({ initialUser, initialOrders }: Props) {
                     <span
                       className="animilair-order-archive"
                       role="button"
-                      tabIndex={0}
+                      tabIndex={busy ? -1 : 0}
                       aria-label="Прибрати зі списку"
+                      aria-disabled={busy}
                       onClick={(event) => {
                         event.stopPropagation()
+                        if (busy) return
                         void archiveOrder(order.id)
                       }}
                       onKeyDown={(event) => {
+                        if (busy) return
                         if (event.key === 'Enter' || event.key === ' ') {
                           event.preventDefault()
                           event.stopPropagation()
