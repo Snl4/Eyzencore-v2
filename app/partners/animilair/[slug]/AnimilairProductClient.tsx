@@ -8,7 +8,7 @@ import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { AnimilairOrderChat } from '@/components/partners/AnimilairOrderChat'
 import type { AuthUser } from '@/lib/auth-db'
 import type { AnimilairOrder, AnimilairOrderMessage, AnimilairProduct, AnimilairProductReview } from '@/lib/animilair-shared'
-import { pickAnimilairProductPageOrder } from '@/lib/animilair-shared'
+import { isAnimilairOrderClosed, pickAnimilairProductPageOrder } from '@/lib/animilair-shared'
 import { AnimilairRatingStars } from '@/components/partners/AnimilairRatingStars'
 import { formatAnimilairDate } from '@/components/partners/animilair-chat-utils'
 import { AnimilairPortfolioUploader } from '@/components/partners/AnimilairPortfolioUploader'
@@ -311,8 +311,12 @@ export function AnimilairProductClient({
                   const primary = pickAnimilairProductPageOrder(productOnly, initialUser.id, canManage)
                   setProductOrders(primary ? [primary] : [])
                   setActiveOrderId((current) => {
-                    if (primary && current === primary.id) return current
-                    return primary?.id ?? null
+                    if (!primary) return null
+                    if (!current) return primary.id
+                    if (current === primary.id) return current
+                    const currentOrder = productOnly.find((order) => order.id === current)
+                    if (currentOrder && !isAnimilairOrderClosed(currentOrder.status)) return current
+                    return primary.id
                   })
                 }}
                 onOrderCreated={(order) => {

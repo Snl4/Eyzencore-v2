@@ -234,15 +234,23 @@ export function AnimilairOrderChat({
   }, [activeOrder, activeOrderId, loadMessages, productPreview?.canEditWelcome, user])
 
   useEffect(() => {
-    if (!activeOrderId || !user) return
+    if (!user) return
+    const isDesignerWaiting = Boolean(productPreview?.canEditWelcome && !activeOrderId)
+    const hasActiveChat = Boolean(activeOrderId)
+    if (!isDesignerWaiting && !hasActiveChat) return
     const tick = () => {
       if (document.visibilityState !== 'visible') return
-      void loadMessages(activeOrderId, true)
+      if (activeOrderId) {
+        void loadMessages(activeOrderId, true)
+      }
+      void reloadOrders()
+    }
+    if (isDesignerWaiting) {
       void reloadOrders()
     }
     const interval = window.setInterval(tick, CHAT_POLL_MS)
     return () => window.clearInterval(interval)
-  }, [activeOrderId, loadMessages, reloadOrders, user])
+  }, [activeOrderId, loadMessages, productPreview?.canEditWelcome, reloadOrders, user])
 
   useEffect(() => {
     if (!author?.userId) return
