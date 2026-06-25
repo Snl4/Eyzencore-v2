@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState, useTransition, type ChangeEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import { PageShell } from '@/components/layout/PageShell'
-import { ServerDashboardHub } from '@/components/dashboard/ServerDashboardHub'
+import { ServerDashboardHub, type ServerDashboardHubOwnedServer } from '@/components/dashboard/ServerDashboardHub'
 import { Icons } from '@/components/ui/Icons'
 import { Select } from '@/components/ui/Select'
 import { Toggle } from '@/components/ui/Toggle'
@@ -136,8 +136,9 @@ export function AddServerClient(input: {
   defaultPlatform?: ServerPlatform
   lockPlatform?: boolean
   dashboardSlug?: string
+  ownedServers?: ServerDashboardHubOwnedServer[]
 }) {
-  const { initialServer, initialUser, sidebarRole, activeSection, defaultPlatform, lockPlatform = false, dashboardSlug } = input
+  const { initialServer, initialUser, sidebarRole, activeSection, defaultPlatform, lockPlatform = false, dashboardSlug, ownedServers } = input
   const router = useRouter()
   const [step, setStep] = useState<Step>(1)
   const [form, setForm] = useState<ServerForm>(() => {
@@ -370,6 +371,7 @@ export function AddServerClient(input: {
           <ServerDashboardHub
             activeTab="edit"
             dashboardSlug={dashboardSlug}
+            ownedServers={ownedServers}
             server={{
               seed: initialServer.seed,
               name: initialServer.name,

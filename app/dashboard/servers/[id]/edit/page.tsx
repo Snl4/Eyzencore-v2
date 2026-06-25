@@ -1,8 +1,9 @@
 import { notFound, redirect } from 'next/navigation'
 import { AddServerClient } from '@/app/add-server/AddServerClient'
-import { resolveUserRole } from '@/lib/auth-db'
+import { listServersByOwner, resolveUserRole } from '@/lib/auth-db'
 import { getCurrentUser } from '@/lib/auth-server'
 import { buildServerDashboardSlug } from '@/lib/server-slug'
+import { buildDashboardHubOwnedServers } from '@/lib/server-dashboard-hub-data'
 import { requireOwnedServerForDashboardRoute } from '@/lib/server-dashboard-access'
 
 interface DashboardEditServerPageProps {
@@ -35,6 +36,7 @@ export default async function DashboardEditServerPage({ params }: DashboardEditS
   })
   if (!server) notFound()
   const slug = buildServerDashboardSlug(server.name)
+  const ownedServers = buildDashboardHubOwnedServers(await listServersByOwner(user.id))
   if (/^\d+$/.test(params.id)) {
     redirect(`/dashboard/servers/${slug}/edit`)
   }
@@ -45,8 +47,9 @@ export default async function DashboardEditServerPage({ params }: DashboardEditS
         initialServer={server}
         initialUser={user}
         sidebarRole={role}
-        activeSection="dashboard"
+        activeSection="my-servers"
         dashboardSlug={slug}
+        ownedServers={ownedServers}
       />
     </>
   )

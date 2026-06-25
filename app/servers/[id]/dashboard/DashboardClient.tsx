@@ -2,9 +2,9 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { PageShell } from '@/components/layout/PageShell'
+import { ServerOwnerPageShell } from '@/components/dashboard/ServerOwnerPageShell'
 import { ServerDashboardHub } from '@/components/dashboard/ServerDashboardHub'
-import type { AuthUser } from '@/lib/auth-db'
+import type { AuthUser, UserRole } from '@/lib/auth-db'
 import { buildServerManagePath } from '@/lib/server-dashboard-routes'
 import { buildServerDashboardSlug, buildServerPublicPath } from '@/lib/server-slug'
 import { Area, CartesianGrid, Line, ComposedChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
@@ -118,6 +118,7 @@ interface DashSnapshot {
 
 interface Props {
   initialUser: AuthUser | null
+  role: UserRole
   server: {
     seed: number
     name: string
@@ -266,7 +267,7 @@ function pctDelta(current: number, prior: number): { sign: '+' | '-' | ''; text:
 
 const DAY_LABELS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд']
 
-export function DashboardClient({ initialUser, server, initialSnapshot }: Props) {
+export function DashboardClient({ initialUser, role, server, initialSnapshot }: Props) {
   const [snapshot, setSnapshot] = useState<DashSnapshot>(initialSnapshot)
   const [range, setRange] = useState<DashRange>(initialSnapshot.range || '7d')
   const [feedTab, setFeedTab] = useState<'all' | ActivityKind>('all')
@@ -340,7 +341,7 @@ export function DashboardClient({ initialUser, server, initialSnapshot }: Props)
   const liveDot = snapshot.live.online ? 'on' : 'off'
 
   return (
-    <PageShell active="dashboard" initialUser={initialUser}>
+    <ServerOwnerPageShell initialUser={initialUser} role={role}>
       <main className="dash-main">
         <div className="dash-shell">
           <ServerDashboardHub
@@ -674,7 +675,7 @@ export function DashboardClient({ initialUser, server, initialSnapshot }: Props)
           </div>
         </div>
       </main>
-    </PageShell>
+    </ServerOwnerPageShell>
   )
 }
 

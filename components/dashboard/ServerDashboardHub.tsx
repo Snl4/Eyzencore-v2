@@ -7,6 +7,7 @@ import { Breadcrumbs } from '@/components/ui/Breadcrumbs'
 import { ServerDashboardHubNav } from '@/components/dashboard/ServerDashboardHubNav'
 import type { ServerDashboardTab } from '@/lib/server-dashboard-routes'
 import { buildServerDashboardTabPath } from '@/lib/server-dashboard-routes'
+import type { DashboardHubOwnedServer } from '@/lib/server-dashboard-hub-data'
 import { buildServerDashboardSlug, buildServerPublicPath } from '@/lib/server-slug'
 
 export type ServerDashboardHubServer = {
@@ -18,13 +19,9 @@ export type ServerDashboardHubServer = {
   verified: boolean
 }
 
-export type ServerDashboardHubOwnedServer = {
-  seed: number
-  name: string
-  addr: string
-  ic?: string
-  avatarUrl?: string | null
-}
+export type ServerDashboardHubOwnedServer = DashboardHubOwnedServer
+
+const OWNED_SERVERS_STORAGE_KEY = 'eyzencore-dashboard-owned-servers'
 
 function serverInitials(name: string): string {
   const cleaned = String(name || '').replace(/^@/, '')
@@ -55,24 +52,46 @@ export function ServerDashboardHub({
   const [servers, setServers] = useState<ServerDashboardHubOwnedServer[]>(ownedServers || [])
 
   useEffect(() => {
-    if (ownedServers && ownedServers.length > 0) {
-      setServers(ownedServers)
+    if (!ownedServers || ownedServers.length === 0) return
+    setServers(ownedServers)
+    try {
+      sessionStorage.setItem(OWNED_SERVERS_STORAGE_KEY, JSON.stringify(ownedServers))
+    } catch {
+      // ignore storage errors
     }
   }, [ownedServers])
 
   useEffect(() => {
     if (servers.length > 0) return
+    try {
+      const cached = sessionStorage.getItem(OWNED_SERVERS_STORAGE_KEY)
+      if (cached) {
+        const parsed = JSON.parse(cached) as ServerDashboardHubOwnedServer[]
+        if (parsed.length > 0) {
+          setServers(parsed)
+          return
+        }
+      }
+    } catch {
+      // ignore cache errors
+    }
     let isMounted = true
     void fetch('/api/dashboard/owner', { cache: 'no-store' })
       .then((response) => (response.ok ? response.json() : null))
       .then((payload: { ownedServers?: Array<{ serverId: number; serverName: string; dashboardSlug: string }> } | null) => {
         if (!isMounted || !payload?.ownedServers) return
-        setServers(payload.ownedServers.map((item) => ({
+        const nextServers = payload.ownedServers.map((item) => ({
           seed: item.serverId,
           name: item.serverName,
           addr: '',
           ic: item.serverName.slice(0, 2).toUpperCase(),
-        })))
+        }))
+        setServers(nextServers)
+        try {
+          sessionStorage.setItem(OWNED_SERVERS_STORAGE_KEY, JSON.stringify(nextServers))
+        } catch {
+          // ignore storage errors
+        }
       })
       .catch(() => undefined)
     return () => {

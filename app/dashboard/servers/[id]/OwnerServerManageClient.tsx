@@ -3,8 +3,8 @@
 import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
 import { ResponsiveContainer, AreaChart, Area, CartesianGrid, XAxis, YAxis, Tooltip } from 'recharts'
-import { PageShell } from '@/components/layout/PageShell'
-import { ServerDashboardHub } from '@/components/dashboard/ServerDashboardHub'
+import { ServerOwnerPageShell } from '@/components/dashboard/ServerOwnerPageShell'
+import { ServerDashboardHub, type ServerDashboardHubOwnedServer } from '@/components/dashboard/ServerDashboardHub'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
 import type { AuthUser, ServerReview, ServerVoteEntry, UserRole } from '@/lib/auth-db'
 
@@ -13,6 +13,7 @@ interface OwnerServerManageClientProps {
   role: UserRole
   serverId: number
   dashboardSlug: string
+  ownedServers: ServerDashboardHubOwnedServer[]
 }
 
 type ServerData = {
@@ -77,7 +78,7 @@ function normalizeActivityPayload(payload: Partial<ActivityResponse> | null | un
   }
 }
 
-export function OwnerServerManageClient({ initialUser, role, serverId, dashboardSlug }: OwnerServerManageClientProps) {
+export function OwnerServerManageClient({ initialUser, role, serverId, dashboardSlug, ownedServers }: OwnerServerManageClientProps) {
   const router = useRouter()
   const confirmAction = useConfirm()
   const [server, setServer] = useState<ServerData | null>(null)
@@ -250,12 +251,13 @@ export function OwnerServerManageClient({ initialUser, role, serverId, dashboard
   }
 
   return (
-    <PageShell active="dashboard" initialUser={initialUser} sidebarRole={role}>
+    <ServerOwnerPageShell initialUser={initialUser} role={role}>
       <div className="page-main">
         {server ? (
           <ServerDashboardHub
             activeTab="manage"
             dashboardSlug={dashboardSlug}
+            ownedServers={ownedServers}
             server={{
               seed: server.seed,
               name: server.name,
@@ -465,7 +467,7 @@ export function OwnerServerManageClient({ initialUser, role, serverId, dashboard
           </div>
         </section>
       </div>
-    </PageShell>
+    </ServerOwnerPageShell>
   )
 }
 

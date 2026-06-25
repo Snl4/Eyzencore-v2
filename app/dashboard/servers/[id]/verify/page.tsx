@@ -1,7 +1,8 @@
 import { notFound, redirect } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth-server'
-import { getOrCreateVerificationToken, resolveUserRole } from '@/lib/auth-db'
+import { getOrCreateVerificationToken, listServersByOwner, resolveUserRole } from '@/lib/auth-db'
 import { buildServerDashboardSlug } from '@/lib/server-slug'
+import { buildDashboardHubOwnedServers } from '@/lib/server-dashboard-hub-data'
 import { requireOwnedServerForDashboardRoute } from '@/lib/server-dashboard-access'
 import { VerifyServerClient } from './VerifyServerClient'
 
@@ -35,6 +36,7 @@ export default async function VerifyServerPage({ params }: VerifyServerPageProps
   })
   if (!server) notFound()
   const slug = buildServerDashboardSlug(server.name)
+  const ownedServers = buildDashboardHubOwnedServers(await listServersByOwner(user.id))
   if (/^\d+$/.test(params.id)) {
     redirect(`/dashboard/servers/${slug}/verify`)
   }
@@ -46,6 +48,7 @@ export default async function VerifyServerPage({ params }: VerifyServerPageProps
         initialUser={user}
         role={role}
         dashboardSlug={slug}
+        ownedServers={ownedServers}
         server={{
           id: server.seed,
           name: server.name,

@@ -45,6 +45,7 @@ export default async function DashboardBySlugPage({ params }: DashboardBySlugPag
       <div className="bg-aurora" />
       <DashboardClient
         initialUser={user}
+        role={role}
         server={{
           seed: server.seed,
           name: server.name,

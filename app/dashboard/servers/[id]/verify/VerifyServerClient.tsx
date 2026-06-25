@@ -3,14 +3,15 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
-import { PageShell } from '@/components/layout/PageShell'
-import { ServerDashboardHub } from '@/components/dashboard/ServerDashboardHub'
+import { ServerOwnerPageShell } from '@/components/dashboard/ServerOwnerPageShell'
+import { ServerDashboardHub, type ServerDashboardHubOwnedServer } from '@/components/dashboard/ServerDashboardHub'
 import type { AuthUser, UserRole } from '@/lib/auth-db'
 
 interface VerifyServerClientProps {
   initialUser: AuthUser
   role: UserRole
   dashboardSlug: string
+  ownedServers: ServerDashboardHubOwnedServer[]
   server: {
     id: number
     name: string
@@ -29,6 +30,7 @@ export function VerifyServerClient({
   initialUser,
   role,
   dashboardSlug,
+  ownedServers,
   server,
   initialToken,
   initialVerifiedAt,
@@ -88,11 +90,12 @@ export function VerifyServerClient({
   const isIpAddress = /^\d{1,3}(\.\d{1,3}){3}$/.test(server.addr.split(':')[0])
 
   return (
-    <PageShell active="dashboard" initialUser={initialUser} sidebarRole={role}>
+    <ServerOwnerPageShell initialUser={initialUser} role={role}>
       <div className="page-main">
         <ServerDashboardHub
           activeTab="verify"
           dashboardSlug={dashboardSlug}
+          ownedServers={ownedServers}
           server={{
             seed: server.id,
             name: server.name,
@@ -278,6 +281,6 @@ export function VerifyServerClient({
           </div>
         </section>
       </div>
-    </PageShell>
+    </ServerOwnerPageShell>
   )
 }

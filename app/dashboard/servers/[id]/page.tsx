@@ -1,7 +1,8 @@
 import { notFound, redirect } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth-server'
-import { resolveUserRole } from '@/lib/auth-db'
+import { listServersByOwner, resolveUserRole } from '@/lib/auth-db'
 import { buildServerDashboardSlug } from '@/lib/server-slug'
+import { buildDashboardHubOwnedServers } from '@/lib/server-dashboard-hub-data'
 import { requireOwnedServerForDashboardRoute } from '@/lib/server-dashboard-access'
 import { OwnerServerManageClient } from './OwnerServerManageClient'
 
@@ -38,6 +39,7 @@ export default async function OwnerServerManagePage({ params }: OwnerServerManag
   })
   if (!server) notFound()
   const slug = buildServerDashboardSlug(server.name)
+  const ownedServers = buildDashboardHubOwnedServers(await listServersByOwner(user.id))
   if (/^\d+$/.test(params.id)) {
     redirect(`/dashboard/servers/${slug}`)
   }
@@ -49,6 +51,7 @@ export default async function OwnerServerManagePage({ params }: OwnerServerManag
         role={role}
         serverId={server.seed}
         dashboardSlug={slug}
+        ownedServers={ownedServers}
       />
     </>
   )
