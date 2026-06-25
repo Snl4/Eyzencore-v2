@@ -121,6 +121,7 @@ type OrderRow = {
   product_id: number | bigint
   product_title: string
   product_slug: string
+  product_cover_url?: string | null
   author_user_id: string | null
   author_name: string
   customer_id: string
@@ -372,6 +373,7 @@ function mapOrder(row: OrderRow): AnimilairOrder {
     productId: Number(row.product_id),
     productTitle: row.product_title,
     productSlug: row.product_slug,
+    productCoverUrl: row.product_cover_url || null,
     authorUserId: row.author_user_id,
     authorName: row.author_name,
     customerId: row.customer_id,
@@ -470,6 +472,23 @@ async function uniqueAuthorSlug(name: string) {
   return `${base}-${Date.now()}`
 }
 
+async function ensureAnimilairOrderArchiveColumns(): Promise<void> {
+  const columns = await prisma.$queryRawUnsafe<Array<{ name: string }>>(
+    `PRAGMA table_info(app_animilair_orders)`
+  )
+  const names = new Set(columns.map((column) => column.name))
+  if (!names.has('customer_archived_at')) {
+    await prisma.$executeRawUnsafe(
+      `ALTER TABLE app_animilair_orders ADD COLUMN customer_archived_at TEXT`
+    )
+  }
+  if (!names.has('author_archived_at')) {
+    await prisma.$executeRawUnsafe(
+      `ALTER TABLE app_animilair_orders ADD COLUMN author_archived_at TEXT`
+    )
+  }
+}
+
 async function ensureAnimilairSupportUser(): Promise<void> {
   const existing = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
     `SELECT id FROM app_users WHERE id = ? LIMIT 1`,
@@ -500,6 +519,7 @@ async function ensureAnimilairSupportUser(): Promise<void> {
 
 export async function ensureAnimilairSeedData() {
   await ensureAnimilairSupportUser()
+  await ensureAnimilairOrderArchiveColumns()
   const now = nowIso()
   const authors = [
     {
@@ -1066,9 +1086,8 @@ export async function updateAnimilairAuthorWelcome(input: {
 export async function getAnimilairOrders(user: AuthUser, role: UserRole = 'USER') {
   await ensureAnimilairSeedData()
   const isAdmin = role === 'ADMIN'
-  const isDesigner = role === 'DESIGNER'
   const rows = await prisma.$queryRawUnsafe<OrderRow[]>(
-    `SELECT o.*, p.title AS product_title, p.slug AS product_slug,
+    `SELECT o.*, p.title AS product_title, p.slug AS product_slug, p.cover_url AS product_cover_url,
             a.user_id AS author_user_id, a.name AS author_name,
             u.full_name AS customer_name, u.avatar_url AS customer_avatar_url
      FROM app_animilair_orders o
@@ -1076,22 +1095,20 @@ export async function getAnimilairOrders(user: AuthUser, role: UserRole = 'USER'
      JOIN app_animilair_authors a ON a.id = p.author_id
      JOIN app_users u ON u.id = o.customer_id
      ${isAdmin
-      ? ''
-      : isDesigner
-        ? `WHERE (o.customer_id = ? AND o.customer_archived_at IS NULL)
-                OR (a.user_id = ? AND o.author_archived_at IS NULL)`
-        : 'WHERE o.customer_id = ? AND o.customer_archived_at IS NULL'}
+      ? `WHERE NOT (o.customer_archived_at IS NOT NULL AND o.author_archived_at IS NOT NULL)`
+      : `WHERE (o.customer_id = ? AND o.customer_archived_at IS NULL)
+              OR (a.user_id = ? AND o.author_archived_at IS NULL)`}
      ORDER BY datetime(o.updated_at) DESC, o.id DESC`,
-    ...(isAdmin ? [] : isDesigner ? [user.id, user.id] : [user.id])
+    ...(isAdmin ? [] : [user.id, user.id])
   )
   return rows.map(mapOrder)
 }
 
 export async function getAnimilairOrdersForProduct(productId: number, user: AuthUser, role: UserRole = 'USER') {
+  await ensureAnimilairOrderArchiveColumns()
   const isAdmin = role === 'ADMIN'
-  const isDesigner = role === 'DESIGNER'
   const rows = await prisma.$queryRawUnsafe<OrderRow[]>(
-    `SELECT o.*, p.title AS product_title, p.slug AS product_slug,
+    `SELECT o.*, p.title AS product_title, p.slug AS product_slug, p.cover_url AS product_cover_url,
             a.user_id AS author_user_id, a.name AS author_name,
             u.full_name AS customer_name, u.avatar_url AS customer_avatar_url
      FROM app_animilair_orders o
@@ -1100,20 +1117,18 @@ export async function getAnimilairOrdersForProduct(productId: number, user: Auth
      JOIN app_users u ON u.id = o.customer_id
      WHERE o.product_id = ?
      ${isAdmin
-      ? ''
-      : isDesigner
-        ? `AND ((o.customer_id = ? AND o.customer_archived_at IS NULL)
-               OR (a.user_id = ? AND o.author_archived_at IS NULL))`
-        : 'AND o.customer_id = ? AND o.customer_archived_at IS NULL'}
+      ? `AND NOT (o.customer_archived_at IS NOT NULL AND o.author_archived_at IS NOT NULL)`
+      : `AND ((o.customer_id = ? AND o.customer_archived_at IS NULL)
+               OR (a.user_id = ? AND o.author_archived_at IS NULL))`}
      ORDER BY datetime(o.updated_at) DESC, o.id DESC`,
-    ...(isAdmin ? [productId] : isDesigner ? [productId, user.id, user.id] : [productId, user.id])
+    ...(isAdmin ? [productId] : [productId, user.id, user.id])
   )
   return rows.map(mapOrder)
 }
 
 export async function getAnimilairOrder(id: number, user: AuthUser, role: UserRole = 'USER') {
   const rows = await prisma.$queryRawUnsafe<OrderRow[]>(
-    `SELECT o.*, p.title AS product_title, p.slug AS product_slug,
+    `SELECT o.*, p.title AS product_title, p.slug AS product_slug, p.cover_url AS product_cover_url,
             a.user_id AS author_user_id, a.name AS author_name,
             u.full_name AS customer_name, u.avatar_url AS customer_avatar_url
      FROM app_animilair_orders o
@@ -1252,6 +1267,7 @@ export async function archiveAnimilairOrder(input: {
   user: AuthUser
   role?: UserRole
 }) {
+  await ensureAnimilairOrderArchiveColumns()
   const role = input.role || 'USER'
   const order = await getAnimilairOrder(input.orderId, input.user, role)
   if (!order) throw new Error('Замовлення не знайдено')

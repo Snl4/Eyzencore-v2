@@ -13,7 +13,7 @@ import {
   getAnimilairRequestIp,
   recordAnimilairProductView,
 } from '@/lib/animilair-db'
-import { isAnimilairOrderClosed } from '@/lib/animilair-shared'
+import { isAnimilairOrderClosed, pickAnimilairProductPageOrder } from '@/lib/animilair-shared'
 import { buildPageMetadata } from '@/lib/seo'
 import { AnimilairProductClient } from './AnimilairProductClient'
 
@@ -68,14 +68,13 @@ export default async function AnimilairProductPage({ params }: Props) {
     const { touchAnimilairAuthorPresence } = await import('@/lib/animilair-db')
     await touchAnimilairAuthorPresence(auth.user.id)
   }
-  const productOrders = auth
+  const allProductOrders = auth
     ? await getAnimilairOrdersForProduct(product.id, auth.user, role)
     : []
-  const activeOrder = canManage
-    ? productOrders.find((order) => !isAnimilairOrderClosed(order.status)) || productOrders[0] || null
-    : productOrders.find(
-        (order) => order.customerId === auth?.user?.id && !isAnimilairOrderClosed(order.status)
-      ) || null
+  const activeOrder = auth?.user
+    ? pickAnimilairProductPageOrder(allProductOrders, auth.user.id, canManage)
+    : null
+  const productOrders = activeOrder ? [activeOrder] : []
   const initialMessages = auth && activeOrder && !isAnimilairOrderClosed(activeOrder.status)
     ? await getAnimilairMessages(activeOrder.id, auth.user, role)
     : []

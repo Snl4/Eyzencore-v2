@@ -64,6 +64,7 @@ export type AnimilairOrder = {
   productId: number
   productTitle: string
   productSlug: string
+  productCoverUrl: string | null
   authorUserId: string | null
   authorName: string
   customerId: string
@@ -113,6 +114,58 @@ export const ANIMILAIR_ORDER_STATUS_MESSAGES: Record<string, string> = {
 
 export function isAnimilairOrderClosed(status: string): boolean {
   return status === 'completed' || status === 'canceled'
+}
+
+/** Active chat on a product page: newest open order for designers, own open order for customers. */
+export function pickAnimilairProductPageOrder(
+  orders: AnimilairOrder[],
+  userId: string,
+  canManage: boolean
+): AnimilairOrder | null {
+  const openOrders = orders.filter((order) => !isAnimilairOrderClosed(order.status))
+  if (!openOrders.length) return null
+  if (canManage) return openOrders[0] ?? null
+  return openOrders.find((order) => order.customerId === userId) ?? null
+}
+
+export type AnimilairOrderProductGroup = {
+  productId: number
+  productTitle: string
+  productSlug: string
+  productCoverUrl: string | null
+  orders: AnimilairOrder[]
+  primaryOrder: AnimilairOrder
+  activeCount: number
+}
+
+/** Group designer orders by product; newest active order is primary. */
+export function groupAnimilairActiveOrdersByProduct(orders: AnimilairOrder[]): AnimilairOrderProductGroup[] {
+  const activeOrders = orders.filter((order) => !isAnimilairOrderClosed(order.status))
+  const groups = new Map<number, AnimilairOrder[]>()
+  for (const order of activeOrders) {
+    const bucket = groups.get(order.productId) || []
+    bucket.push(order)
+    groups.set(order.productId, bucket)
+  }
+  return Array.from(groups.values())
+    .map((productOrders) => {
+      const sorted = [...productOrders].sort(
+        (left, right) => new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime()
+      )
+      const primary = sorted[0]
+      return {
+        productId: primary.productId,
+        productTitle: primary.productTitle,
+        productSlug: primary.productSlug,
+        productCoverUrl: primary.productCoverUrl,
+        orders: sorted,
+        primaryOrder: primary,
+        activeCount: sorted.length,
+      }
+    })
+    .sort(
+      (left, right) => new Date(right.primaryOrder.updatedAt).getTime() - new Date(left.primaryOrder.updatedAt).getTime()
+    )
 }
 
 const ANIMILAIR_EXCLUDED_CATEGORIES = new Set(['plugins', 'promo', 'promotion'])

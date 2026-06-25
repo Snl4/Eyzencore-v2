@@ -8,6 +8,7 @@ import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { AnimilairOrderChat } from '@/components/partners/AnimilairOrderChat'
 import type { AuthUser } from '@/lib/auth-db'
 import type { AnimilairOrder, AnimilairOrderMessage, AnimilairProduct, AnimilairProductReview } from '@/lib/animilair-shared'
+import { pickAnimilairProductPageOrder } from '@/lib/animilair-shared'
 import { AnimilairRatingStars } from '@/components/partners/AnimilairRatingStars'
 import { formatAnimilairDate } from '@/components/partners/animilair-chat-utils'
 import { AnimilairPortfolioUploader } from '@/components/partners/AnimilairPortfolioUploader'
@@ -305,10 +306,17 @@ export function AnimilairProductClient({
                 activeOrderId={activeOrderId}
                 onActiveOrderIdChange={setActiveOrderId}
                 onOrdersChange={(orders) => {
-                  setProductOrders(orders.filter((order) => order.productId === product.id))
+                  if (!initialUser) return
+                  const productOnly = orders.filter((order) => order.productId === product.id)
+                  const primary = pickAnimilairProductPageOrder(productOnly, initialUser.id, canManage)
+                  setProductOrders(primary ? [primary] : [])
+                  setActiveOrderId((current) => {
+                    if (primary && current === primary.id) return current
+                    return primary?.id ?? null
+                  })
                 }}
                 onOrderCreated={(order) => {
-                  setProductOrders((current) => [order, ...current.filter((item) => item.id !== order.id)])
+                  setProductOrders([order])
                   setActiveOrderId(order.id)
                 }}
                 onAuthorUpdated={setAuthorProfile}
@@ -321,6 +329,8 @@ export function AnimilairProductClient({
                 }}
                 onLoginRequest={() => router.push('/login')}
                 onReviewSubmitted={() => {
+                  setProductOrders([])
+                  setActiveOrderId(null)
                   router.refresh()
                 }}
               />
