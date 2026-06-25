@@ -15,6 +15,7 @@ import { AnimilairRatingStars } from '@/components/partners/AnimilairRatingStars
 
 const CHAT_POLL_MS = 2000
 const PRESENCE_POLL_MS = 30000
+const CHAT_SCROLL_STICK_THRESHOLD_PX = 64
 
 type ProductPreview = {
   productId: number
@@ -62,6 +63,8 @@ export function AnimilairOrderChat({
   const [editingWelcome, setEditingWelcome] = useState(false)
   const [welcomeDraft, setWelcomeDraft] = useState(productPreview?.author.welcomeMessage || '')
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const messagesContainerRef = useRef<HTMLDivElement>(null)
+  const stickToBottomRef = useRef(true)
   const lastMessageIdRef = useRef(initialMessages.at(-1)?.id || 0)
   const sendingRef = useRef(false)
   const loadRequestRef = useRef(0)
@@ -85,8 +88,21 @@ export function AnimilairOrderChat({
   const author = productPreview?.author || null
   const showWelcome = Boolean(productPreview && welcomeMessage)
 
+  const updateStickToBottom = useCallback(() => {
+    const container = messagesContainerRef.current
+    if (!container) return
+    const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight
+    stickToBottomRef.current = distanceFromBottom <= CHAT_SCROLL_STICK_THRESHOLD_PX
+  }, [])
+
   const scrollToBottom = useCallback((smooth = true) => {
-    messagesEndRef.current?.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'end' })
+    const container = messagesContainerRef.current
+    if (!container) return
+    stickToBottomRef.current = true
+    container.scrollTo({
+      top: container.scrollHeight,
+      behavior: smooth ? 'smooth' : 'auto',
+    })
   }, [])
 
   const loadMessages = useCallback(async (orderId: number, silent = false) => {
@@ -104,11 +120,13 @@ export function AnimilairOrderChat({
       const nextMessages = Array.isArray(payload.messages) ? payload.messages : []
       const latestId = nextMessages.at(-1)?.id || 0
       if (silent && sendingRef.current) return
-      if (silent && latestId === lastMessageIdRef.current && nextMessages.length === messagesLengthRef.current) return
+      const previousLatestId = lastMessageIdRef.current
+      const hadNewMessages = latestId > previousLatestId || nextMessages.length !== messagesLengthRef.current
+      if (silent && !hadNewMessages) return
       lastMessageIdRef.current = latestId
       messagesLengthRef.current = nextMessages.length
       setMessages(nextMessages)
-      if (latestId > 0) {
+      if (hadNewMessages && (!silent || stickToBottomRef.current)) {
         requestAnimationFrame(() => scrollToBottom(!silent))
       }
     } catch {
@@ -403,9 +421,11 @@ export function AnimilairOrderChat({
   const canCompose = Boolean(
     user
     && (
-      productPreview
-        ? !productPreview.canEditWelcome && (!activeOrder || !isAnimilairOrderClosed(activeOrder.status))
-        : activeOrder && !isAnimilairOrderClosed(activeOrder.status)
+      !productPreview
+        ? activeOrder && !isAnimilairOrderClosed(activeOrder.status)
+        : productPreview.canEditWelcome
+          ? activeOrder && !isAnimilairOrderClosed(activeOrder.status)
+          : !activeOrder || !isAnimilairOrderClosed(activeOrder.status)
     )
   )
   const showReviewForm = Boolean(reviewOrder && !orderReview)
@@ -616,7 +636,11 @@ export function AnimilairOrderChat({
         </div>
       )}
 
-      <div className={`animilair-chat-messages${embedded ? ' embedded' : ''}`}>
+      <div
+        ref={messagesContainerRef}
+        className={`animilair-chat-messages${embedded ? ' embedded' : ''}`}
+        onScroll={updateStickToBottom}
+      >
         {showWelcome && author && (
           <article className="animilair-message welcome">
             {avatarUrl ? (
