@@ -10,7 +10,14 @@ import type { AuthUser, UserRole } from '@/lib/auth-db'
 interface VerifyServerClientProps {
   initialUser: AuthUser
   role: UserRole
-  server: { id: number; name: string; addr: string; verified: boolean }
+  server: {
+    id: number
+    name: string
+    addr: string
+    verified: boolean
+    platform: 'minecraft' | 'discord'
+    discordVerifyCode: string | null
+  }
   initialToken: string
   initialVerifiedAt: string | null
 }
@@ -75,6 +82,7 @@ export function VerifyServerClient({
     }, 2000)
   }
 
+  const isDiscordServer = server.platform === 'discord'
   const isIpAddress = /^\d{1,3}(\.\d{1,3}){3}$/.test(server.addr.split(':')[0])
 
   return (
@@ -111,10 +119,43 @@ export function VerifyServerClient({
         <section className="set-card">
           <h3 style={{ marginBottom: 4 }}>Методи верифікації</h3>
           <p style={{ color: 'var(--fg-3)', fontSize: 14, marginBottom: 20 }}>
-            Для верифікації того що ви є власником сервером, використайте один з методів описаних нижче.
+            {isDiscordServer
+              ? 'Підтвердіть власність Discord-спільноти через бота Eyzencore.'
+              : 'Для верифікації того що ви є власником сервером, використайте один з методів описаних нижче.'}
           </p>
 
-          <div className="verify-token-row">
+          {isDiscordServer ? (
+            <div className="verify-method-body">
+              <h4 className="verify-method-title">Верифікація через Discord-бота</h4>
+              <ol className="verify-steps">
+                <li>Додайте бота Eyzencore на свій Discord-сервер з правами адміністратора.</li>
+                <li>
+                  На сервері виконайте команду:{' '}
+                  <code>/link {server.discordVerifyCode || 'КОД'}</code>
+                </li>
+                <li>Після успішного зв’язку статус зміниться на «Верифіковано».</li>
+              </ol>
+              {server.discordVerifyCode ? (
+                <div className="verify-token-row">
+                  <label className="verify-token-label">Код верифікації</label>
+                  <div className="verify-token-box">
+                    <code className="verify-token-value">{server.discordVerifyCode}</code>
+                    <div className="verify-token-actions">
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        onClick={() => void navigator.clipboard.writeText(`/link ${server.discordVerifyCode}`)}
+                      >
+                        Копіювати команду
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          ) : (
+            <>
+              <div className="verify-token-row">
             <label className="verify-token-label">Рядок для верифікації</label>
             <div className="verify-token-box">
               <code className="verify-token-value">{token}</code>
@@ -208,26 +249,34 @@ export function VerifyServerClient({
             )}
           </div>
 
-          {error && (
-            <div className="verify-error" role="alert">
-              {error}
-            </div>
-          )}
-          {successMsg && (
-            <div className="verify-success" role="status">
-              {successMsg}
-            </div>
+              {error && (
+                <div className="verify-error" role="alert">
+                  {error}
+                </div>
+              )}
+              {successMsg && (
+                <div className="verify-success" role="status">
+                  {successMsg}
+                </div>
+              )}
+            </>
           )}
 
           <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={() => void handleVerify()}
-              disabled={isVerifying || isVerified}
-            >
-              {isVerifying ? 'Перевіряємо...' : isVerified ? '✓ Верифіковано' : 'Верифікувати'}
-            </button>
+            {isDiscordServer ? (
+              <Link href={`/servers/${server.id}`} className="btn btn-primary">
+                Відкрити сторінку спільноти
+              </Link>
+            ) : (
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => void handleVerify()}
+                disabled={isVerifying || isVerified}
+              >
+                {isVerifying ? 'Перевіряємо...' : isVerified ? '✓ Верифіковано' : 'Верифікувати'}
+              </button>
+            )}
             <Link href={`/dashboard/servers/${server.id}`} className="btn btn-secondary">
               Назад
             </Link>

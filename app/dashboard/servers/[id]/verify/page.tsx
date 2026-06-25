@@ -31,7 +31,14 @@ export default async function VerifyServerPage({ params }: VerifyServerPageProps
       <VerifyServerClient
         initialUser={user}
         role={role}
-        server={{ id: server.seed, name: server.name, addr: server.addr, verified: Boolean(server.verified) }}
+        server={{
+          id: server.seed,
+          name: server.name,
+          addr: server.addr,
+          verified: Boolean(server.verified),
+          platform: server.platform === 'discord' || server.core === 'discord' ? 'discord' : 'minecraft',
+          discordVerifyCode: server.discordVerifyCode ?? null,
+        }}
         initialToken={verification.token}
         initialVerifiedAt={verification.verifiedAt}
       />

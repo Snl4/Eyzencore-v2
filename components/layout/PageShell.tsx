@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTheme } from '@/hooks/useTheme';
 import { BrandMark } from '@/components/ui/BrandMark';
+import { Footer } from '@/components/layout/Footer';
 import { UserProfileDropdown } from '@/components/ui/UserProfileDropdown';
 import { SidebarIcon } from '@/components/layout/SidebarIcon';
 import { getSidebarSections, getDashboardSidebarSections } from '@/lib/data';
@@ -178,8 +179,9 @@ export function PageShell({ children, active, initialUser = null, sidebarRole, h
         </div>
       </aside>
 
-      <main style={{ minWidth: 0, position: 'relative', zIndex: 1 }}>
-        {children}
+      <main className="page-shell-main">
+        <div className="page-shell-content">{children}</div>
+        <Footer />
       </main>
     </div>
   );

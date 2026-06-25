@@ -465,6 +465,11 @@ function OwnerServersCard(input: {
         <button type="button" className="btn btn-secondary" onClick={() => onSelectServer(server.serverId)}>
           Аналітика
         </button>
+        {server.status !== 'active' && (
+          <Link className="btn btn-primary" href={`/dashboard/servers/${server.dashboardSlug}/verify`}>
+            Верифікувати
+          </Link>
+        )}
         <Link className="btn btn-secondary" href={`/dashboard/servers/${server.dashboardSlug}`}>Керувати</Link>
       </td>
     </tr>
