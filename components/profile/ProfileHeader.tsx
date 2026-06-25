@@ -1,4 +1,5 @@
 import { Icons } from '@/components/ui/Icons';
+import { SidebarIcon } from '@/components/layout/SidebarIcon';
 import { formatJoinedAt, formatNumberUA } from './format';
 import { IMAGE_PLACEHOLDER } from '@/lib/placeholders';
 
@@ -91,7 +92,9 @@ export function ProfileHeader({ data }: { data: ProfileHeaderData }) {
             )}
             {data.discord && (
               <span>
-                {Icons.discord}
+                <span className="profile-meta-fa-icon" aria-hidden="true">
+                  <SidebarIcon name="discord" />
+                </span>
                 <a href={data.discord} target="_blank" rel="noreferrer">Discord</a>
               </span>
             )}

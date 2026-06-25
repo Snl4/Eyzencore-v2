@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import type { AuthUser } from '@/lib/auth-db';
-import { ImageCropModal } from '@/components/ui/ImageCropModal';
+import { ImageCropModal, type ImageCropAspectRatio } from '@/components/ui/ImageCropModal';
 
 const MAX_AVATAR_BYTES = 800 * 1024;
 const MAX_BANNER_BYTES = 1_400 * 1024;
@@ -38,6 +38,11 @@ function readFileAsDataUrl(file: File, maxBytes: number): Promise<string> {
   });
 }
 
+interface CropState {
+  src: string;
+  target: ImageCropAspectRatio;
+}
+
 export function ProfileEditModal({ user, open, onClose, onSaved }: Props) {
   const meta = user.user_metadata;
   const [fullName, setFullName] = useState(meta.full_name);
@@ -50,7 +55,7 @@ export function ProfileEditModal({ user, open, onClose, onSaved }: Props) {
   const [bannerUrl, setBannerUrl] = useState<string | null>(meta.banner_url);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [cropSource, setCropSource] = useState<string | null>(null);
+  const [cropState, setCropState] = useState<CropState | null>(null);
   const [shouldRender, setShouldRender] = useState(open);
   const [isVisible, setIsVisible] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement>(null);
@@ -72,7 +77,7 @@ export function ProfileEditModal({ user, open, onClose, onSaved }: Props) {
     setDiscord(meta.discord || '');
     setAvatarUrl(meta.avatar_url);
     setBannerUrl(meta.banner_url);
-    setCropSource(null);
+    setCropState(null);
     setError(null);
   }, [open, meta]);
 
@@ -108,7 +113,7 @@ export function ProfileEditModal({ user, open, onClose, onSaved }: Props) {
     if (!file) return;
     try {
       const dataUrl = await readFileAsDataUrl(file, MAX_BANNER_BYTES);
-      setBannerUrl(dataUrl);
+      setCropState({ src: dataUrl, target: 'banner' });
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Помилка завантаження файлу');
@@ -121,7 +126,7 @@ export function ProfileEditModal({ user, open, onClose, onSaved }: Props) {
     if (!file) return;
     try {
       const dataUrl = await readFileAsDataUrl(file, MAX_AVATAR_BYTES);
-      setCropSource(dataUrl);
+      setCropState({ src: dataUrl, target: 'square' });
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Помилка завантаження файлу');
@@ -130,7 +135,13 @@ export function ProfileEditModal({ user, open, onClose, onSaved }: Props) {
 
   function handleAvatarCropped(croppedDataUrl: string): void {
     setAvatarUrl(croppedDataUrl);
-    setCropSource(null);
+    setCropState(null);
+    setError(null);
+  }
+
+  function handleBannerCropped(croppedDataUrl: string): void {
+    setBannerUrl(croppedDataUrl);
+    setCropState(null);
     setError(null);
   }
 
@@ -173,7 +184,7 @@ export function ProfileEditModal({ user, open, onClose, onSaved }: Props) {
     <div
       className={`modal-backdrop${isVisible ? ' is-open' : ''}`}
       onClick={() => {
-        if (!cropSource) onClose();
+        if (!cropState) onClose();
       }}
       role="dialog"
       aria-modal="true"
@@ -262,11 +273,12 @@ export function ProfileEditModal({ user, open, onClose, onSaved }: Props) {
         </form>
       </div>
       <ImageCropModal
-        imageSrc={cropSource || ''}
-        open={Boolean(cropSource)}
-        title="Обрізати аватарку"
-        onClose={() => setCropSource(null)}
-        onConfirm={handleAvatarCropped}
+        imageSrc={cropState?.src || ''}
+        open={Boolean(cropState)}
+        title={cropState?.target === 'banner' ? 'Обрізати банер' : 'Обрізати аватарку'}
+        aspectRatio={cropState?.target || 'square'}
+        onClose={() => setCropState(null)}
+        onConfirm={cropState?.target === 'banner' ? handleBannerCropped : handleAvatarCropped}
       />
     </div>
   );

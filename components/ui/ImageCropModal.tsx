@@ -1,16 +1,25 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-const CROP_VIEWPORT_SIZE = 280;
-const OUTPUT_SIZE = 512;
 const MIN_SCALE = 1;
 const MAX_SCALE = 3;
+
+export type ImageCropAspectRatio = 'square' | 'banner';
+
+interface CropPreset {
+  viewportWidth: number;
+  viewportHeight: number;
+  outputWidth: number;
+  outputHeight: number;
+  hint: string;
+}
 
 interface ImageCropModalProps {
   imageSrc: string;
   open: boolean;
   title?: string;
+  aspectRatio?: ImageCropAspectRatio;
   onClose: () => void;
   onConfirm: (croppedDataUrl: string) => void;
 }
@@ -23,24 +32,50 @@ interface CropMetrics {
   offsetY: number;
 }
 
-function getInitialMetrics(naturalWidth: number, naturalHeight: number): CropMetrics {
-  const baseScale = Math.max(CROP_VIEWPORT_SIZE / naturalWidth, CROP_VIEWPORT_SIZE / naturalHeight);
+const CROP_PRESETS: Record<ImageCropAspectRatio, CropPreset> = {
+  square: {
+    viewportWidth: 280,
+    viewportHeight: 280,
+    outputWidth: 512,
+    outputHeight: 512,
+    hint: 'Перетягніть зображення та збільште масштаб, щоб обрати область аватара.',
+  },
+  banner: {
+    viewportWidth: 420,
+    viewportHeight: 140,
+    outputWidth: 1200,
+    outputHeight: 400,
+    hint: 'Перетягніть зображення та збільште масштаб, щоб обрати область банера.',
+  },
+};
+
+function getInitialMetrics(
+  naturalWidth: number,
+  naturalHeight: number,
+  viewportWidth: number,
+  viewportHeight: number,
+): CropMetrics {
+  const baseScale = Math.max(viewportWidth / naturalWidth, viewportHeight / naturalHeight);
   const displayWidth = naturalWidth * baseScale;
   const displayHeight = naturalHeight * baseScale;
   return {
     naturalWidth,
     naturalHeight,
     scale: baseScale,
-    offsetX: (CROP_VIEWPORT_SIZE - displayWidth) / 2,
-    offsetY: (CROP_VIEWPORT_SIZE - displayHeight) / 2,
+    offsetX: (viewportWidth - displayWidth) / 2,
+    offsetY: (viewportHeight - displayHeight) / 2,
   };
 }
 
-function clampMetrics(metrics: CropMetrics): CropMetrics {
+function clampMetrics(
+  metrics: CropMetrics,
+  viewportWidth: number,
+  viewportHeight: number,
+): CropMetrics {
   const displayWidth = metrics.naturalWidth * metrics.scale;
   const displayHeight = metrics.naturalHeight * metrics.scale;
-  const minOffsetX = CROP_VIEWPORT_SIZE - displayWidth;
-  const minOffsetY = CROP_VIEWPORT_SIZE - displayHeight;
+  const minOffsetX = viewportWidth - displayWidth;
+  const minOffsetY = viewportHeight - displayHeight;
   return {
     ...metrics,
     offsetX: Math.min(0, Math.max(minOffsetX, metrics.offsetX)),
@@ -48,43 +83,55 @@ function clampMetrics(metrics: CropMetrics): CropMetrics {
   };
 }
 
-function renderCroppedImage(metrics: CropMetrics, image: HTMLImageElement): string {
+function renderCroppedImage(
+  metrics: CropMetrics,
+  image: HTMLImageElement,
+  viewportWidth: number,
+  viewportHeight: number,
+  outputWidth: number,
+  outputHeight: number,
+): string {
   const canvas = document.createElement('canvas');
-  canvas.width = OUTPUT_SIZE;
-  canvas.height = OUTPUT_SIZE;
+  canvas.width = outputWidth;
+  canvas.height = outputHeight;
   const context = canvas.getContext('2d');
   if (!context) return image.src;
   const sourceX = -metrics.offsetX / metrics.scale;
   const sourceY = -metrics.offsetY / metrics.scale;
-  const sourceSize = CROP_VIEWPORT_SIZE / metrics.scale;
+  const sourceWidth = viewportWidth / metrics.scale;
+  const sourceHeight = viewportHeight / metrics.scale;
   context.drawImage(
     image,
     sourceX,
     sourceY,
-    sourceSize,
-    sourceSize,
+    sourceWidth,
+    sourceHeight,
     0,
     0,
-    OUTPUT_SIZE,
-    OUTPUT_SIZE,
+    outputWidth,
+    outputHeight,
   );
   return canvas.toDataURL('image/jpeg', 0.9);
 }
 
 /**
- * Square image crop dialog with pan and zoom controls.
+ * Image crop dialog with pan and zoom controls.
  */
 export function ImageCropModal({
   imageSrc,
   open,
   title = 'Обрізати зображення',
+  aspectRatio = 'square',
   onClose,
   onConfirm,
 }: ImageCropModalProps) {
+  const preset = CROP_PRESETS[aspectRatio];
   const imageRef = useRef<HTMLImageElement>(null);
   const dragStartRef = useRef<{ x: number; y: number; offsetX: number; offsetY: number } | null>(null);
   const [metrics, setMetrics] = useState<CropMetrics | null>(null);
   const [isVisible, setIsVisible] = useState(false);
+  const viewportWidth = preset.viewportWidth;
+  const viewportHeight = preset.viewportHeight;
 
   useEffect(() => {
     if (!open) {
@@ -99,10 +146,10 @@ export function ImageCropModal({
     if (!open) return;
     const image = new Image();
     image.onload = () => {
-      setMetrics(getInitialMetrics(image.naturalWidth, image.naturalHeight));
+      setMetrics(getInitialMetrics(image.naturalWidth, image.naturalHeight, viewportWidth, viewportHeight));
     };
     image.src = imageSrc;
-  }, [imageSrc, open]);
+  }, [imageSrc, open, viewportHeight, viewportWidth]);
 
   const handlePointerDown = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
     if (!metrics) return;
@@ -122,9 +169,9 @@ export function ImageCropModal({
       ...metrics,
       offsetX: dragStart.offsetX + (event.clientX - dragStart.x),
       offsetY: dragStart.offsetY + (event.clientY - dragStart.y),
-    });
+    }, viewportWidth, viewportHeight);
     setMetrics(nextMetrics);
-  }, [metrics]);
+  }, [metrics, viewportHeight, viewportWidth]);
 
   const handlePointerUp = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
     dragStartRef.current = null;
@@ -137,12 +184,12 @@ export function ImageCropModal({
     setMetrics((current) => {
       if (!current) return current;
       const baseScale = Math.max(
-        CROP_VIEWPORT_SIZE / current.naturalWidth,
-        CROP_VIEWPORT_SIZE / current.naturalHeight,
+        viewportWidth / current.naturalWidth,
+        viewportHeight / current.naturalHeight,
       );
       const nextScale = baseScale * zoomValue;
-      const centerX = CROP_VIEWPORT_SIZE / 2;
-      const centerY = CROP_VIEWPORT_SIZE / 2;
+      const centerX = viewportWidth / 2;
+      const centerY = viewportHeight / 2;
       const imageCenterX = (centerX - current.offsetX) / current.scale;
       const imageCenterY = (centerY - current.offsetY) / current.scale;
       return clampMetrics({
@@ -150,26 +197,40 @@ export function ImageCropModal({
         scale: nextScale,
         offsetX: centerX - imageCenterX * nextScale,
         offsetY: centerY - imageCenterY * nextScale,
-      });
+      }, viewportWidth, viewportHeight);
     });
-  }, []);
+  }, [viewportHeight, viewportWidth]);
 
   const handleConfirm = useCallback(() => {
     const image = imageRef.current;
     if (!image || !metrics) return;
-    onConfirm(renderCroppedImage(metrics, image));
+    onConfirm(renderCroppedImage(
+      metrics,
+      image,
+      viewportWidth,
+      viewportHeight,
+      preset.outputWidth,
+      preset.outputHeight,
+    ));
     onClose();
-  }, [metrics, onClose, onConfirm]);
+  }, [metrics, onClose, onConfirm, preset.outputHeight, preset.outputWidth, viewportHeight, viewportWidth]);
+
+  const zoomValue = useMemo(() => {
+    if (!metrics) return MIN_SCALE;
+    const baseScale = Math.max(
+      viewportWidth / metrics.naturalWidth,
+      viewportHeight / metrics.naturalHeight,
+    );
+    return Math.min(MAX_SCALE, Math.max(MIN_SCALE, metrics.scale / baseScale));
+  }, [metrics, viewportHeight, viewportWidth]);
 
   if (!open || !metrics) return null;
 
-  const baseScale = Math.max(
-    CROP_VIEWPORT_SIZE / metrics.naturalWidth,
-    CROP_VIEWPORT_SIZE / metrics.naturalHeight,
-  );
-  const zoomValue = Math.min(MAX_SCALE, Math.max(MIN_SCALE, metrics.scale / baseScale));
   const displayWidth = metrics.naturalWidth * metrics.scale;
   const displayHeight = metrics.naturalHeight * metrics.scale;
+  const cardClassName = aspectRatio === 'banner'
+    ? 'modal-card image-crop-card image-crop-card-wide'
+    : 'modal-card image-crop-card';
 
   return (
     <div
@@ -183,7 +244,7 @@ export function ImageCropModal({
       aria-label={title}
     >
       <div
-        className={`modal-card image-crop-card${isVisible ? ' is-open' : ''}`}
+        className={`${cardClassName}${isVisible ? ' is-open' : ''}`}
         onClick={(event) => event.stopPropagation()}
       >
         <header className="modal-head">
@@ -193,10 +254,10 @@ export function ImageCropModal({
           </button>
         </header>
         <div className="image-crop-body">
-          <p className="image-crop-hint">Перетягніть зображення та збільште масштаб, щоб обрати область аватара.</p>
+          <p className="image-crop-hint">{preset.hint}</p>
           <div
             className="image-crop-viewport"
-            style={{ width: CROP_VIEWPORT_SIZE, height: CROP_VIEWPORT_SIZE }}
+            style={{ width: viewportWidth, height: viewportHeight }}
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}

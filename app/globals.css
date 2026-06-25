@@ -5549,6 +5549,16 @@ button { cursor: pointer; }
   .profile-bio    { color: var(--fg-2); font-size: 14px; max-width: 600px; margin: 0 0 16px; line-height: 1.55; white-space: normal; overflow-wrap: anywhere; }
   .profile-meta   { display: flex; flex-wrap: wrap; gap: 18px; font-size: 13px; color: var(--fg-2); }
   .profile-meta span { display: inline-flex; align-items: center; gap: 6px; }
+  .profile-meta-fa-icon {
+    display: inline-flex;
+    width: 16px;
+    height: 16px;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    color: var(--fg-3);
+  }
+  .profile-meta-fa-icon svg { width: 14px; height: 14px; }
   .profile-meta svg  { flex-shrink: 0; display: block; overflow: visible; color: var(--fg-3); }
   .profile-meta a { color: var(--fg-1); text-decoration: underline; text-underline-offset: 2px; }
   .profile-meta a:hover { color: var(--accent); }
@@ -5778,6 +5788,7 @@ button { cursor: pointer; }
   }
   .image-crop-backdrop { z-index: 1200; }
   .image-crop-card { width: min(100%, 420px); }
+  .image-crop-card-wide { width: min(100%, 480px); }
   .image-crop-body { display: grid; gap: 14px; padding: 0 20px 8px; }
   .image-crop-hint { margin: 0; font-size: 13px; color: var(--fg-2); line-height: 1.5; }
   .image-crop-viewport {
