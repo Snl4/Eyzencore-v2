@@ -45,10 +45,10 @@ const configs: Record<CmsEntity, EntityConfig> = {
         label: 'Роль',
         type: 'select',
         options: [
-          { value: 'USER', label: 'USER — користувач' },
-          { value: 'OWNER', label: 'OWNER — власник сервера' },
-          { value: 'DESIGNER', label: 'DESIGNER — дизайнер AnimiLair' },
-          { value: 'ADMIN', label: 'ADMIN — адміністратор' },
+          { value: 'USER', label: 'USER - користувач' },
+          { value: 'OWNER', label: 'OWNER - власник сервера' },
+          { value: 'DESIGNER', label: 'DESIGNER - дизайнер AnimiLair' },
+          { value: 'ADMIN', label: 'ADMIN - адміністратор' },
         ],
       },
       { key: 'bio', label: 'Про користувача', type: 'textarea' },
@@ -147,7 +147,7 @@ const configs: Record<CmsEntity, EntityConfig> = {
     ],
     fields: [
       { key: 'author_name', label: 'Автор' },
-      { key: 'rating', label: 'Оцінка 1–5', type: 'number' },
+      { key: 'rating', label: 'Оцінка 1-5', type: 'number' },
       { key: 'text', label: 'Текст', type: 'textarea' },
     ],
   },
@@ -282,7 +282,7 @@ const configs: Record<CmsEntity, EntityConfig> = {
   animilair_orders: {
     label: 'AnimiLair замовлення',
     singular: 'замовлення',
-    description: 'Замовлення маркетплейсу AnimiLair. Чат і деталі — на /partners/animilair/orders.',
+    description: 'Замовлення маркетплейсу AnimiLair. Чат і деталі - на /partners/animilair/orders.',
     columns: [
       { key: 'id', label: '№' },
       { key: 'title', label: 'Тема' },
@@ -362,7 +362,7 @@ function renderValue(value: unknown, key: string) {
   ) {
     return Number(value) ? 'Так' : 'Ні'
   }
-  const result = String(value ?? '—')
+  const result = String(value ?? '-')
   return result.length > 70 ? `${result.slice(0, 70)}…` : result
 }
 

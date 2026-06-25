@@ -296,7 +296,7 @@ export function AnimilairProductClient({
                 <span>Термін</span>
                 <b>{product.deliveryDays ? `${product.deliveryDays} дн.` : 'обговорюється'}</b>
               </div>
-              <p className="animilair-buy-note">Опишіть задачу в чаті — дизайнер відповість і уточнить деталі.</p>
+              <p className="animilair-buy-note">Опишіть задачу в чаті - дизайнер відповість і уточнить деталі.</p>
             </div>
 
             {chatAuthor && (

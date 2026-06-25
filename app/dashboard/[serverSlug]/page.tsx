@@ -30,7 +30,7 @@ export async function generateMetadata({ params }: DashboardBySlugPageProps) {
   const role = await resolveUserRole({ userId: user.id, role: user.user_metadata.role })
   const server = await findServerForUser({ userId: user.id, role, serverSlug: params.serverSlug })
   if (!server) return { title: 'Дашборд серверу' }
-  return { title: `Дашборд ${server.name} — Eyzencore` }
+  return { title: `Дашборд ${server.name} - Eyzencore` }
 }
 
 export default async function DashboardBySlugPage({ params }: DashboardBySlugPageProps) {

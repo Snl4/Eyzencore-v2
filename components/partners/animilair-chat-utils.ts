@@ -20,7 +20,7 @@ export function animilairStatusLabel(status: string) {
 }
 
 export function formatAnimilairRating(value: number | null | undefined) {
-  if (!value || value <= 0) return '—'
+  if (!value || value <= 0) return '-'
   return value.toFixed(1)
 }
 

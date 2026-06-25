@@ -33,7 +33,7 @@ interface Props {
 const RTF = new Intl.RelativeTimeFormat('uk', { numeric: 'auto' });
 function timeAgo(iso: string): string {
   const ms = Date.now() - new Date(iso).getTime();
-  if (Number.isNaN(ms)) return '—';
+  if (Number.isNaN(ms)) return '-';
   const sec = Math.floor(ms / 1000);
   if (sec < 60) return `${sec} с тому`;
   const min = Math.floor(sec / 60);
@@ -59,7 +59,7 @@ function buildActivityEntries(events: UserProfileActivity[]): UserActivityEntry[
   if (events.length === 0) {
     return [{
       icon: Icons.users,
-      body: <>Поки що жодної активності — додайте сервер або отримайте перший голос.</>,
+      body: <>Поки що жодної активності - додайте сервер або отримайте перший голос.</>,
       meta: '',
     }];
   }
@@ -144,7 +144,7 @@ export function ProfileClient({ user: initialUser, currentUser = null, serverCou
   const stats: ProfileStat[] = [
     { label: 'Серверів',         value: String(serverCount),         trend: 'у моніторингу' },
     { label: 'Тем на форумі', value: String(forumThreads.length), trend: forumThreads.length ? 'активність спільноти' : 'почніть першу тему' },
-    { label: 'Карма',            value: karma > 0 ? formatNumberUA(karma) : '—', trend: karmaTrend },
+    { label: 'Карма',            value: karma > 0 ? formatNumberUA(karma) : '-', trend: karmaTrend },
     { label: 'Загальний онлайн', value: formatNumberUA(totalOnline),  trend: 'на ваших серверах' },
   ];
 
@@ -231,7 +231,7 @@ export function ProfileClient({ user: initialUser, currentUser = null, serverCou
             ) : (
               <EmptyState
                 title="Ще немає серверів"
-                hint="Додайте свій перший сервер у моніторинг — він зʼявиться тут."
+                hint="Додайте свій перший сервер у моніторинг - він зʼявиться тут."
               />
             ))}
           {tab === 'forum' && (

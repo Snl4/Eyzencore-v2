@@ -38,7 +38,7 @@ export const PROFILE_FORUM: UserForumThread[] = [
   { title: 'Гайд: запуск сервера на Paper 1.21 з нуля',       category: 'Гайди',      replies: 24, views: 1200, date: '24 КВТ', pinned: true },
   { title: 'Список безкоштовних хостингів для Minecraft 2026', category: 'Гайди',      replies: 18, views: 892,  date: '21 КВТ' },
   { title: 'Як налаштувати анти-чіт на Paper-сервері',         category: 'Технічне',   replies: 12, views: 614,  date: '18 КВТ' },
-  { title: 'Що нового в Minecraft 1.21.2 — огляд для адмінів', category: 'Новини',     replies: 8,  views: 421,  date: '15 КВТ' },
+  { title: 'Що нового в Minecraft 1.21.2 - огляд для адмінів', category: 'Новини',     replies: 8,  views: 421,  date: '15 КВТ' },
   { title: 'Розповідь: як ми побудували MineUkraine',          category: 'Анонси',     replies: 34, views: 2100, date: '10 КВТ' },
 ];
 

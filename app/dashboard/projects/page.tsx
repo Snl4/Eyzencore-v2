@@ -7,7 +7,7 @@ import { ProjectsClient } from './ProjectsClient'
 export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
-  title: 'Мої проекти — Eyzencore',
+  title: 'Мої проекти - Eyzencore',
   description: 'Керуйте своїми проектами та групуйте сервери',
 }
 

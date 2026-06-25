@@ -43,7 +43,7 @@ export function Footer() {
         </div>
 
         <div className="foot-bottom">
-          <span>© 2025–2026 Eyzencore. Зроблено в Україні</span>
+          <span>© 2025-2026 Eyzencore. Зроблено в Україні</span>
           <div className="right">
             <span>Статус: <span style={{ color: 'var(--green)' }}>● працює стабільно</span></span>
             <span>v2.0.5</span>

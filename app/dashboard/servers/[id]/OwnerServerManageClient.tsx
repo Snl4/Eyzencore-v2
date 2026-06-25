@@ -299,7 +299,7 @@ export function OwnerServerManageClient({ initialUser, role, serverId }: OwnerSe
             </div>
             <div className="set-card">
               <h3>Average Rating</h3>
-              <p className="dashboard-metric">{stats.summary.averageRating > 0 ? `${stats.summary.averageRating.toFixed(2)}★` : '—'}</p>
+              <p className="dashboard-metric">{stats.summary.averageRating > 0 ? `${stats.summary.averageRating.toFixed(2)}★` : '-'}</p>
             </div>
           </section>
         )}
@@ -491,7 +491,7 @@ function ManageChartTooltip({ active, payload, label }: ManageChartTooltipProps)
   return (
     <div className="dashboard-tooltip">
       <div className="dashboard-tooltip-title">
-        {label ? new Date(label).toLocaleString('uk-UA', { weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'}
+        {label ? new Date(label).toLocaleString('uk-UA', { weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '-'}
       </div>
       <div className="dashboard-tooltip-row">
         <span>👁 Перегляди</span>

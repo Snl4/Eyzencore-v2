@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
   ...buildPageMetadata({
-    title: 'AnimiLair Studio — дизайн, рендери та анімації для серверів',
+    title: 'AnimiLair Studio - дизайн, рендери та анімації для серверів',
     description:
       'Партнерський маркетплейс AnimiLair Studio на Eyzencore: замовляйте логотипи, банери, Minecraft рендери, трейлери та анімації для серверів.',
     path: '/partners/animilair',

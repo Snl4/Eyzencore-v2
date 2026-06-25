@@ -316,7 +316,7 @@ export function ServerOverviewClient({ server: s, cluster, canEdit, initialUser 
   }
 
   const chartSummary = useMemo(() => {
-    if (chartData.length === 0) return { current: 0, peak: 0, average: 0, totalLabel: '—', totalValue: 0, totalSub: '' }
+    if (chartData.length === 0) return { current: 0, peak: 0, average: 0, totalLabel: '-', totalValue: 0, totalSub: '' }
     const values = chartData.map((point) => Number(point[metric] || 0))
     const peak = Math.max(...values)
     // Estimate the bucket duration from the first two raw timestamps.
@@ -329,7 +329,7 @@ export function ServerOverviewClient({ server: s, cluster, canEdit, initialUser 
         bucketHours = (t1 - t0) / (1000 * 60 * 60)
       }
     }
-    // Average across non-zero buckets — the API zero-fills empty buckets which
+    // Average across non-zero buckets - the API zero-fills empty buckets which
     // would otherwise drag the average artificially toward 0.
     const nonZero = values.filter((value) => value > 0)
     const average = nonZero.length > 0
@@ -361,7 +361,7 @@ export function ServerOverviewClient({ server: s, cluster, canEdit, initialUser 
     { label: 'Голоси', value: String(Math.max(0, engagement.votes)) },
     { label: 'Відгуки', value: String(Math.max(0, engagement.reviews)) },
     { label: 'Перегляди', value: String(Math.max(0, engagement.views)) },
-    { label: 'Сер. рейтинг', value: engagement.averageRating > 0 ? `${engagement.averageRating.toFixed(1)}★` : '—' },
+    { label: 'Сер. рейтинг', value: engagement.averageRating > 0 ? `${engagement.averageRating.toFixed(1)}★` : '-' },
     { label: 'Позиція', value: `#${s.rank}` },
   ]
   const getEmbedVideoUrl = (url: string): string | null => toYoutubeEmbedUrl(url)
@@ -1013,7 +1013,7 @@ export function ServerOverviewClient({ server: s, cluster, canEdit, initialUser 
                 <div className="so-block-title">Відгуки</div>
                 <div className="so-section">
                   <div className="so-reviews-summary">
-                    <b>{engagement.averageRating > 0 ? `${engagement.averageRating.toFixed(1)}★` : '—'}</b>
+                    <b>{engagement.averageRating > 0 ? `${engagement.averageRating.toFixed(1)}★` : '-'}</b>
                     <span>{formatPlural(engagement.reviews, ['відгук', 'відгуки', 'відгуків'])}</span>
                   </div>
                   <div className="so-review-form">
@@ -1074,7 +1074,7 @@ export function ServerOverviewClient({ server: s, cluster, canEdit, initialUser 
               <>
                 <div className="so-block-title">Статистика</div>
 
-                {/* Live band — поточний стан */}
+                {/* Live band - поточний стан */}
                 <div className={`live-band ${liveInfo.online ? 'on' : 'off'}`}>
                   <span className="dot" />
                   <div className="stat-mini">
@@ -1164,7 +1164,7 @@ export function ServerOverviewClient({ server: s, cluster, canEdit, initialUser 
 
                   <div className="dash-chart-wrap">
                     {chartData.length === 0 ? (
-                      <div className="dash-empty">Дані ще збираються — зайди трохи пізніше</div>
+                      <div className="dash-empty">Дані ще збираються - зайди трохи пізніше</div>
                     ) : (
                       <ResponsiveContainer width="100%" height="100%">
                         <AreaChart data={chartData} margin={{ top: 8, right: 16, left: -8, bottom: 8 }}>

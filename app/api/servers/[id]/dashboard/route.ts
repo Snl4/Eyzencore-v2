@@ -68,7 +68,7 @@ export async function GET(request: NextRequest, context: { params: { id: string 
     try {
       await backfillViewCountries({ serverId: server.seed, limit: 30 })
     } catch {
-      // Backfill is best-effort — never block the dashboard response
+      // Backfill is best-effort - never block the dashboard response
     }
     const data = await getServerDashboardSnapshot({ serverId, userId: auth.user.id, isAdmin, range })
     return NextResponse.json({

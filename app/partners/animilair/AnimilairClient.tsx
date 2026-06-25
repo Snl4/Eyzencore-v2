@@ -286,7 +286,7 @@ export function AnimilairClient({ initialUser, catalog, heroDescription: initial
           <div className="animilair-products animilair-market-grid">
             {products.length === 0 ? (
               <div className="set-card animilair-catalog-empty">
-                <p>Тут зʼявляться товари після публікації дизайнерами. Якщо ви дизайнер — натисніть «Створити товар».</p>
+                <p>Тут зʼявляться товари після публікації дизайнерами. Якщо ви дизайнер - натисніть «Створити товар».</p>
               </div>
             ) : products.map((product) => {
               const cover = cleanImageUrl(product.coverUrl)

@@ -817,13 +817,13 @@ export function AddServerClient(input: {
               {step === 7 && (
                 <div className="add-form-section">
                   <div className="add-summary">
-                    <div className="add-summary-row"><span>{isDiscordForm ? 'Інвайт' : 'Адреса'}</span><b>{form.addr || '—'}</b></div>
-                    <div className="add-summary-row"><span>{isDiscordForm ? 'Спільнота' : 'Назва'}</span><b>{form.name || '—'}</b></div>
+                    <div className="add-summary-row"><span>{isDiscordForm ? 'Інвайт' : 'Адреса'}</span><b>{form.addr || '-'}</b></div>
+                    <div className="add-summary-row"><span>{isDiscordForm ? 'Спільнота' : 'Назва'}</span><b>{form.name || '-'}</b></div>
                     <div className="add-summary-row"><span>{isDiscordForm ? 'Платформа' : 'Ядро'}</span><b>{CORE_LABELS[form.core]}</b></div>
                     <div className="add-summary-row"><span>{isDiscordForm ? 'Тип' : 'Версія'}</span><b>{isDiscordForm ? form.mode : buildVersionRange(form.minVer, form.maxVer)}</b></div>
-                    <div className="add-summary-row"><span>Країна</span><b>{form.country || '—'}</b></div>
-                    <div className="add-summary-row"><span>{isDiscordForm ? 'Короткий опис' : 'MOTD'}</span><b>{form.motd || '—'}</b></div>
-                    {form.projectId && <div className="add-summary-row"><span>Проект</span><b>{projects.find((p) => p.id === form.projectId)?.name || '—'}</b></div>}
+                    <div className="add-summary-row"><span>Країна</span><b>{form.country || '-'}</b></div>
+                    <div className="add-summary-row"><span>{isDiscordForm ? 'Короткий опис' : 'MOTD'}</span><b>{form.motd || '-'}</b></div>
+                    {form.projectId && <div className="add-summary-row"><span>Проект</span><b>{projects.find((p) => p.id === form.projectId)?.name || '-'}</b></div>}
                     <div className="add-summary-row"><span>Відео</span><b>{form.videos.length}</b></div>
                     <div className="add-summary-row"><span>Галерея</span><b>{form.gallery.length}</b></div>
                     {form.tags.length > 0 && <div className="add-summary-row"><span>Теги</span><b>{form.tags.join(', ')}</b></div>}

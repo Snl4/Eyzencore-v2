@@ -33,7 +33,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     })
   }
   return buildPageMetadata({
-    title: `${product.title} — AnimiLair Studio`,
+    title: `${product.title} - AnimiLair Studio`,
     description: product.shortDesc || product.description,
     path: `/partners/animilair/${product.slug}`,
     image: product.coverUrl || undefined,

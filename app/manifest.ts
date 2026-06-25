@@ -2,7 +2,7 @@ import type { MetadataRoute } from 'next'
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'Eyzencore — Minecraft and Discord server monitoring',
+    name: 'Eyzencore - Minecraft and Discord server monitoring',
     short_name: 'Eyzencore',
     description: 'Каталог Minecraft і Discord серверів: онлайн, рейтинг, голосування, відгуки, новини та форум.',
     start_url: '/',

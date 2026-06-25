@@ -151,7 +151,7 @@ export async function POST(request: NextRequest) {
   const limit = isVideo ? MAX_VIDEO_BYTES : isImage ? MAX_IMAGE_BYTES : MAX_FILE_BYTES
   if (file.size > limit) {
     const limitMb = Math.round(limit / (1024 * 1024))
-    return NextResponse.json({ error: `Файл занадто великий — максимум ${limitMb} МБ` }, { status: 413 })
+    return NextResponse.json({ error: `Файл занадто великий - максимум ${limitMb} МБ` }, { status: 413 })
   }
 
   const now = new Date()

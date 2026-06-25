@@ -608,10 +608,10 @@ const ApplicationsTab = ({ onPendingCountChange }: { onPendingCountChange: (coun
                     ['Режим', app.mode],
                     ['Версія', app.ver],
                     ['Ядро', app.core],
-                    ['Країна', app.country || '—'],
-                    ['Discord', app.discord || '—'],
-                    ['Telegram', app.telegram || '—'],
-                    ['Теги', app.tags.join(', ') || '—'],
+                    ['Країна', app.country || '-'],
+                    ['Discord', app.discord || '-'],
+                    ['Telegram', app.telegram || '-'],
+                    ['Теги', app.tags.join(', ') || '-'],
                   ].map(([label, value]) => (
                     <div key={label}>
                       <div style={{ color: 'var(--fg-3)', marginBottom: 2 }}>{label}</div>

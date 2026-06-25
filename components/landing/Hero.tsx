@@ -65,7 +65,7 @@ export function Hero() {
           variants={fade} initial="hidden" animate="show" transition={{ delay:0.15 }}
           style={{ maxWidth:620, margin:'0 auto 32px', fontSize:17, color:'var(--fg-2)', lineHeight:1.55 }}
         >
-          Eyzencore відстежує онлайн серверів 24/7, веде рейтинги та об&apos;єднує гравців і авторів проєктів у єдиному просторі — з форумом, новинами і прозорою модерацією.
+          Eyzencore відстежує онлайн серверів 24/7, веде рейтинги та об&apos;єднує гравців і авторів проєктів у єдиному просторі - з форумом, новинами і прозорою модерацією.
         </motion.p>
 
         <motion.div

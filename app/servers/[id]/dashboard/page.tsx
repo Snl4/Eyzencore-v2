@@ -12,7 +12,7 @@ export const dynamic = 'force-dynamic'
 export async function generateMetadata({ params }: Props) {
   const server = await getServerById(Number(params.id))
   if (!server) return { title: 'Дашборд серверу' }
-  return { title: `Дашборд ${server.name} — Eyzencore` }
+  return { title: `Дашборд ${server.name} - Eyzencore` }
 }
 
 export default async function ServerDashboardPage({ params }: Props) {

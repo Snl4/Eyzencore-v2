@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 /* ================================================================
-   EYZENCORE — Design System
+  EYZENCORE - Design System
    Tailwind extends CSS custom properties defined here.
    @layer components holds complex styles that can't be expressed
    cleanly with Tailwind utility classes alone (gradients,
@@ -124,7 +124,7 @@
   --shadow-opacity: 0.28;
 }
 
-/* ── News editor — adaptive (light + dark) ───────────────────── */
+/* -- News editor - adaptive (light + dark) --------------------------------- */
 .news-edit-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
 .news-edit-error {
@@ -731,7 +731,7 @@
   border-color: var(--line-strong);
 }
 
-/* featured card — full width, landscape */
+/* featured card - full width, landscape */
 .nc-card-featured {
   grid-template-rows: auto;
   grid-template-columns: 3fr 2fr;

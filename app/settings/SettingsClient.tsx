@@ -378,7 +378,7 @@ export function SettingsClient({ user: initialUser }: { user: AuthUser }) {
                       <div style={{ fontSize: 14, fontWeight: 600 }}>Telegram</div>
                       <div style={{ fontSize: 12, color: 'var(--fg-3)', marginTop: 4 }}>
                         {isTelegramLinked
-                          ? `Telegram ID: ${initialUser.user_metadata.telegram_user_id || '—'}${initialUser.user_metadata.telegram_username ? ` · @${initialUser.user_metadata.telegram_username}` : ''}`
+                          ? `Telegram ID: ${initialUser.user_metadata.telegram_user_id || '-'}${initialUser.user_metadata.telegram_username ? ` · @${initialUser.user_metadata.telegram_username}` : ''}`
                           : 'Привʼяжіть Telegram через бота, щоб отримувати системні повідомлення й швидко підтверджувати акаунт'}
                       </div>
                     </div>

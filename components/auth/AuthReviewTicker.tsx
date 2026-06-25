@@ -25,7 +25,7 @@ export function AuthReviewTicker({ reviews }: AuthReviewTickerProps) {
                 <em>{review.platform}</em>
               </div>
               <p>“{review.text}”</p>
-              <small>— {review.author} · сервер {review.serverName}</small>
+              <small>- {review.author} · сервер {review.serverName}</small>
             </div>
           </div>
         ))}

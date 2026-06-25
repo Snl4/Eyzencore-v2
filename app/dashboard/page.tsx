@@ -8,7 +8,7 @@ import { DashboardClient } from './DashboardClient'
 export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
-  title: 'Дашборд — Eyzencore',
+  title: 'Дашборд - Eyzencore',
   description: 'Role-based dashboard for users and server owners',
 }
 

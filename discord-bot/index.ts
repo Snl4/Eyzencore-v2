@@ -1,5 +1,5 @@
 /**
- * Eyzencore Discord bot — verification (/link) and guild stats sync.
+ * Eyzencore Discord bot - verification (/link) and guild stats sync.
  * Run: npm run discord-bot
  */
 import {

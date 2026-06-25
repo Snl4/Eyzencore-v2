@@ -11,7 +11,7 @@ export function useCopyToClipboard(timeout = 1500) {
       setCopied(true);
       setTimeout(() => setCopied(false), timeout);
     } catch {
-      // clipboard unavailable — silently fail
+      // clipboard unavailable - silently fail
     }
   }, [timeout]);
 

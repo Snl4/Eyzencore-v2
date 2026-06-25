@@ -2714,9 +2714,9 @@ export type DashActivityItem = {
   rating?: number;
   createdAt: string;
   // Source hint for the front-end avatar:
-  //   'mc'      — Minecraft nickname (use mc-heads service)
-  //   'profile' — registered user (use avatarUrl / profileSlug)
-  //   'guest'   — anonymous visitor
+  //   'mc'      - Minecraft nickname (use mc-heads service)
+  //   'profile' - registered user (use avatarUrl / profileSlug)
+  //   'guest'   - anonymous visitor
   actorKind: 'mc' | 'profile' | 'guest';
   avatarUrl?: string | null;
   profileSlug?: string | null;
@@ -2835,7 +2835,7 @@ export async function getServerDashboardSnapshot(input: { serverId: number; user
     getServerEngagementSummary(input.serverId),
   ]);
 
-  // IP copies — count distinct fingerprints with views (proxy: unique visitors who reached the server page)
+  // IP copies - count distinct fingerprints with views (proxy: unique visitors who reached the server page)
   const uniqueRow = await db
     .prepare(`SELECT COUNT(DISTINCT fingerprint) AS c FROM app_server_views WHERE server_id = ? AND datetime(created_at) >= datetime('now', ?)`)
     .get(input.serverId, `-${days} days`) as { c: number } | undefined;
@@ -3032,7 +3032,7 @@ export async function getServerDashboardSnapshot(input: { serverId: number; user
     createdAt: v.createdAt,
   }));
 
-  // Recent reviews for the bottom card — include profile data
+  // Recent reviews for the bottom card - include profile data
   const reviewsListRows = await db
     .prepare(
       `SELECT r.id, r.text, r.rating, r.created_at, r.author_name, r.user_id,
@@ -3106,7 +3106,7 @@ export async function getServerDashboardSnapshot(input: { serverId: number; user
     }
   });
 
-  // Country breakdown — distinct visitors per country over the selected period
+  // Country breakdown - distinct visitors per country over the selected period
   const countryRows = await db
     .prepare(
       `SELECT
@@ -3325,7 +3325,7 @@ export async function getUserProfileSummary(userId: string, activityLimit = 30) 
   const ratingBonus = reviewsReceived > 0 ? Math.round((averageRating - 3) * reviewsReceived * 2) : 0;
   const karma = Math.max(0, votesReceived + reviewsReceived * 5 + ratingBonus);
 
-  // Recent activity — pulled from multiple tables, merged client-side, sorted desc.
+  // Recent activity - pulled from multiple tables, merged client-side, sorted desc.
   const safeLimit = Math.max(1, Math.min(Number(activityLimit || 30), 100));
 
   const serverRows = await db
@@ -3419,7 +3419,7 @@ export async function getUserProfileSummary(userId: string, activityLimit = 30) 
       serverId: Number(row.server_id),
       serverName: String(row.server_name || ''),
       actor: reviewer,
-      detail: `${row.rating}★ від ${reviewer}${trimmed ? ` — "${trimmed}"` : ''}`,
+      detail: `${row.rating}★ від ${reviewer}${trimmed ? ` - "${trimmed}"` : ''}`,
       rating: Number(row.rating),
       createdAt: row.created_at,
     });

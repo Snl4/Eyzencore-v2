@@ -682,8 +682,8 @@ export function AnimilairOrderChat({
         {messages.length === 0 && !showWelcome && (
           <p className="animilair-chat-empty">
             {productPreview && !productPreview.canEditWelcome && !activeOrder
-              ? 'Напишіть повідомлення — створиться нове замовлення, і дизайнер відповість у чаті.'
-              : 'Напишіть перше повідомлення — обговоріть ТЗ прямо тут.'}
+              ? 'Напишіть повідомлення - створиться нове замовлення, і дизайнер відповість у чаті.'
+              : 'Напишіть перше повідомлення - обговоріть ТЗ прямо тут.'}
           </p>
         )}
         <div ref={messagesEndRef} />

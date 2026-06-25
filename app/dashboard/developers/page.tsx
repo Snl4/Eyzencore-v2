@@ -10,7 +10,7 @@ interface DevelopersPageProps {
 
 export const dynamic = 'force-dynamic'
 export const metadata: Metadata = {
-  title: 'Зовнішній API — Eyzencore',
+  title: 'Зовнішній API - Eyzencore',
   description: 'Захищений API рейтингу, голосів, вподобайок та відгуків сервера',
 }
 

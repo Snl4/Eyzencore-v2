@@ -380,7 +380,7 @@ export function NewsEditorPage({ mode, initialUser, initialPost }: NewsEditorPag
               <header className="news-edit-card-head">
                 <div>
                   <h3>Обкладинка</h3>
-                  <p>Перше враження статті — велике зображення зверху картки.</p>
+                  <p>Перше враження статті - велике зображення зверху картки.</p>
                 </div>
               </header>
 
@@ -526,7 +526,7 @@ export function NewsEditorPage({ mode, initialUser, initialPost }: NewsEditorPag
                 <span>Короткий опис <em>обовʼязково</em></span>
                 <textarea
                   className="news-input"
-                  placeholder="2–3 речення про головне"
+                  placeholder="2-3 речення про головне"
                   value={form.excerpt}
                   onChange={(event) => handleField('excerpt', event.target.value)}
                   maxLength={320}
@@ -542,7 +542,7 @@ export function NewsEditorPage({ mode, initialUser, initialPost }: NewsEditorPag
               <header className="news-edit-card-head">
                 <div>
                   <h3>Контент <span className="news-edit-pill">{form.blocks.length} {form.blocks.length === 1 ? 'блок' : form.blocks.length < 5 ? 'блоки' : 'блоків'}</span></h3>
-                  <p>Збирайте новину з блоків — текст, цитати, медіа.</p>
+                  <p>Збирайте новину з блоків - текст, цитати, медіа.</p>
                 </div>
               </header>
 
@@ -599,7 +599,7 @@ export function NewsEditorPage({ mode, initialUser, initialPost }: NewsEditorPag
                       {block.type === 'paragraph' && (
                         <RichTextarea
                           className="news-input"
-                          placeholder="Розкажи більше про подію — деталі, цитати, факти…"
+                          placeholder="Розкажи більше про подію - деталі, цитати, факти…"
                           value={block.text || ''}
                           onChange={(v) => handleUpdateBlock(block.id, { text: v })}
                           rows={5}
@@ -689,10 +689,10 @@ export function NewsEditorPage({ mode, initialUser, initialPost }: NewsEditorPag
                 </div>
               </header>
               <ul>
-                <li>Заголовок — до 80 символів, цікавий і конкретний.</li>
-                <li>Перетягуйте обкладинку прямо у форму — швидше, ніж копіювати посилання.</li>
-                <li>Ділимо текст на короткі абзаци та додаємо медіа кожні 2–3 блоки.</li>
-                <li>Для відео можна вставити посилання на YouTube — ми покажемо плеєр.</li>
+                <li>Заголовок - до 80 символів, цікавий і конкретний.</li>
+                <li>Перетягуйте обкладинку прямо у форму - швидше, ніж копіювати посилання.</li>
+                <li>Ділимо текст на короткі абзаци та додаємо медіа кожні 2-3 блоки.</li>
+                <li>Для відео можна вставити посилання на YouTube - ми покажемо плеєр.</li>
               </ul>
             </div>
           </aside>

@@ -208,7 +208,7 @@ const ACT_TYPES: Record<ActivityKind, { label: string; icon: string }> = {
 const RELATIVE_FORMATTER = new Intl.RelativeTimeFormat('uk', { numeric: 'auto' })
 function timeAgo(iso: string): string {
   const ms = Date.now() - new Date(iso).getTime()
-  if (Number.isNaN(ms)) return '—'
+  if (Number.isNaN(ms)) return '-'
   const sec = Math.floor(ms / 1000)
   if (sec < 60) return `${sec} с тому`
   const min = Math.floor(sec / 60)
@@ -344,7 +344,7 @@ export function DashboardClient({ initialUser, server, initialSnapshot }: Props)
     { label: `Голоси за ${RANGE_FULL[range].toLowerCase()}`, value: formatNumber(snapshot.kpi.votes.current), delta: pctDelta(snapshot.kpi.votes.current, snapshot.kpi.votes.prior) },
     { label: 'Унікальні відвідувачі', value: formatNumber(snapshot.kpi.visitors.current), delta: pctDelta(snapshot.kpi.visitors.current, snapshot.kpi.visitors.prior) },
     { label: 'Перегляди сторінки', value: formatNumber(snapshot.kpi.views.current), delta: pctDelta(snapshot.kpi.views.current, snapshot.kpi.views.prior) },
-    { label: 'Середній рейтинг', value: snapshot.kpi.rating.overall > 0 ? `${snapshot.kpi.rating.overall.toFixed(2)} ★` : '—', delta: pctDelta(snapshot.kpi.rating.current * 10, snapshot.kpi.rating.prior * 10) },
+    { label: 'Середній рейтинг', value: snapshot.kpi.rating.overall > 0 ? `${snapshot.kpi.rating.overall.toFixed(2)} ★` : '-', delta: pctDelta(snapshot.kpi.rating.current * 10, snapshot.kpi.rating.prior * 10) },
   ]
 
   const liveDot = snapshot.live.online ? 'on' : 'off'
@@ -451,7 +451,7 @@ export function DashboardClient({ initialUser, server, initialSnapshot }: Props)
             </div>
             <span className="live-sep">│</span>
             <div className="stat-mini">
-              <b style={{ color: 'var(--green)' }}>{snapshot.live.uptime30 == null ? '—' : `${snapshot.live.uptime30.toFixed(1)}%`}</b>
+              <b style={{ color: 'var(--green)' }}>{snapshot.live.uptime30 == null ? '-' : `${snapshot.live.uptime30.toFixed(1)}%`}</b>
               <span>uptime 30д</span>
             </div>
             <div className="live-updated">оновлено {updatedAgo}</div>
@@ -617,7 +617,7 @@ export function DashboardClient({ initialUser, server, initialSnapshot }: Props)
                           <span className="stars">{'★'.repeat(Math.max(0, Math.min(5, review.rating)))}{'☆'.repeat(Math.max(0, 5 - review.rating))}</span>
                           <span className="t">{timeAgo(review.createdAt)}</span>
                         </div>
-                        <p>{review.text || <span className="muted">— без коментаря —</span>}</p>
+                        <p>{review.text || <span className="muted">- без коментаря -</span>}</p>
                       </div>
                     )
                   })
@@ -766,7 +766,7 @@ function Row({ day, cells, max }: { day: string; cells: number[]; max: number })
             key={hour}
             className="cell"
             style={{ background: `color-mix(in oklab, var(--accent) ${opacityPct}%, var(--bg-2))` }}
-            data-tip={`${day} ${hour}:00 — ${value} ${value === 1 ? 'перегляд' : 'переглядів'}`}
+            data-tip={`${day} ${hour}:00 - ${value} ${value === 1 ? 'перегляд' : 'переглядів'}`}
           />
         )
       })}

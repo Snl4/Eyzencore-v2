@@ -124,7 +124,7 @@ export function ServerCard({ s }: Props) {
         </div>
         <div className="sc-stats">
           <div><div className="l">Рейтинг</div><div className="v">{Math.round(s.ratingScore || 0)}</div></div>
-          <div><div className="l">Оцінка</div><div className="v">{s.reviewsCount ? `${(s.averageRating || 0).toFixed(1)}★` : '—'}</div></div>
+          <div><div className="l">Оцінка</div><div className="v">{s.reviewsCount ? `${(s.averageRating || 0).toFixed(1)}★` : '-'}</div></div>
           <div><div className="l">Онлайн</div><div className="v">{live.online ? live.players : 0}</div></div>
           <div><div className="l">Активність</div><div className="v">{(s.votesCount || 0) + (s.likesCount || 0) + (s.reviewsCount || 0)}</div></div>
         </div>

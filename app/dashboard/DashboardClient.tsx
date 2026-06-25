@@ -300,7 +300,7 @@ function OwnerTotalsCard({ data }: { data: OwnerDashboardPayload }) {
       </div>
       <div className="set-card">
         <h3>Average Rating</h3>
-        <p className="dashboard-metric">{data.totals.averageRating > 0 ? `${data.totals.averageRating.toFixed(2)}★` : '—'}</p>
+        <p className="dashboard-metric">{data.totals.averageRating > 0 ? `${data.totals.averageRating.toFixed(2)}★` : '-'}</p>
       </div>
     </section>
   )
@@ -460,7 +460,7 @@ function OwnerServersCard(input: {
       </td>
       <td>{server.totalViews.toLocaleString()}</td>
       <td>{server.totalVotes.toLocaleString()}</td>
-      <td>{server.averageRating > 0 ? server.averageRating.toFixed(2) : '—'}</td>
+      <td>{server.averageRating > 0 ? server.averageRating.toFixed(2) : '-'}</td>
       <td className="dashboard-table-actions">
         <button type="button" className="btn btn-secondary" onClick={() => onSelectServer(server.serverId)}>
           Аналітика
@@ -644,7 +644,7 @@ function DashboardChartTooltip({ active, payload, label }: DashboardChartTooltip
   return (
     <div className="dashboard-tooltip">
       <div className="dashboard-tooltip-title">
-        {label ? new Date(label).toLocaleString('uk-UA', { weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'}
+        {label ? new Date(label).toLocaleString('uk-UA', { weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '-'}
       </div>
       <div className="dashboard-tooltip-row">
         <span>👁 Перегляди</span>

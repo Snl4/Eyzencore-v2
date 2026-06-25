@@ -12,7 +12,7 @@ export const dynamic = 'force-dynamic'
 export async function generateMetadata({ params }: VerifyServerPageProps) {
   const server = await getServerById(Number(params.id))
   if (!server) return { title: 'Server not found' }
-  return { title: `Верифікація — ${server.name}` }
+  return { title: `Верифікація - ${server.name}` }
 }
 
 export default async function VerifyServerPage({ params }: VerifyServerPageProps) {

@@ -72,7 +72,7 @@ export default async function RegisterPage() {
           </div>
         </div>
         <div style={{ fontSize: 12, color: 'var(--fg-3)', textAlign: 'center', fontFamily: 'var(--font-mono)' }}>
-          © 2025–2026 Eyzencore
+          © 2025-2026 Eyzencore
         </div>
       </div>
     </div>

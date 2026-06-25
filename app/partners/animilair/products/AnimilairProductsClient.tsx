@@ -185,7 +185,7 @@ export function AnimilairProductsClient({ initialUser, initialProducts }: Props)
 
         {products.length === 0 ? (
           <section className="set-card animilair-catalog-empty">
-            <p>У вас ще немає опублікованих товарів. Створіть перший — він зʼявиться в каталозі AnimiLair.</p>
+            <p>У вас ще немає опублікованих товарів. Створіть перший - він зʼявиться в каталозі AnimiLair.</p>
             <button type="button" className="btn btn-primary" onClick={openCreate}>Створити товар</button>
           </section>
         ) : (

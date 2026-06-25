@@ -67,7 +67,7 @@ export function buildPageMetadata(input: {
   const url = absoluteUrl(input.path || '/')
   const image = absoluteUrl(input.image || '/icon.png')
   const description = truncateSeo(input.description)
-  const title = input.title.includes(SITE_NAME) ? input.title : `${input.title} — ${SITE_NAME}`
+  const title = input.title.includes(SITE_NAME) ? input.title : `${input.title} - ${SITE_NAME}`
 
   return {
     title,
@@ -112,7 +112,7 @@ export function buildServerMetadata(server: Server): Metadata {
   )
 
   return buildPageMetadata({
-    title: `${server.name} — ${platform} сервер`,
+    title: `${server.name} - ${platform} сервер`,
     description: `${description} ${online}. Рейтинг: ${Math.round(server.ratingScore || 0)}.`,
     path: buildServerPublicPath(server),
     image: server.bannerUrl || server.avatarUrl || '/icon.png',
@@ -131,7 +131,7 @@ export function buildServerMetadata(server: Server): Metadata {
 
 export function buildNewsMetadata(post: NewsPost): Metadata {
   return buildPageMetadata({
-    title: `${post.title} — Новини Eyzencore`,
+    title: `${post.title} - Новини Eyzencore`,
     description: post.excerpt || post.content,
     path: buildNewsPath(post),
     image: post.coverUrl || '/icon.png',

@@ -14,7 +14,7 @@ export function CTA() {
             Додайте свій сервер<br/><span className="cta-grad">за дві хвилини</span>
           </h2>
           <p style={{ color:'var(--fg-2)', fontSize:17, maxWidth:520, margin:'0 auto 32px' }}>
-            Реєстрація, моніторинг та сторінка сервера — безкоштовно. Без прихованих платежів і реклами.
+            Реєстрація, моніторинг та сторінка сервера - безкоштовно. Без прихованих платежів і реклами.
           </p>
           <div style={{ display:'flex', justifyContent:'center', gap:10, flexWrap:'wrap' }}>
             <Link href="/add-server" className="btn btn-primary btn-lg">

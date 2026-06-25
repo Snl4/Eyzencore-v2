@@ -35,11 +35,11 @@ const merriweather = Merriweather({
 
 export const metadata: Metadata = {
   title: {
-    default: 'Eyzencore — Minecraft і Discord сервери, моніторинг, рейтинг, голосування',
-    template: `%s — ${SITE_NAME}`,
+    default: 'Eyzencore - Minecraft і Discord сервери, моніторинг, рейтинг, голосування',
+    template: `%s - ${SITE_NAME}`,
   },
   description:
-    'Eyzencore — каталог і моніторинг Minecraft та Discord серверів: онлайн 24/7, рейтинги, голосування, відгуки, новини, форум і API для власників проєктів.',
+    'Eyzencore - каталог і моніторинг Minecraft та Discord серверів: онлайн 24/7, рейтинги, голосування, відгуки, новини, форум і API для власників проєктів.',
   keywords: SEO_KEYWORDS,
   applicationName: SITE_NAME,
   authors: [{ name: SITE_NAME, url: SITE_URL }],
@@ -55,7 +55,7 @@ export const metadata: Metadata = {
     },
   },
   openGraph: {
-    title: 'Eyzencore — Minecraft і Discord сервери',
+    title: 'Eyzencore - Minecraft і Discord сервери',
     description: 'Моніторинг Minecraft і Discord серверів, рейтинг, голосування, відгуки, новини та форум спільноти.',
     siteName: 'Eyzencore',
     locale: 'uk_UA',
@@ -65,7 +65,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Eyzencore — Minecraft і Discord сервери',
+    title: 'Eyzencore - Minecraft і Discord сервери',
     description: 'Каталог серверів, live-моніторинг, рейтинг, голосування і новини Minecraft/Discord.',
     images: ['/icon.png'],
   },
@@ -103,7 +103,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="uk" data-theme="dark" suppressHydrationWarning>
       <head>
-        {/* Prevent flash of incorrect theme — runs synchronously before paint */}
+        {/* Prevent flash of incorrect theme - runs synchronously before paint */}
         <script
           dangerouslySetInnerHTML={{
             __html: `(function(){try{var m=document.cookie.match(/(?:^|; )eyzencore-theme=(light|dark)/);var t=localStorage.getItem('eyzencore-theme')||(m&&m[1])||'dark';document.documentElement.setAttribute('data-theme',t);}catch(e){}})()`,

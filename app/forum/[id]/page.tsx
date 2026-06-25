@@ -47,7 +47,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     })
   }
   return buildPageMetadata({
-    title: `${thread.title} — Форум Eyzencore`,
+    title: `${thread.title} - Форум Eyzencore`,
     description: thread.content,
     path: `/forum/${thread.id}`,
     keywords: [thread.title, thread.category.name, 'Minecraft форум', 'Discord форум', 'Eyzencore форум'],

@@ -13,7 +13,7 @@ import { buildServerPublicPath } from '@/lib/server-slug'
 
 export const metadata: Metadata = {
   ...buildPageMetadata({
-    title: 'Discord сервери і спільноти — рейтинг, онлайн, каталог',
+    title: 'Discord сервери і спільноти - рейтинг, онлайн, каталог',
     description:
       'Каталог Discord серверів і українських спільнот: gaming, Minecraft, support, community, giveaways, voice chat. Онлайн, учасники, категорії та рейтинг.',
     path: '/servers/discord',

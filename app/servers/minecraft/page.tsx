@@ -13,7 +13,7 @@ import { buildServerPublicPath } from '@/lib/server-slug'
 
 export const metadata: Metadata = {
   ...buildPageMetadata({
-    title: 'Minecraft сервери — рейтинг, онлайн, голосування',
+    title: 'Minecraft сервери - рейтинг, онлайн, голосування',
     description:
       'Каталог Minecraft серверів України та світу: Java, Bedrock, Survival, SkyBlock, RPG, PvP, SMP. Перевіряйте онлайн, рейтинг, голоси, відгуки та IP серверів.',
     path: '/servers/minecraft',

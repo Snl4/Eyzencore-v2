@@ -20,7 +20,7 @@ export const metadata: Metadata = {
   ...buildPageMetadata({
     title: 'Minecraft і Discord сервери України',
     description:
-      'Eyzencore — live каталог Minecraft і Discord серверів: онлайн, рейтинги, голосування, відгуки, новини, форум, API та інструменти для власників проєктів. Ukrainian Minecraft servers and Discord communities.',
+      'Eyzencore - live каталог Minecraft і Discord серверів: онлайн, рейтинги, голосування, відгуки, новини, форум, API та інструменти для власників проєктів. Ukrainian Minecraft servers and Discord communities.',
     path: '/',
     keywords: [
       'minecraft сервери україна',
