@@ -9,9 +9,19 @@ import { Icons } from '@/components/ui/Icons'
 import { Breadcrumbs, type BreadcrumbItem } from '@/components/ui/Breadcrumbs'
 import type { Server } from '@/lib/types'
 import type { AuthUser } from '@/lib/auth-db'
+import type { ServerFilterOptions } from '@/hooks/useServerFilter'
 
 type LockedPlatform = 'Minecraft' | 'Discord'
 type SortOption = 'online' | 'rating' | 'newest' | 'oldest'
+
+type SeoLandingContent = {
+  kicker?: string
+  title: string
+  paragraphs: string[]
+  faqTitle: string
+  faqAnswer: string
+  relatedLinks: Array<{ label: string; href: string }>
+}
 
 type ServersPageClientProps = {
   initialServers: Server[]
@@ -23,6 +33,8 @@ type ServersPageClientProps = {
   breadcrumbs?: BreadcrumbItem[]
   addHref?: string
   seoVariant?: LockedPlatform
+  filterOptions?: ServerFilterOptions
+  seoLanding?: SeoLandingContent
 }
 
 const SORT_LABELS: Record<SortOption, string> = {
@@ -42,6 +54,8 @@ export function ServersPageClient({
   breadcrumbs,
   addHref = '/add-server',
   seoVariant,
+  filterOptions,
+  seoLanding,
 }: ServersPageClientProps) {
   const {
     filtered,
@@ -59,7 +73,9 @@ export function ServersPageClient({
     modes,
     versions,
     platforms,
-  } = useServerFilter(initialServers, lockedPlatform)
+    lockMode,
+    lockVer,
+  } = useServerFilter(initialServers, lockedPlatform, filterOptions)
 
   return (
     <PageShell active={activeKey} initialUser={initialUser}>
@@ -101,6 +117,8 @@ export function ServersPageClient({
           onMode={setMode}
           onVer={setVer}
           hideVersions={lockedPlatform === 'Discord' || platform === 'Discord'}
+          lockMode={lockMode}
+          lockVer={lockVer}
         />
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 16, fontSize: 13, color: 'var(--fg-2)' }}>
@@ -142,9 +160,38 @@ export function ServersPageClient({
           </div>
         )}
 
-        {seoVariant && <ServersSeoBlock variant={seoVariant} count={initialServers.length} />}
+        {seoLanding ? (
+          <ServersSeoLandingBlock content={seoLanding} />
+        ) : seoVariant ? (
+          <ServersSeoBlock variant={seoVariant} count={initialServers.length} />
+        ) : null}
       </div>
     </PageShell>
+  )
+}
+
+function ServersSeoLandingBlock({ content }: { content: SeoLandingContent }) {
+  return (
+    <section className="seo-panel" aria-labelledby="seo-landing-title">
+      <div>
+        {content.kicker ? <p className="seo-kicker">{content.kicker}</p> : null}
+        <h2 id="seo-landing-title">{content.title}</h2>
+        {content.paragraphs.map((paragraph) => (
+          <p key={paragraph}>{paragraph}</p>
+        ))}
+      </div>
+      {content.relatedLinks.length > 0 && (
+        <div className="seo-link-cloud">
+          {content.relatedLinks.map((link) => (
+            <Link key={link.href} href={link.href}>{link.label}</Link>
+          ))}
+        </div>
+      )}
+      <div className="seo-faq">
+        <h3>{content.faqTitle}</h3>
+        <p>{content.faqAnswer}</p>
+      </div>
+    </section>
   )
 }
 
@@ -152,11 +199,12 @@ function ServersSeoBlock({ variant, count }: { variant: LockedPlatform; count: n
   const isMinecraft = variant === 'Minecraft'
   const links = isMinecraft
     ? [
-        ['Survival сервери', '/servers/minecraft?mode=Survival'],
+        ['Українські сервера майнкрафт', '/servers/minecraft/ukraine'],
+        ['Survival сервери', '/servers/minecraft/survival'],
+        ['Bedrock сервери', '/servers/minecraft/bedrock'],
+        ['Без донату', '/servers/minecraft/no-p2w'],
         ['Java сервери', '/servers/minecraft?version=Java'],
-        ['Bedrock сервери', '/servers/minecraft?version=Bedrock'],
         ['PvP сервери', '/servers/minecraft?mode=PvP'],
-        ['SkyBlock сервери', '/servers/minecraft?mode=SkyBlock'],
       ]
     : [
         ['Gaming Discord', '/servers/discord?mode=Gaming'],

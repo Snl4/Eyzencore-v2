@@ -8,10 +8,22 @@ import type { Server } from '@/lib/types';
 type LockedPlatform = 'Minecraft' | 'Discord'
 type ServerSort = 'online' | 'rating' | 'newest' | 'oldest'
 
-export function useServerFilter(initialServers: Server[] = [], lockedPlatform?: LockedPlatform) {
+export interface ServerFilterOptions {
+  defaultMode?: string
+  defaultVer?: string
+  lockMode?: boolean
+  lockVer?: boolean
+  matchServer?: (server: Server) => boolean
+}
+
+export function useServerFilter(
+  initialServers: Server[] = [],
+  lockedPlatform?: LockedPlatform,
+  options?: ServerFilterOptions,
+) {
   const [platform, setPlatform] = useState(lockedPlatform || 'Всі');
-  const [mode, setMode] = useState('Всі');
-  const [ver, setVer] = useState('Всі');
+  const [mode, setMode] = useState(options?.defaultMode || 'Всі');
+  const [ver, setVer] = useState(options?.defaultVer || 'Всі');
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState<ServerSort>('rating');
   const [servers, setServers] = useState<Server[]>(initialServers);
@@ -80,8 +92,17 @@ export function useServerFilter(initialServers: Server[] = [], lockedPlatform?: 
       const filterPlatform = lockedPlatform || platform
       if (filterPlatform === 'Minecraft' && isDiscordServer(server)) return false
       if (filterPlatform === 'Discord' && !isDiscordServer(server)) return false
+      if (options?.matchServer && !options.matchServer(server)) return false
       if (mode !== 'Всі' && server.mode !== mode) return false;
-      if (ver !== 'Всі' && !server.ver.includes(ver.replace('.x', ''))) return false;
+      if (ver !== 'Всі' && !server.ver.includes(ver.replace('.x', ''))) {
+        if (ver === 'Bedrock') {
+          const core = String(server.core || '').toLowerCase()
+          const isBedrock = core === 'bedrock' || core === 'java_bedrock' || server.ver.toLowerCase().includes('bedrock')
+          if (!isBedrock) return false
+        } else {
+          return false
+        }
+      }
       if (query) {
         const normalized = query.toLowerCase();
         if (!server.name.toLowerCase().includes(normalized) && !server.addr.toLowerCase().includes(normalized)) {
@@ -121,7 +142,7 @@ export function useServerFilter(initialServers: Server[] = [], lockedPlatform?: 
         left.rank - right.rank
       )
     })
-  }, [servers, platform, mode, ver, query, sort, lockedPlatform]);
+  }, [servers, platform, mode, ver, query, sort, lockedPlatform, options?.matchServer]);
 
   const recentVersions = ['Всі', ...VERSIONS.filter((value) => value !== 'Всі').slice(0, 8)]
   const effectivePlatform = lockedPlatform || platform
@@ -145,5 +166,7 @@ export function useServerFilter(initialServers: Server[] = [], lockedPlatform?: 
     modes: modeOptions,
     versions: recentVersions,
     platforms: [...SERVER_PLATFORMS],
+    lockMode: Boolean(options?.lockMode),
+    lockVer: Boolean(options?.lockVer),
   };
 }

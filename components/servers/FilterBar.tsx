@@ -14,6 +14,8 @@ interface FilterBarProps {
   onMode:   (m: string) => void;
   onVer:    (v: string) => void;
   hideVersions?: boolean;
+  lockMode?: boolean;
+  lockVer?: boolean;
 }
 
 export function FilterBar({
@@ -27,6 +29,8 @@ export function FilterBar({
   onMode,
   onVer,
   hideVersions = false,
+  lockMode = false,
+  lockVer = false,
 }: FilterBarProps) {
   return (
     <div className="filter-bar">
@@ -59,6 +63,7 @@ export function FilterBar({
             className="filter-chip"
             pressed={mode === m}
             onPressedChange={() => onMode(m)}
+            disabled={lockMode && m !== mode}
           >
             {m}
           </Toggle>
@@ -69,7 +74,7 @@ export function FilterBar({
           <span className="filter-bar-divider" />
           <span className="filter-bar-label">Версія</span>
           <div style={{ minWidth: 150 }}>
-            <Select value={ver} onChange={onVer} options={versions} size="sm" />
+            <Select value={ver} onChange={onVer} options={versions} size="sm" disabled={lockVer} />
           </div>
         </>
       )}
