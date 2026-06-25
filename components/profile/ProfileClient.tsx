@@ -16,6 +16,7 @@ import { UserActivityTab, type UserActivityEntry } from './UserActivityTab';
 import { UserBadgesTab, type UserBadge } from './UserBadgesTab';
 import { ProfileEditModal } from './ProfileEditModal';
 import { formatNumberUA } from './format';
+import { copyTextToClipboard } from '@/lib/copy-to-clipboard';
 
 interface Props {
   user: AuthUser;
@@ -153,6 +154,27 @@ export function ProfileClient({ user: initialUser, currentUser = null, serverCou
     router.refresh();
   }
 
+  async function handleShareProfile(): Promise<void> {
+    const profileUrl = `${window.location.origin}/profile/${headerData.handle || 'user'}`;
+    if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+      try {
+        await navigator.share({
+          title: headerData.fullName || 'Профіль Eyzencore',
+          url: profileUrl,
+        });
+        setToast({ type: 'success', message: 'Посилання надіслано' });
+        return;
+      } catch (err) {
+        if (err instanceof Error && err.name === 'AbortError') return;
+      }
+    }
+    const isCopied = await copyTextToClipboard(profileUrl);
+    setToast({
+      type: isCopied ? 'success' : 'error',
+      message: isCopied ? 'Посилання скопійовано' : 'Не вдалося скопіювати посилання',
+    });
+  }
+
   return (
     <PageShell active={isPublicView ? '' : 'profile'} initialUser={sidebarUser}>
       <div className="page-main" style={{ padding: '24px 32px 60px' }}>
@@ -169,13 +191,7 @@ export function ProfileClient({ user: initialUser, currentUser = null, serverCou
               <button
                 className="btn btn-secondary"
                 type="button"
-                onClick={() => {
-                  if (typeof navigator !== 'undefined' && navigator.clipboard) {
-                    navigator.clipboard.writeText(
-                      `${window.location.origin}/profile/${headerData.handle}`
-                    );
-                  }
-                }}
+                onClick={() => void handleShareProfile()}
               >
                 Поділитись
               </button>

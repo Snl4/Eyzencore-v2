@@ -154,29 +154,32 @@ export async function POST(request: NextRequest, context: { params: { id: string
     return NextResponse.json({ success: true, counted: result.counted, summary: await getServerEngagementSummary(serverId) })
   }
   if (action === 'review') {
+    if (!actor.user) {
+      return NextResponse.json({ error: 'Увійдіть в акаунт, щоб залишити відгук' }, { status: 401 })
+    }
     const nickname = normalizeMinecraftNickname(body.nickname || '')
     const normalizedText = String(body.text || '')
     const normalizedRating = Number(body.rating || 0)
     await upsertServerReview({
       serverId,
-      userId: actor.user?.id,
+      userId: actor.user.id,
       fingerprint: actor.fingerprint,
       text: normalizedText,
       rating: normalizedRating,
-      authorName: actor.user?.user_metadata.full_name || nickname || 'Гість',
+      authorName: actor.user.user_metadata.full_name || nickname || 'Користувач',
     })
     await createOwnerNotification({
       serverId,
       type: 'review',
-      actorName: actor.user?.user_metadata.full_name || nickname || 'Guest',
+      actorName: actor.user.user_metadata.full_name || nickname || 'User',
       text: normalizedText,
       rating: normalizedRating,
     })
     await dispatchServerCallback({
       serverId,
       action: 'comment',
-      userId: actor.user?.id,
-      userNickname: actor.user?.user_metadata.full_name || nickname || 'Guest',
+      userId: actor.user.id,
+      userNickname: actor.user.user_metadata.full_name || nickname || 'User',
       ipAddress: actor.ip,
     })
     return NextResponse.json({

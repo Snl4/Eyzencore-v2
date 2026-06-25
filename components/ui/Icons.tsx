@@ -8,10 +8,15 @@ interface IcoProps extends Omit<SVGProps<SVGSVGElement>, 'children' | 'fill'> {
 
 const Ico = ({ children, size = 16, filled = false, ...rest }: IcoProps) => (
   <svg
-    width={size} height={size} viewBox="0 0 24 24"
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
     fill={filled ? 'currentColor' : 'none'}
-    stroke="currentColor" strokeWidth="1.6"
-    strokeLinecap="round" strokeLinejoin="round"
+    stroke={filled ? 'none' : 'currentColor'}
+    strokeWidth={filled ? 0 : 1.6}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    overflow="visible"
     {...rest}
   >
     {children}

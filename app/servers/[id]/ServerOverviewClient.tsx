@@ -210,6 +210,7 @@ export function ServerOverviewClient({ server: s, cluster, canEdit, initialUser 
   const searchParams = useSearchParams();
   const isDiscord = isDiscordServer(s);
   const canVote = Boolean(initialUser);
+  const canReview = Boolean(initialUser);
   const [tab, setTab] = useState<Tab>('about');
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [chartData, setChartData] = useState<ChartPoint[]>([]);
@@ -658,6 +659,10 @@ export function ServerOverviewClient({ server: s, cluster, canEdit, initialUser 
     }
   }
   const handleReviewSubmit = async () => {
+    if (!canReview) {
+      setReviewMessage('Увійдіть в акаунт, щоб залишити відгук')
+      return
+    }
     if (!reviewText.trim()) {
       setReviewMessage('Напиши текст відгуку')
       return
@@ -1019,6 +1024,7 @@ export function ServerOverviewClient({ server: s, cluster, canEdit, initialUser 
                           type="button"
                           className={`so-review-star${rating >= star ? ' active' : ''}`}
                           onClick={() => setRating(star)}
+                          disabled={!canReview}
                         >
                           ★
                         </button>
@@ -1030,12 +1036,18 @@ export function ServerOverviewClient({ server: s, cluster, canEdit, initialUser 
                       maxLength={250}
                       value={reviewText}
                       onChange={(event) => setReviewText(event.target.value)}
-                      placeholder="Поділися враженням про сервер"
+                      placeholder={canReview ? 'Поділися враженням про сервер' : 'Увійдіть, щоб залишити відгук'}
+                      disabled={!canReview}
                     />
                     <div className="so-vote-meta">{reviewText.length}/250</div>
-                    <button type="button" className="btn btn-primary" onClick={handleReviewSubmit}>
+                    <button type="button" className="btn btn-primary" onClick={handleReviewSubmit} disabled={!canReview}>
                       Зберегти відгук
                     </button>
+                    {!canReview && (
+                      <div className="so-vote-feedback">
+                        Увійдіть в акаунт, щоб залишити відгук. <Link href="/login">Увійти</Link>
+                      </div>
+                    )}
                     {reviewMessage && <div className="so-vote-feedback">{reviewMessage}</div>}
                   </div>
                   <div className="so-reviews-list">

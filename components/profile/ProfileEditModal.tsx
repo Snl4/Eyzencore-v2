@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import type { AuthUser } from '@/lib/auth-db';
+import { ImageCropModal } from '@/components/ui/ImageCropModal';
 
 const MAX_AVATAR_BYTES = 800 * 1024;
 const MAX_BANNER_BYTES = 1_400 * 1024;
@@ -49,6 +50,7 @@ export function ProfileEditModal({ user, open, onClose, onSaved }: Props) {
   const [bannerUrl, setBannerUrl] = useState<string | null>(meta.banner_url);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [cropSource, setCropSource] = useState<string | null>(null);
   const [shouldRender, setShouldRender] = useState(open);
   const [isVisible, setIsVisible] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement>(null);
@@ -70,6 +72,7 @@ export function ProfileEditModal({ user, open, onClose, onSaved }: Props) {
     setDiscord(meta.discord || '');
     setAvatarUrl(meta.avatar_url);
     setBannerUrl(meta.banner_url);
+    setCropSource(null);
     setError(null);
   }, [open, meta]);
 
@@ -99,21 +102,36 @@ export function ProfileEditModal({ user, open, onClose, onSaved }: Props) {
 
   if (!shouldRender) return null;
 
-  async function handleFile(
-    e: ChangeEvent<HTMLInputElement>,
-    setter: (v: string | null) => void,
-    maxBytes: number
-  ) {
+  async function handleBannerFile(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
     try {
-      const dataUrl = await readFileAsDataUrl(file, maxBytes);
-      setter(dataUrl);
+      const dataUrl = await readFileAsDataUrl(file, MAX_BANNER_BYTES);
+      setBannerUrl(dataUrl);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Помилка завантаження файлу');
     }
+  }
+
+  async function handleAvatarFile(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    try {
+      const dataUrl = await readFileAsDataUrl(file, MAX_AVATAR_BYTES);
+      setCropSource(dataUrl);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Помилка завантаження файлу');
+    }
+  }
+
+  function handleAvatarCropped(croppedDataUrl: string): void {
+    setAvatarUrl(croppedDataUrl);
+    setCropSource(null);
+    setError(null);
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -152,7 +170,14 @@ export function ProfileEditModal({ user, open, onClose, onSaved }: Props) {
   }
 
   return (
-    <div className={`modal-backdrop${isVisible ? ' is-open' : ''}`} onClick={onClose} role="dialog" aria-modal="true">
+    <div
+      className={`modal-backdrop${isVisible ? ' is-open' : ''}`}
+      onClick={() => {
+        if (!cropSource) onClose();
+      }}
+      role="dialog"
+      aria-modal="true"
+    >
       <div className={`modal-card${isVisible ? ' is-open' : ''}`} onClick={(e) => e.stopPropagation()}>
         <header className="modal-head">
           <h3>Редагувати профіль</h3>
@@ -200,7 +225,7 @@ export function ProfileEditModal({ user, open, onClose, onSaved }: Props) {
             <div className="modal-banner" style={bannerUrl ? { backgroundImage: `url(${JSON.stringify(bannerUrl).slice(1, -1)})`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}>
               <button type="button" className="btn btn-secondary modal-banner-btn" onClick={() => bannerInputRef.current?.click()}>Змінити банер</button>
               {bannerUrl && <button type="button" className="btn btn-ghost modal-banner-clear modal-remove-btn" onClick={() => setBannerUrl(null)} aria-label="Видалити банер">Видалити</button>}
-              <input ref={bannerInputRef} type="file" accept="image/*" hidden onChange={(e) => handleFile(e, setBannerUrl, MAX_BANNER_BYTES)} />
+              <input ref={bannerInputRef} type="file" accept="image/*" hidden onChange={(e) => void handleBannerFile(e)} />
             </div>
             <div className="modal-avatar-row">
               <div className="modal-avatar" style={avatarUrl ? { backgroundImage: `url(${JSON.stringify(avatarUrl).slice(1, -1)})`, backgroundSize: 'cover', backgroundPosition: 'center', color: 'transparent' } : undefined}>
@@ -209,7 +234,7 @@ export function ProfileEditModal({ user, open, onClose, onSaved }: Props) {
               <div className="modal-avatar-actions">
                 <button type="button" className="btn btn-secondary" onClick={() => avatarInputRef.current?.click()}>Завантажити аватарку</button>
                 {avatarUrl && <button type="button" className="btn btn-ghost modal-remove-btn" onClick={() => setAvatarUrl(null)} aria-label="Видалити аватар">Видалити</button>}
-                <input ref={avatarInputRef} type="file" accept="image/*" hidden onChange={(e) => handleFile(e, setAvatarUrl, MAX_AVATAR_BYTES)} />
+                <input ref={avatarInputRef} type="file" accept="image/*" hidden onChange={(e) => void handleAvatarFile(e)} />
               </div>
             </div>
             <div className="modal-links-card">
@@ -236,6 +261,13 @@ export function ProfileEditModal({ user, open, onClose, onSaved }: Props) {
           </div>
         </form>
       </div>
+      <ImageCropModal
+        imageSrc={cropSource || ''}
+        open={Boolean(cropSource)}
+        title="Обрізати аватарку"
+        onClose={() => setCropSource(null)}
+        onConfirm={handleAvatarCropped}
+      />
     </div>
   );
 }
