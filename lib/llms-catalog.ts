@@ -1,6 +1,7 @@
 import { listForumThreads } from '@/lib/forum-db'
 import { getCachedPublicNews, getCachedPublicServers } from '@/lib/public-cache'
 import { listMinecraftSeoLandingSlugs } from '@/lib/minecraft-seo-pages'
+import { listServicePageSlugs } from '@/lib/service-pages'
 import { buildNewsPath } from '@/lib/news-slug'
 import { isDiscordServer, getServerPlatformLabel } from '@/lib/server-platform'
 import { absoluteUrl, SITE_NAME, SITE_URL, truncateSeo } from '@/lib/seo'
@@ -80,6 +81,8 @@ export async function buildLlmsCatalog(options: BuildLlmsCatalogOptions = {}): P
     `- Новини: ${absoluteUrl('/news')}`,
     `- Форум: ${absoluteUrl('/forum')}`,
     `- API для розробників: ${absoluteUrl('/dashboard/developers')}`,
+    `- FAQ і довідка: ${absoluteUrl('/service/faq')}`,
+    `- Як додати сервер: ${absoluteUrl('/service/how-to-add-server')}`,
     '',
     '## SEO-розділи Minecraft',
     '',
@@ -113,10 +116,14 @@ export async function buildLlmsCatalog(options: BuildLlmsCatalogOptions = {}): P
     `- ${absoluteUrl('/sitemap-forum.xml')}`,
     `- ${absoluteUrl('/sitemap-tags.xml')}`,
     '',
+    '## Довідкові сторінки',
+    '',
+    ...listServicePageSlugs().map((slug) => `- ${absoluteUrl(`/service/${slug}`)}`),
+    '',
     '## Поширені запитання',
     '',
     'Як додати сервер?',
-    `Зареєструйтесь на ${SITE_URL}, натисніть «Додати сервер» і заповніть інформацію про проєкт.`,
+    `Покрокова інструкція: ${absoluteUrl('/service/how-to-add-server')}. Потрібен акаунт на ${SITE_URL}.`,
     '',
     'Як знайти український Minecraft сервер?',
     `Відкрийте ${absoluteUrl('/servers/minecraft')} або тематичні розділи survival, bedrock, no-p2w та ukraine.`,

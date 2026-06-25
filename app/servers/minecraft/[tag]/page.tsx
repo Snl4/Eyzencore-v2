@@ -96,7 +96,7 @@ export default async function MinecraftSeoLandingRoute({ params }: MinecraftSeoP
           defaultVer: page.defaultVer,
           lockMode: page.lockMode,
           lockVer: page.lockVer,
-          matchServer: page.matchServer,
+          seoSlug: page.slug,
         }}
         seoLanding={{
           kicker: 'Тематичний каталог',

@@ -1,66 +1,50 @@
 import type { MetadataRoute } from 'next'
 import { SITE_URL } from '@/lib/seo'
 
+const PRIVATE_PATHS = [
+  '/api/',
+  '/admin/',
+  '/cms/',
+  '/dashboard/',
+  '/settings',
+  '/login',
+  '/register',
+  '/reset-password',
+  '/forgot-password',
+  '/maintenance',
+  '/add-server',
+  '/*/edit',
+]
+
 const AI_BOTS = [
   'GPTBot',
   'ChatGPT-User',
+  'OAI-SearchBot',
   'ClaudeBot',
   'anthropic-ai',
   'PerplexityBot',
   'Google-Extended',
+  'Applebot-Extended',
+  'Bingbot',
   'CCBot',
   'Amazonbot',
   'Bytespider',
   'meta-externalagent',
+  'FacebookBot',
   'Diffbot',
 ] as const
 
 export default function robots(): MetadataRoute.Robots {
-  const sharedDisallow = [
-    '/api/',
-    '/admin/',
-    '/cms/',
-    '/dashboard/',
-    '/settings',
-    '/login',
-    '/register',
-    '/reset-password',
-    '/forgot-password',
-    '/maintenance',
-    '/add-server',
-    '/*/edit',
-  ]
-  const sharedAllow = [
-    '/',
-    '/servers',
-    '/servers/minecraft',
-    '/servers/discord',
-    '/news',
-    '/forum',
-    '/terms',
-    '/privacy',
-    '/sla',
-    '/llms.txt',
-    '/llms-full.txt',
-  ]
+  const sharedRule = {
+    allow: '/',
+    disallow: PRIVATE_PATHS,
+  }
 
   return {
     rules: [
-      {
-        userAgent: '*',
-        allow: sharedAllow,
-        disallow: sharedDisallow,
-      },
-      {
-        userAgent: 'Googlebot',
-        allow: ['/'],
-        disallow: sharedDisallow,
-      },
-      ...AI_BOTS.map((userAgent) => ({
-        userAgent,
-        allow: ['/'] as string[],
-        disallow: sharedDisallow,
-      })),
+      { userAgent: '*', ...sharedRule },
+      { userAgent: 'Googlebot', ...sharedRule },
+      ...AI_BOTS.map((userAgent) => ({ userAgent, ...sharedRule })),
     ],
     sitemap: [
       `${SITE_URL}/sitemap.xml`,

@@ -253,6 +253,27 @@ export function faqJsonLd(items: Array<{ question: string; answer: string }>) {
   }
 }
 
+export function howToJsonLd(input: {
+  name: string
+  description: string
+  path: string
+  steps: Array<{ name: string; text: string }>
+}) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'HowTo',
+    name: input.name,
+    description: input.description,
+    url: absoluteUrl(input.path),
+    step: input.steps.map((step, index) => ({
+      '@type': 'HowToStep',
+      position: index + 1,
+      name: step.name,
+      text: step.text,
+    })),
+  }
+}
+
 export function newsJsonLd(post: NewsPost) {
   return {
     '@context': 'https://schema.org',

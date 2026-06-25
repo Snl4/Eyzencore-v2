@@ -11,6 +11,8 @@ const LINKS = [
 ]
 
 const POLICIES = [
+  { href: '/service/faq', label: 'FAQ' },
+  { href: '/service/how-to-add-server', label: 'Як додати сервер' },
   { href: '/terms', label: 'Умови' },
   { href: '/privacy', label: 'Конфіденційність' },
   { href: '/sla', label: 'SLA' },

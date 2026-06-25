@@ -213,3 +213,9 @@ export function filterMinecraftServers(servers: Server[]): Server[] {
 export function filterServersForMinecraftSeoPage(servers: Server[], page: MinecraftSeoLandingPage): Server[] {
   return filterMinecraftServers(servers).filter(page.matchServer)
 }
+
+export function matchMinecraftSeoServer(slug: string, server: Server): boolean {
+  const page = getMinecraftSeoLandingPage(slug)
+  if (!page) return true
+  return page.matchServer(server)
+}

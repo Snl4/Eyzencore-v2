@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { DISCORD_CATEGORIES, GAME_MODES, SERVER_PLATFORMS, VERSIONS } from '@/lib/data';
+import { matchMinecraftSeoServer } from '@/lib/minecraft-seo-pages';
 import { isDiscordServer } from '@/lib/server-platform';
 import type { Server } from '@/lib/types';
 
@@ -13,7 +14,7 @@ export interface ServerFilterOptions {
   defaultVer?: string
   lockMode?: boolean
   lockVer?: boolean
-  matchServer?: (server: Server) => boolean
+  seoSlug?: string
 }
 
 export function useServerFilter(
@@ -92,7 +93,7 @@ export function useServerFilter(
       const filterPlatform = lockedPlatform || platform
       if (filterPlatform === 'Minecraft' && isDiscordServer(server)) return false
       if (filterPlatform === 'Discord' && !isDiscordServer(server)) return false
-      if (options?.matchServer && !options.matchServer(server)) return false
+      if (options?.seoSlug && !matchMinecraftSeoServer(options.seoSlug, server)) return false
       if (mode !== 'Всі' && server.mode !== mode) return false;
       if (ver !== 'Всі' && !server.ver.includes(ver.replace('.x', ''))) {
         if (ver === 'Bedrock') {
@@ -142,7 +143,7 @@ export function useServerFilter(
         left.rank - right.rank
       )
     })
-  }, [servers, platform, mode, ver, query, sort, lockedPlatform, options?.matchServer]);
+  }, [servers, platform, mode, ver, query, sort, lockedPlatform, options?.seoSlug]);
 
   const recentVersions = ['Всі', ...VERSIONS.filter((value) => value !== 'Всі').slice(0, 8)]
   const effectivePlatform = lockedPlatform || platform
