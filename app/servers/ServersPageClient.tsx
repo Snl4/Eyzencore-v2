@@ -170,11 +170,11 @@ function ServersSeoBlock({ variant, count }: { variant: LockedPlatform; count: n
       <div>
         <p className="seo-kicker">Пошук і моніторинг</p>
         <h2 id="seo-catalog-title">
-          {isMinecraft ? 'Моніторинг Minecraft серверів України та світу' : 'Каталог Discord серверів і спільнот'}
+          {isMinecraft ? 'Українські сервера майнкрафт: моніторинг, рейтинг і онлайн' : 'Каталог Discord серверів і спільнот'}
         </h2>
         <p>
           {isMinecraft
-            ? `Eyzencore допомагає знайти Minecraft сервер за онлайном, версією, режимом, рейтингом, голосами та відгуками. У каталозі зараз ${count} проєктів: Java, Bedrock, Survival, SMP, SkyBlock, RPG, PvP і mini-games.`
+            ? `Eyzencore - каталог українських серверів майнкрафт з онлайном, версією, режимом, рейтингом, голосами та відгуками. У каталозі зараз ${count} проєктів: Java, Bedrock, Survival, SMP, SkyBlock, RPG, PvP і mini-games.`
             : `Eyzencore збирає Discord сервери та українські спільноти для gaming, Minecraft, support, giveaways і voice chat. У каталозі зараз ${count} спільнот із рейтингом, активністю та описом.`}
         </p>
       </div>

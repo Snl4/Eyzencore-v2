@@ -13,16 +13,17 @@ import { buildServerPublicPath } from '@/lib/server-slug'
 
 export const metadata: Metadata = {
   ...buildPageMetadata({
-    title: 'Minecraft сервери - рейтинг, онлайн, голосування',
+    title: 'Українські сервера майнкрафт - рейтинг, онлайн, голосування',
     description:
-      'Каталог Minecraft серверів України та світу: Java, Bedrock, Survival, SkyBlock, RPG, PvP, SMP. Перевіряйте онлайн, рейтинг, голоси, відгуки та IP серверів.',
+      'Каталог українських серверів майнкрафт: Java, Bedrock, Survival, SkyBlock, RPG, PvP, SMP. Перевіряйте онлайн, рейтинг, голоси, відгуки та IP серверів України.',
     path: '/servers/minecraft',
     keywords: [
-      'Minecraft сервери',
+      'українські сервера майнкрафт',
+      'українські Minecraft сервери',
       'майнкрафт сервери',
+      'Minecraft сервери',
       'моніторинг майнкрафт серверів',
       'топ майнкрафт серверів',
-      'українські Minecraft сервери',
       'Minecraft servers',
       'Minecraft server list',
       'Minecraft survival server',
@@ -88,7 +89,7 @@ export default async function MinecraftServersPage() {
         initialUser={initialUser}
         lockedPlatform="Minecraft"
         activeKey="servers-minecraft"
-        title="Minecraft сервери"
+        title="Українські сервера майнкрафт"
         crumb="простір / minecraft"
         addHref="/add-server/minecraft"
         seoVariant="Minecraft"

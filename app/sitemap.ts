@@ -7,18 +7,19 @@ import { buildServerPublicPath } from '@/lib/server-slug'
 
 const now = new Date()
 
-function url(path: string) {
+function url(path: string): string {
   return `${SITE_URL}${path}`
 }
 
-export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const [servers, news, forumThreads] = await Promise.all([
-    getCachedPublicServers(),
-    getCachedPublicNews(100),
-    listForumThreads({ limit: 100 }),
-  ])
+function safeLastModified(value?: string | Date | null): Date {
+  if (!value) return now
+  const date = value instanceof Date ? value : new Date(value)
+  if (Number.isNaN(date.getTime())) return now
+  return date
+}
 
-  const staticRoutes: MetadataRoute.Sitemap = [
+function buildStaticRoutes(): MetadataRoute.Sitemap {
+  return [
     {
       url: url('/'),
       lastModified: now,
@@ -74,27 +75,39 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.2,
     },
   ]
+}
 
-  const serverRoutes: MetadataRoute.Sitemap = servers.map((server) => ({
-    url: url(buildServerPublicPath(server)),
-    lastModified: server.createdAt ? new Date(server.createdAt) : now,
-    changeFrequency: 'hourly',
-    priority: server.boosted ? 0.92 : server.verified ? 0.86 : 0.78,
-  }))
-
-  const newsRoutes: MetadataRoute.Sitemap = news.map((post) => ({
-    url: url(buildNewsPath(post)),
-    lastModified: post.updatedAt ? new Date(post.updatedAt) : now,
-    changeFrequency: 'weekly',
-    priority: 0.68,
-  }))
-
-  const forumRoutes: MetadataRoute.Sitemap = forumThreads.map((thread) => ({
-    url: url(`/forum/${thread.id}`),
-    lastModified: thread.updatedAt ? new Date(thread.updatedAt) : now,
-    changeFrequency: 'weekly',
-    priority: thread.isPinned ? 0.66 : 0.58,
-  }))
-
-  return [...staticRoutes, ...serverRoutes, ...newsRoutes, ...forumRoutes]
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const staticRoutes = buildStaticRoutes()
+  try {
+    const [serversResult, newsResult, forumResult] = await Promise.allSettled([
+      getCachedPublicServers(),
+      getCachedPublicNews(100),
+      listForumThreads({ limit: 100 }),
+    ])
+    const servers = serversResult.status === 'fulfilled' ? serversResult.value : []
+    const news = newsResult.status === 'fulfilled' ? newsResult.value : []
+    const forumThreads = forumResult.status === 'fulfilled' ? forumResult.value : []
+    const serverRoutes: MetadataRoute.Sitemap = servers.map((server) => ({
+      url: url(buildServerPublicPath(server)),
+      lastModified: safeLastModified(server.createdAt),
+      changeFrequency: 'hourly',
+      priority: server.boosted ? 0.92 : server.verified ? 0.86 : 0.78,
+    }))
+    const newsRoutes: MetadataRoute.Sitemap = news.map((post) => ({
+      url: url(buildNewsPath(post)),
+      lastModified: safeLastModified(post.updatedAt || post.createdAt),
+      changeFrequency: 'weekly',
+      priority: 0.68,
+    }))
+    const forumRoutes: MetadataRoute.Sitemap = forumThreads.map((thread) => ({
+      url: url(`/forum/${thread.id}`),
+      lastModified: safeLastModified(thread.updatedAt || thread.createdAt),
+      changeFrequency: 'weekly',
+      priority: thread.isPinned ? 0.66 : 0.58,
+    }))
+    return [...staticRoutes, ...serverRoutes, ...newsRoutes, ...forumRoutes]
+  } catch {
+    return staticRoutes
+  }
 }
