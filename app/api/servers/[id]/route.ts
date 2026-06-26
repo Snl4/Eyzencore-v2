@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { AUTH_COOKIE_NAME, getAuthSessionFromToken, getServerById, updateServerById } from '@/lib/auth-db'
+import { sanitizeServerTags } from '@/lib/server-form-options'
 
 export async function PATCH(request: NextRequest, context: { params: { id: string } }) {
   const auth = await getAuthSessionFromToken(request.cookies.get(AUTH_COOKIE_NAME)?.value)
@@ -66,7 +67,7 @@ export async function PATCH(request: NextRequest, context: { params: { id: strin
       bannerUrl: String(body.bannerUrl || ''),
       gallery: Array.isArray(body.gallery) ? body.gallery.slice(0, 6) : [],
       videos: Array.isArray(body.videos) ? body.videos.slice(0, 2) : [],
-      tags: Array.isArray(body.tags) ? body.tags.slice(0, 6) : [],
+      tags: sanitizeServerTags(body.tags),
       projectId: typeof body.projectId === 'number' ? body.projectId : null,
     })
     return NextResponse.json({ success: true, server })

@@ -8,6 +8,7 @@ import {
   markServerVerified,
   regenerateVerificationToken,
 } from '@/lib/auth-db'
+import { resolveDnsVerificationHostname } from '@/lib/server-dns-verify'
 
 interface RouteContext {
   params: { id: string }
@@ -45,7 +46,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
   if (server.ownerId !== auth.user.id && auth.user.email !== process.env.ADMIN_EMAIL) {
     return NextResponse.json({ error: 'Немає доступу' }, { status: 403 })
   }
-  const body = (await request.json()) as { method?: string }
+  const body = (await request.json()) as { method?: string; hostname?: string }
   const method = body.method
   if (method !== 'motd' && method !== 'dns') {
     return NextResponse.json({ error: 'Метод верифікації: "motd" або "dns"' }, { status: 400 })
@@ -55,7 +56,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
   if (method === 'motd') {
     return verifyViaMOTD({ serverId, addr: server.addr, token })
   }
-  return verifyViaDNS({ serverId, addr: server.addr, token })
+  return verifyViaDNS({ serverId, addr: server.addr, token, hostname: body.hostname })
 }
 
 async function verifyViaMOTD(input: {
@@ -103,31 +104,30 @@ async function verifyViaDNS(input: {
   serverId: number
   addr: string
   token: string
+  hostname?: string
 }) {
-  const { serverId, addr, token } = input
-  const hostname = addr.includes(':') ? addr.split(':')[0] : addr
-  const isIp = /^\d{1,3}(\.\d{1,3}){3}$/.test(hostname)
-  if (isIp) {
-    return NextResponse.json(
-      { error: 'DNS TXT верифікація не підтримується для IP-адрес. Використайте домен або метод MOTD.' },
-      { status: 422 }
-    )
+  const { serverId, addr, token, hostname } = input
+  const resolved = resolveDnsVerificationHostname({ serverAddr: addr, requestedHostname: hostname })
+  if ('error' in resolved) {
+    return NextResponse.json({ error: resolved.error }, { status: 422 })
   }
   try {
-    const records = await dns.resolveTxt(hostname)
+    const records = await dns.resolveTxt(resolved.hostname)
     const allValues = records.flat().join(' ')
     if (!allValues.includes(token)) {
       return NextResponse.json(
-        { error: 'TXT запис не знайдено. Переконайтесь, що DNS запис застосований, та спробуйте знову.' },
-        { status: 422 }
+        {
+          error: `TXT запис не знайдено на ${resolved.hostname}. Переконайтесь, що DNS запис застосований, та спробуйте знову.`,
+        },
+        { status: 422 },
       )
     }
     await markServerVerified(serverId)
-    return NextResponse.json({ success: true, method: 'dns' })
+    return NextResponse.json({ success: true, method: 'dns', hostname: resolved.hostname })
   } catch {
     return NextResponse.json(
-      { error: 'Не вдалося отримати DNS TXT записи. Перевірте домен або спробуйте пізніше.' },
-      { status: 503 }
+      { error: `Не вдалося отримати DNS TXT записи для ${resolved.hostname}. Перевірте домен або спробуйте пізніше.` },
+      { status: 503 },
     )
   }
 }

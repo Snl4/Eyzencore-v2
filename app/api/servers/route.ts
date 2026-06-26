@@ -1,5 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { AUTH_COOKIE_NAME, createServerApplication, getAuthSessionFromToken } from '@/lib/auth-db';
+import { NextRequest, NextResponse } from 'next/server'
+import { sanitizeServerTags } from '@/lib/server-form-options'
+import { AUTH_COOKIE_NAME, createServerApplication, getAuthSessionFromToken } from '@/lib/auth-db'
 import { getCachedPublicServers } from '@/lib/public-cache';
 
 export async function GET(req: NextRequest) {
@@ -99,7 +100,7 @@ export async function POST(request: NextRequest) {
       bannerUrl: String(body.bannerUrl || ''),
       gallery: Array.isArray(body.gallery) ? body.gallery.slice(0, 6) : [],
       videos: Array.isArray(body.videos) ? body.videos.slice(0, 2) : [],
-      tags: Array.isArray(body.tags) ? body.tags.slice(0, 6) : [],
+      tags: sanitizeServerTags(body.tags),
       projectId: typeof body.projectId === 'number' ? body.projectId : null,
     });
 

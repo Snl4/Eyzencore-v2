@@ -6,6 +6,7 @@ import { useState } from 'react'
 import { ServerOwnerPageShell } from '@/components/dashboard/ServerOwnerPageShell'
 import { ServerDashboardHub, type ServerDashboardHubOwnedServer } from '@/components/dashboard/ServerDashboardHub'
 import type { AuthUser, UserRole } from '@/lib/auth-db'
+import { extractServerHost, isIpv4Host, normalizeDnsHostname } from '@/lib/server-dns-verify'
 
 interface VerifyServerClientProps {
   initialUser: AuthUser
@@ -45,6 +46,10 @@ export function VerifyServerClient({
   const [copied, setCopied] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [successMsg, setSuccessMsg] = useState<string | null>(null)
+  const serverHost = extractServerHost(server.addr)
+  const isIpAddress = isIpv4Host(serverHost)
+  const defaultDnsHostname = isIpAddress ? '' : (normalizeDnsHostname(serverHost) ?? '')
+  const [dnsHostname, setDnsHostname] = useState(defaultDnsHostname)
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(token)
@@ -66,10 +71,21 @@ export function VerifyServerClient({
     setIsVerifying(true)
     setError(null)
     setSuccessMsg(null)
+    if (activeTab === 'dns') {
+      const normalizedHostname = normalizeDnsHostname(dnsHostname)
+      if (!normalizedHostname) {
+        setIsVerifying(false)
+        setError('Вкажіть коректне доменне імʼя для DNS TXT (наприклад play.example.com).')
+        return
+      }
+    }
     const response = await fetch(`/api/servers/${server.id}/verify`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ method: activeTab }),
+      body: JSON.stringify({
+        method: activeTab,
+        ...(activeTab === 'dns' ? { hostname: dnsHostname.trim() } : {}),
+      }),
     })
     const data = (await response.json()) as { success?: boolean; error?: string }
     setIsVerifying(false)
@@ -87,7 +103,6 @@ export function VerifyServerClient({
   }
 
   const isDiscordServer = server.platform === 'discord'
-  const isIpAddress = /^\d{1,3}(\.\d{1,3}){3}$/.test(server.addr.split(':')[0])
 
   return (
     <ServerOwnerPageShell initialUser={initialUser} role={role}>
@@ -190,11 +205,8 @@ export function VerifyServerClient({
               type="button"
               className={`dev-tab${activeTab === 'dns' ? ' dev-tab--active' : ''}`}
               onClick={() => { setActiveTab('dns'); setError(null) }}
-              disabled={isIpAddress}
-              title={isIpAddress ? 'DNS TXT верифікація потребує домен, не IP-адресу' : undefined}
             >
               DNS TXT
-              {isIpAddress && <span style={{ fontSize: 11, opacity: 0.5, marginLeft: 4 }}>(недоступно)</span>}
             </button>
           </div>
 
@@ -223,25 +235,37 @@ export function VerifyServerClient({
             )}
             {activeTab === 'dns' && (
               <div>
-                <h4 className="verify-method-title">Верифікація домену</h4>
+                <h4 className="verify-method-title">Верифікація через DNS TXT</h4>
                 <p style={{ color: 'var(--fg-3)', fontSize: 14, marginBottom: 12 }}>
-                  Переваги цього методу в тому, що не потрібно вносити зміни в налаштування сервера та
-                  перезавантажувати його.
+                  {isIpAddress
+                    ? 'Адреса сервера — IP. Додайте TXT-запис на домені, яким ви володієте (наприклад play.example.com), навіть якщо гравці підключаються за IP.'
+                    : 'Переваги цього методу в тому, що не потрібно вносити зміни в налаштування сервера та перезавантажувати його.'}
                 </p>
+                <label className="verify-token-row" style={{ marginBottom: 16 }}>
+                  <span className="verify-token-label">Домен для DNS TXT</span>
+                  <input
+                    className="input"
+                    type="text"
+                    value={dnsHostname}
+                    onChange={(event) => setDnsHostname(event.target.value)}
+                    placeholder="play.example.com"
+                    aria-label="Домен для DNS TXT верифікації"
+                  />
+                </label>
                 <ol className="verify-steps">
                   <li>
-                    Увійдіть у систему постачальника свого доменного імені (наприклад, godaddy.com або
-                    namecheap.com).
+                    Увійдіть у панель DNS вашого домену (наприклад, Cloudflare, GoDaddy, Namecheap).
                   </li>
                   <li>
-                    Скопіюйте <strong>Рядок для верифікації</strong> з форми вище та створіть запис{' '}
-                    <code>TXT</code> в конфігурації DNS вашого домену.
+                    На домені <strong>{dnsHostname.trim() || 'вашого домену'}</strong> створіть запис{' '}
+                    <code>TXT</code> зі значенням <strong>Рядок для верифікації</strong> з форми вище.
                   </li>
+                  <li>Дочекайтесь поширення DNS (зазвичай від кількох хвилин до кількох годин).</li>
                   <li>Натисніть <strong>Верифікувати</strong>.</li>
                 </ol>
                 <div className="verify-note">
-                  <strong>Примітка:</strong> застосування змін у DNS може зайняти певний час. Якщо запис не
-                  знаходиться одразу, спробуйте перевірити через добу.
+                  <strong>Примітка:</strong> домен не обовʼязково має збігатися з IP-адресою сервера — достатньо довести,
+                  що ви керуєте DNS цього імені.
                 </div>
               </div>
             )}

@@ -6182,6 +6182,15 @@ button { cursor: pointer; }
 
   .add-tags-grid { display: flex; flex-wrap: wrap; gap: 8px; }
   .add-tags-grid .filter-chip { padding: 8px 14px; font-size: 13px; border-radius: 8px; }
+  .add-inline-create {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+    margin-top: 10px;
+  }
+  .add-inline-create--tags { margin-top: 14px; }
+  .add-version-select .cs-panel { max-height: min(52vh, 420px); }
+  .add-field-error { color: var(--red); font-size: 12px; margin-top: 6px; display: block; }
   .add-selected-tags {
     display: grid;
     gap: 10px;

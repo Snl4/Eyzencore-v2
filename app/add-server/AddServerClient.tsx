@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useRef, useState, useTransition, type ChangeEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, useTransition, type ChangeEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import { PageShell } from '@/components/layout/PageShell'
 import { ServerDashboardHub, type ServerDashboardHubOwnedServer } from '@/components/dashboard/ServerDashboardHub'
@@ -7,7 +7,15 @@ import { Icons } from '@/components/ui/Icons'
 import { Select } from '@/components/ui/Select'
 import { Toggle } from '@/components/ui/Toggle'
 import { Breadcrumbs } from '@/components/ui/Breadcrumbs'
-import { DISCORD_CATEGORIES, GAME_MODES, VERSIONS } from '@/lib/data'
+import { DISCORD_CATEGORIES, GAME_MODES } from '@/lib/data'
+import { mergeMinecraftVersionOptions, MINECRAFT_JAVA_VERSIONS } from '@/lib/minecraft-java-versions'
+import {
+  MAX_CUSTOM_MODE_LENGTH,
+  MAX_CUSTOM_TAG_LENGTH,
+  MAX_SERVER_TAGS,
+  normalizeCustomMode,
+  normalizeCustomTag,
+} from '@/lib/server-form-options'
 import type { Server, ServerPlatform } from '@/lib/types'
 import type { AuthUser, Project } from '@/lib/auth-db'
 
@@ -69,7 +77,7 @@ const MINECRAFT_TAG_OPTIONS = ['Survival', 'Economy', 'PvP', 'PvE', 'RP', 'SkyBl
 const DISCORD_TAG_OPTIONS = ['Gaming', 'Minecraft', 'Community', 'News', 'Giveaways', 'Voice chat', 'Events', 'Support', 'Marketplace', 'Moderation', 'Memes', 'Ukrainian', 'Looking for team', 'Dev talk', 'Roleplay', 'Content creators']
 const MODES = GAME_MODES.filter((mode) => mode !== 'Всі')
 const DISCORD_MODES = DISCORD_CATEGORIES.filter((category) => category !== 'Всі')
-const VERS = VERSIONS.filter((version) => version !== 'Всі')
+const DEFAULT_JAVA_VERSION = MINECRAFT_JAVA_VERSIONS[0] || '1.21.11'
 const PLATFORM_OPTIONS: { value: ServerPlatform; label: string }[] = [
   { value: 'minecraft', label: 'Minecraft' },
   { value: 'discord', label: 'Discord' },
@@ -77,16 +85,21 @@ const PLATFORM_OPTIONS: { value: ServerPlatform; label: string }[] = [
 const CORE_OPTIONS: CoreType[] = ['java', 'bedrock', 'java_bedrock']
 const MAX_GALLERY_IMAGES = 6
 const MAX_VIDEO_LINKS = 2
-const MAX_TAGS = 6
+const MAX_TAGS = MAX_SERVER_TAGS
+
+function buildInitialCustomModes(server: Server | undefined, baseModes: readonly string[]): string[] {
+  if (!server?.mode) return []
+  return baseModes.includes(server.mode) ? [] : [server.mode]
+}
 
 const getDefaultForm = (server?: Server): ServerForm => ({
   platform: server?.platform === 'discord' || server?.core === 'discord' ? 'discord' : 'minecraft',
   name: server?.name || '',
   addr: server?.addr || '',
   mode: server?.mode || (server?.platform === 'discord' ? DISCORD_MODES[0] : MODES[0]),
-  minVer: (server?.ver || '').includes('-') ? String(server?.ver || '').split('-')[0] : (server?.ver || VERS[0]),
-  maxVer: (server?.ver || '').includes('-') ? String(server?.ver || '').split('-')[1] : (server?.ver || VERS[0]),
-  ver: server?.ver || VERS[0],
+  minVer: (server?.ver || '').includes('-') ? String(server?.ver || '').split('-')[0] : (server?.ver || DEFAULT_JAVA_VERSION),
+  maxVer: (server?.ver || '').includes('-') ? String(server?.ver || '').split('-')[1] : (server?.ver || DEFAULT_JAVA_VERSION),
+  ver: server?.ver || DEFAULT_JAVA_VERSION,
   core: server?.core || 'java',
   country: server?.country || '',
   motd: server?.motd || '',
@@ -169,10 +182,33 @@ export function AddServerClient(input: {
 
   const [submitted, setSubmitted] = useState(false)
   const [projects, setProjects] = useState<Project[]>([])
+  const [customTagInput, setCustomTagInput] = useState('')
+  const [customTagError, setCustomTagError] = useState<string | null>(null)
+  const [customModeInput, setCustomModeInput] = useState('')
+  const [customMinecraftModes, setCustomMinecraftModes] = useState<string[]>(() => (
+    initialServer && initialServer.platform !== 'discord' && initialServer.core !== 'discord'
+      ? buildInitialCustomModes(initialServer, MODES)
+      : []
+  ))
+  const [customDiscordModes, setCustomDiscordModes] = useState<string[]>(() => (
+    initialServer && (initialServer.platform === 'discord' || initialServer.core === 'discord')
+      ? buildInitialCustomModes(initialServer, DISCORD_MODES)
+      : []
+  ))
   const isEditMode = Boolean(initialServer)
   const isDiscordForm = form.platform === 'discord'
   const tagOptions = isDiscordForm ? DISCORD_TAG_OPTIONS : MINECRAFT_TAG_OPTIONS
-  const visibleTagOptions = Array.from(new Set([...form.tags, ...tagOptions])).filter(Boolean)
+  const visibleTagOptions = Array.from(new Set([...tagOptions, ...form.tags])).filter(Boolean)
+  const modeOptions = Array.from(new Set([
+    ...(isDiscordForm ? DISCORD_MODES : MODES),
+    ...(isDiscordForm ? customDiscordModes : customMinecraftModes),
+    form.mode,
+  ])).filter(Boolean)
+  const versionOptions = useMemo(() => mergeMinecraftVersionOptions([
+    form.minVer,
+    form.maxVer,
+    ...String(form.ver || '').split('-'),
+  ]), [form.minVer, form.maxVer, form.ver])
 
   useEffect(() => {
     void fetch('/api/projects')
@@ -191,15 +227,58 @@ export function AddServerClient(input: {
   const buildVersionRange = (minVer: string, maxVer: string): string => {
     const normalizedMin = String(minVer || '').trim()
     const normalizedMax = String(maxVer || '').trim()
-    if (!normalizedMin && !normalizedMax) return VERS[0]
+    if (!normalizedMin && !normalizedMax) return DEFAULT_JAVA_VERSION
     if (!normalizedMin) return normalizedMax
     if (!normalizedMax) return normalizedMin
     if (normalizedMin === normalizedMax) return normalizedMin
     return `${normalizedMin}-${normalizedMax}`
   }
   const setField = <Key extends keyof ServerForm>(key: Key, value: ServerForm[Key]) => setForm((current) => ({ ...current, [key]: value }))
-  const toggleTag = (tag: string) => setForm((current) => ({ ...current, tags: current.tags.includes(tag) ? current.tags.filter((item) => item !== tag) : [...current.tags, tag] }))
-  const clearTags = () => setField('tags', [])
+  const toggleTag = (tag: string) => {
+    const normalized = normalizeCustomTag(tag)
+    if (!normalized) return
+    setCustomTagError(null)
+    setForm((current) => {
+      if (current.tags.some((item) => item.toLowerCase() === normalized.toLowerCase())) {
+        return { ...current, tags: current.tags.filter((item) => item.toLowerCase() !== normalized.toLowerCase()) }
+      }
+      if (current.tags.length >= MAX_TAGS) return current
+      return { ...current, tags: [...current.tags, normalized] }
+    })
+  }
+  const clearTags = () => {
+    setCustomTagError(null)
+    setField('tags', [])
+  }
+  const handleAddCustomTag = () => {
+    const normalized = normalizeCustomTag(customTagInput)
+    if (!normalized) {
+      setCustomTagError('Введіть назву тегу')
+      return
+    }
+    if (form.tags.length >= MAX_TAGS) {
+      setCustomTagError(`Максимум ${MAX_TAGS} тегів`)
+      return
+    }
+    if (form.tags.some((item) => item.toLowerCase() === normalized.toLowerCase())) {
+      setCustomTagError('Такий тег вже додано')
+      return
+    }
+    setForm((current) => ({ ...current, tags: [...current.tags, normalized] }))
+    setCustomTagInput('')
+    setCustomTagError(null)
+  }
+  const handleAddCustomMode = () => {
+    const normalized = normalizeCustomMode(customModeInput)
+    if (!normalized) return
+    if (isDiscordForm) {
+      setCustomDiscordModes((current) => (current.includes(normalized) ? current : [...current, normalized]))
+    } else {
+      setCustomMinecraftModes((current) => (current.includes(normalized) ? current : [...current, normalized]))
+    }
+    setField('mode', normalized)
+    setCustomModeInput('')
+  }
   const upsertArrayUrl = (key: 'gallery' | 'videos', index: number, value: string) => setForm((current) => {
     const nextArray = [...current[key]]
     nextArray[index] = value
@@ -510,9 +589,9 @@ export function AddServerClient(input: {
                                 ...current,
                                 platform: option.value,
                                 mode: option.value === 'discord' ? DISCORD_MODES[0] : MODES[0],
-                                minVer: option.value === 'discord' ? 'Discord' : VERS[0],
-                                maxVer: option.value === 'discord' ? 'Discord' : VERS[0],
-                                ver: option.value === 'discord' ? 'Discord' : VERS[0],
+                                minVer: option.value === 'discord' ? 'Discord' : DEFAULT_JAVA_VERSION,
+                                maxVer: option.value === 'discord' ? 'Discord' : DEFAULT_JAVA_VERSION,
+                                ver: option.value === 'discord' ? 'Discord' : DEFAULT_JAVA_VERSION,
                                 core: option.value === 'discord' ? 'discord' : 'java',
                                 tags: [],
                               }))
@@ -582,8 +661,34 @@ export function AddServerClient(input: {
                       <Select
                         value={form.mode}
                         onChange={(value) => setField('mode', value)}
-                        options={isDiscordForm ? DISCORD_MODES : MODES}
+                        options={modeOptions}
                       />
+                      <div className="add-inline-create">
+                        <input
+                          className="input"
+                          type="text"
+                          maxLength={MAX_CUSTOM_MODE_LENGTH}
+                          placeholder={isDiscordForm ? 'Своя категорія' : 'Свій режим'}
+                          value={customModeInput}
+                          onChange={(event) => setCustomModeInput(event.target.value)}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter') {
+                              event.preventDefault()
+                              handleAddCustomMode()
+                            }
+                          }}
+                          aria-label={isDiscordForm ? 'Додати свою категорію Discord' : 'Додати свій режим гри'}
+                        />
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
+                          onClick={handleAddCustomMode}
+                          disabled={!customModeInput.trim()}
+                        >
+                          + Додати
+                        </button>
+                      </div>
+                      <small className="add-field-counter">Свій варіант до {MAX_CUSTOM_MODE_LENGTH} символів</small>
                     </div>
                     <label className="auth-field">
                       <span>Країна</span>
@@ -622,11 +727,11 @@ export function AddServerClient(input: {
                     <div className="add-grid-3">
                       <div className="auth-field">
                         <span>Мін. версія</span>
-                        <Select value={form.minVer} onChange={(value) => setField('minVer', value)} options={VERS} />
+                        <Select value={form.minVer} onChange={(value) => setField('minVer', value)} options={versionOptions} ariaLabel="Мінімальна версія Minecraft" className="add-version-select" />
                       </div>
                       <div className="auth-field">
                         <span>Макс. версія</span>
-                        <Select value={form.maxVer} onChange={(value) => setField('maxVer', value)} options={VERS} />
+                        <Select value={form.maxVer} onChange={(value) => setField('maxVer', value)} options={versionOptions} ariaLabel="Максимальна версія Minecraft" className="add-version-select" />
                       </div>
                       <label className="auth-field">
                         <span>Підсумкова версія</span>
@@ -818,14 +923,45 @@ export function AddServerClient(input: {
                         type="button"
                         variant="outline"
                         className="filter-chip"
-                        pressed={form.tags.includes(tag)}
+                        pressed={form.tags.some((item) => item.toLowerCase() === tag.toLowerCase())}
                         onPressedChange={() => toggleTag(tag)}
-                        disabled={!form.tags.includes(tag) && form.tags.length >= MAX_TAGS}
+                        disabled={!form.tags.some((item) => item.toLowerCase() === tag.toLowerCase()) && form.tags.length >= MAX_TAGS}
                       >
-                        {form.tags.includes(tag) ? '✓ ' : ''}{tag}
+                        {form.tags.some((item) => item.toLowerCase() === tag.toLowerCase()) ? '✓ ' : ''}{tag}
                       </Toggle>
                     ))}
                   </div>
+                  <div className="add-inline-create add-inline-create--tags">
+                    <input
+                      className="input"
+                      type="text"
+                      maxLength={MAX_CUSTOM_TAG_LENGTH}
+                      placeholder="Свій тег"
+                      value={customTagInput}
+                      onChange={(event) => {
+                        setCustomTagInput(event.target.value)
+                        setCustomTagError(null)
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') {
+                          event.preventDefault()
+                          handleAddCustomTag()
+                        }
+                      }}
+                      disabled={form.tags.length >= MAX_TAGS}
+                      aria-label="Додати свій тег"
+                    />
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      onClick={handleAddCustomTag}
+                      disabled={form.tags.length >= MAX_TAGS || !customTagInput.trim()}
+                    >
+                      + Додати
+                    </button>
+                  </div>
+                  {customTagError ? <small className="add-field-error">{customTagError}</small> : null}
+                  <small className="add-field-counter">Свій тег до {MAX_CUSTOM_TAG_LENGTH} символів · максимум {MAX_TAGS} тегів</small>
                   <div className="add-actions">
                     <button className="btn btn-secondary" onClick={() => goBack(5)}>← Назад</button>
                     <button className="btn btn-primary" onClick={() => goNext(7)}>Далі →</button>
