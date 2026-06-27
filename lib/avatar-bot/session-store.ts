@@ -1,5 +1,5 @@
 import { AVATAR_BOT_SESSION_TTL_MS } from '@/lib/avatar-bot/constants'
-import type { AvatarSession, AvatarViewKey } from '@/lib/avatar-bot/types'
+import type { AvatarBackgroundKey, AvatarSession, AvatarViewKey } from '@/lib/avatar-bot/types'
 
 const sessions = new Map<number, AvatarSession>()
 
@@ -20,6 +20,7 @@ export function saveAvatarSession(input: {
   username?: string | null
   skinUrl?: string | null
   view?: AvatarViewKey
+  background?: AvatarBackgroundKey
 }): AvatarSession {
   const current = getAvatarSession(input.chatId)
   const session: AvatarSession = {
@@ -27,6 +28,7 @@ export function saveAvatarSession(input: {
     username: input.username === undefined ? current?.username ?? null : input.username,
     skinUrl: input.skinUrl === undefined ? current?.skinUrl ?? null : input.skinUrl,
     view: input.view ?? current?.view ?? 'bust',
+    background: input.background ?? current?.background ?? 'studio',
     updatedAt: Date.now(),
   }
   sessions.set(input.chatId, session)

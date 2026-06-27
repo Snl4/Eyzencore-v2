@@ -29,6 +29,8 @@ next-env.d.ts
 # local data
 data/*.sqlite
 data/*.sqlite-*
+data/avatar-bot.lock
+avatar-bot/blender/minecraft_avatar.blend
 /dev.db
 /backups/
 /public/uploads/legacy-nebula/*

@@ -1,5 +1,5 @@
-import { AVATAR_VIEWS } from '@/lib/avatar-bot/constants'
-import type { AvatarViewKey } from '@/lib/avatar-bot/types'
+import { AVATAR_BACKGROUNDS, AVATAR_VIEWS } from '@/lib/avatar-bot/constants'
+import type { AvatarBackgroundKey, AvatarViewKey } from '@/lib/avatar-bot/types'
 
 type InlineKeyboardButton = {
   text: string
@@ -10,12 +10,15 @@ type InlineKeyboardMarkup = {
   inline_keyboard: InlineKeyboardButton[][]
 }
 
-export function buildViewKeyboard(activeView: AvatarViewKey): InlineKeyboardMarkup {
+export function buildAvatarKeyboard(
+  activeView: AvatarViewKey,
+  activeBackground: AvatarBackgroundKey,
+): InlineKeyboardMarkup {
   const rows: InlineKeyboardButton[][] = []
-  const keys = Object.keys(AVATAR_VIEWS) as AvatarViewKey[]
-  for (let index = 0; index < keys.length; index += 2) {
-    const left = keys[index]
-    const right = keys[index + 1]
+  const viewKeys = Object.keys(AVATAR_VIEWS) as AvatarViewKey[]
+  for (let index = 0; index < viewKeys.length; index += 2) {
+    const left = viewKeys[index]
+    const right = viewKeys[index + 1]
     const row: InlineKeyboardButton[] = [
       {
         text: left === activeView ? `✓ ${AVATAR_VIEWS[left].label}` : AVATAR_VIEWS[left].label,
@@ -30,6 +33,16 @@ export function buildViewKeyboard(activeView: AvatarViewKey): InlineKeyboardMark
     }
     rows.push(row)
   }
+  const backgroundKeys = Object.keys(AVATAR_BACKGROUNDS) as AvatarBackgroundKey[]
+  rows.push(
+    backgroundKeys.map((background) => ({
+      text:
+        background === activeBackground
+          ? `✓ ${AVATAR_BACKGROUNDS[background].label}`
+          : AVATAR_BACKGROUNDS[background].label,
+      callback_data: `bg:${background}`,
+    })),
+  )
   rows.push([{ text: '🔄 Згенерувати', callback_data: 'action:render' }])
   return { inline_keyboard: rows }
 }

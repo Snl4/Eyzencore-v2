@@ -120,3 +120,34 @@ pm2 save
 ```
 
 Send skins as **File** (📎), not as a gallery photo — Telegram compresses photos and breaks PNG skins.
+
+### Blender render + image processing
+
+The bot renders 3D avatars from `avatar-bot/blender/minecraft_avatar.blend` (Steve mesh,
+cameras per pose, `Skin` material) and applies background gradients inside Blender.
+
+Install Blender on VPS:
+
+```bash
+apt update && apt install -y blender
+```
+
+Generate the scene file once (also runs automatically on deploy if Blender is installed):
+
+```bash
+cd /root/eyzencore-new
+npm run avatar:blender:setup
+```
+
+Optional `.env`:
+
+```bash
+AVATAR_BOT_RENDER_MODE=blender   # blender | remote
+AVATAR_BOT_BLENDER_PATH=blender
+AVATAR_BOT_BLEND_FILE=avatar-bot/blender/minecraft_avatar.blend
+```
+
+Use your own `.blend` scene: keep material name `Skin`, image node `SkinTexture`, cameras
+`cam_bust`, `cam_full`, `cam_face`, `cam_front`, `cam_back`, `cam_frontfull`, mesh `Avatar`.
+
+If Blender is missing, the bot falls back to Visage (without local post-processing).

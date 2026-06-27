@@ -128,6 +128,12 @@ git pull --ff-only "$REMOTE" "$BRANCH"
 log "Installing dependencies"
 npm ci
 
+avatar_blend_file="${APP_DIR}/avatar-bot/blender/minecraft_avatar.blend"
+if command -v blender >/dev/null 2>&1 && [[ ! -f "$avatar_blend_file" ]]; then
+  log "Generating Blender avatar scene (.blend)"
+  AVATAR_BOT_BLEND_FILE="$avatar_blend_file" blender --background --python "$APP_DIR/avatar-bot/blender/generate_scene.py"
+fi
+
 log "Generating Prisma client"
 npm run db:generate
 

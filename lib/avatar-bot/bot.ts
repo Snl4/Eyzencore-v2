@@ -1,6 +1,6 @@
-import { AVATAR_BOT_MESSAGES, AVATAR_VIEWS } from '@/lib/avatar-bot/constants'
-import { buildViewKeyboard } from '@/lib/avatar-bot/keyboards'
-import { buildAvatarRenderCandidates, downloadAvatarImage } from '@/lib/avatar-bot/renderer'
+import { renderAvatarPipeline } from '@/lib/avatar-bot/avatar-pipeline'
+import { AVATAR_BACKGROUNDS, AVATAR_BOT_MESSAGES, AVATAR_VIEWS } from '@/lib/avatar-bot/constants'
+import { buildAvatarKeyboard } from '@/lib/avatar-bot/keyboards'
 import { getAvatarSession, saveAvatarSession } from '@/lib/avatar-bot/session-store'
 import {
   isLikelySkinDocument,
@@ -10,7 +10,13 @@ import {
   validateSkinBuffer,
 } from '@/lib/avatar-bot/skin-resolver'
 import { getAvatarBotName, TelegramAvatarApi } from '@/lib/avatar-bot/telegram-api'
-import type { AvatarViewKey, TelegramCallbackQuery, TelegramMessage, TelegramUpdate } from '@/lib/avatar-bot/types'
+import type {
+  AvatarBackgroundKey,
+  AvatarViewKey,
+  TelegramCallbackQuery,
+  TelegramMessage,
+  TelegramUpdate,
+} from '@/lib/avatar-bot/types'
 
 function parseViewKey(value: string | undefined): AvatarViewKey | null {
   if (!value) {
@@ -18,6 +24,16 @@ function parseViewKey(value: string | undefined): AvatarViewKey | null {
   }
   if (value in AVATAR_VIEWS) {
     return value as AvatarViewKey
+  }
+  return null
+}
+
+function parseBackgroundKey(value: string | undefined): AvatarBackgroundKey | null {
+  if (!value) {
+    return null
+  }
+  if (value in AVATAR_BACKGROUNDS) {
+    return value as AvatarBackgroundKey
   }
   return null
 }
@@ -65,11 +81,12 @@ export class AvatarTelegramBot {
         username: text,
         skinUrl,
         view: 'bust',
+        background: 'studio',
       })
       await this.api.sendMessage({
         chatId,
         text: AVATAR_BOT_MESSAGES.nickSaved(text),
-        replyMarkup: buildViewKeyboard(session.view),
+        replyMarkup: buildAvatarKeyboard(session.view, session.background),
       })
     } catch {
       await this.api.sendMessage({ chatId, text: AVATAR_BOT_MESSAGES.renderFailed })
@@ -94,8 +111,8 @@ export class AvatarTelegramBot {
       }
       await this.api.sendMessage({
         chatId,
-        text: 'Обери позу:',
-        replyMarkup: buildViewKeyboard(session.view),
+        text: 'Обери позу та фон:',
+        replyMarkup: buildAvatarKeyboard(session.view, session.background),
       })
       return
     }
@@ -137,11 +154,12 @@ export class AvatarTelegramBot {
       username: null,
       skinUrl,
       view: 'bust',
+      background: 'studio',
     })
     await this.api.sendMessage({
       chatId,
       text: AVATAR_BOT_MESSAGES.skinSaved,
-      replyMarkup: buildViewKeyboard(session.view),
+      replyMarkup: buildAvatarKeyboard(session.view, session.background),
     })
   }
 
@@ -157,54 +175,58 @@ export class AvatarTelegramBot {
       await this.api.answerCallbackQuery(query.id, 'Спочатку надішли нік або скін')
       return
     }
+    if (data.startsWith('bg:')) {
+      const background = parseBackgroundKey(data.slice(3))
+      if (!background) {
+        await this.api.answerCallbackQuery(query.id)
+        return
+      }
+      const updated = saveAvatarSession({ chatId, background })
+      await this.api.answerCallbackQuery(query.id, AVATAR_BACKGROUNDS[background].label)
+      await this.api.sendMessage({
+        chatId,
+        text: `Фон: ${AVATAR_BACKGROUNDS[background].label}`,
+        replyMarkup: buildAvatarKeyboard(updated.view, updated.background),
+      })
+      return
+    }
     if (data.startsWith('view:')) {
       const view = parseViewKey(data.slice(5))
       if (!view) {
         await this.api.answerCallbackQuery(query.id)
         return
       }
-      saveAvatarSession({ chatId, view })
+      const updated = saveAvatarSession({ chatId, view })
       await this.api.answerCallbackQuery(query.id, AVATAR_VIEWS[view].label)
-      await this.renderAndSend(chatId, view)
+      await this.renderAndSend(chatId, updated.view, updated.background)
       return
     }
     if (data === 'action:render') {
       await this.api.answerCallbackQuery(query.id, 'Генерую…')
-      await this.renderAndSend(chatId, session.view)
+      await this.renderAndSend(chatId, session.view, session.background)
     }
   }
 
-  private async renderAndSend(chatId: number, view: AvatarViewKey): Promise<void> {
+  private async renderAndSend(
+    chatId: number,
+    view: AvatarViewKey,
+    background: AvatarBackgroundKey,
+  ): Promise<void> {
     const session = getAvatarSession(chatId)
     if (!session?.username && !session?.skinUrl) {
       return
     }
     await this.api.sendMessage({ chatId, text: AVATAR_BOT_MESSAGES.rendering })
     const label = session.username ? `@${session.username}` : 'custom skin'
-    const caption = `${AVATAR_VIEWS[view].label} · ${label}`
-    const keyboard = buildViewKeyboard(view)
-    const renderInput = {
-      view,
-      username: session.username,
-      skinUrl: session.skinUrl,
-    }
-    const candidates = buildAvatarRenderCandidates(renderInput)
-    for (const candidate of candidates) {
-      try {
-        await this.api.sendPhotoByUrl({
-          chatId,
-          photoUrl: candidate.url,
-          caption,
-          replyMarkup: keyboard,
-        })
-        return
-      } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : String(error)
-        console.warn(`[avatar-bot] ${candidate.label} via URL failed: ${message}`)
-      }
-    }
+    const caption = `${AVATAR_VIEWS[view].label} · ${AVATAR_BACKGROUNDS[background].label} · ${label}`
+    const keyboard = buildAvatarKeyboard(view, background)
     try {
-      const image = await downloadAvatarImage(renderInput)
+      const image = await renderAvatarPipeline({
+        view,
+        background,
+        username: session.username,
+        skinUrl: session.skinUrl,
+      })
       await this.api.sendPhoto({
         chatId,
         photo: image,

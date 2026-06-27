@@ -1,4 +1,4 @@
-import type { AvatarViewKey } from '@/lib/avatar-bot/types'
+import type { AvatarBackgroundKey, AvatarViewKey } from '@/lib/avatar-bot/types'
 
 export const AVATAR_BOT_POLL_TIMEOUT_SECONDS = 25
 export const AVATAR_BOT_RENDER_SIZE = 512
@@ -14,12 +14,20 @@ export const AVATAR_VIEWS: Record<AvatarViewKey, { label: string; path: string }
   frontfull: { label: '🧍 Front full', path: 'frontfull' },
 }
 
+export const AVATAR_BACKGROUNDS: Record<AvatarBackgroundKey, { label: string }> = {
+  studio: { label: '🎬 Studio' },
+  sunset: { label: '🌅 Sunset' },
+  ocean: { label: '🌊 Ocean' },
+  dark: { label: '🌑 Dark' },
+  transparent: { label: '⬜ PNG' },
+}
+
 export const AVATAR_BOT_MESSAGES = {
   missingToken: 'AVATAR_BOT_TOKEN не налаштовано в .env',
   welcome: (botName: string) =>
     `Привіт! Я ${botName} — бот для Minecraft-аватарок у 3D стилі.\n\n` +
     'Надішли Minecraft нік (наприклад Steve) або файл скіну PNG без стиснення.\n\n' +
-    'Після цього обери позу кнопками нижче.',
+    'Обери позу та фон, потім натисни «Згенерувати».',
   invalidNick: 'Некоректний нік. Дозволені літери, цифри та _ (3–16 символів).',
   invalidSkinFile: 'Надішли PNG-скін (64x32 або 64x64) як файл без стиснення.',
   skinAsPhoto:

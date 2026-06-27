@@ -1,10 +1,13 @@
 export type AvatarViewKey = 'bust' | 'full' | 'face' | 'front' | 'back' | 'frontfull'
 
+export type AvatarBackgroundKey = 'studio' | 'sunset' | 'ocean' | 'dark' | 'transparent'
+
 export type AvatarSession = {
   readonly chatId: number
   readonly username: string | null
   readonly skinUrl: string | null
   readonly view: AvatarViewKey
+  readonly background: AvatarBackgroundKey
   readonly updatedAt: number
 }
 
