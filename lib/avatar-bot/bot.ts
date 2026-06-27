@@ -41,6 +41,10 @@ export class AvatarTelegramBot {
       await this.handleSkinDocument(chatId, message)
       return
     }
+    if (message.photo && message.photo.length > 0 && !String(message.text || '').trim()) {
+      await this.api.sendMessage({ chatId, text: AVATAR_BOT_MESSAGES.skinAsPhoto })
+      return
+    }
     const text = String(message.text || '').trim()
     if (!text || text.startsWith('/')) {
       await this.handleCommand(chatId, text)
@@ -50,22 +54,26 @@ export class AvatarTelegramBot {
       await this.api.sendMessage({ chatId, text: AVATAR_BOT_MESSAGES.invalidNick })
       return
     }
-    const skinUrl = await resolveUsernameSkinUrl(text)
-    if (!skinUrl) {
+    try {
+      const skinUrl = await resolveUsernameSkinUrl(text)
+      if (!skinUrl) {
+        await this.api.sendMessage({ chatId, text: AVATAR_BOT_MESSAGES.renderFailed })
+        return
+      }
+      const session = saveAvatarSession({
+        chatId,
+        username: text,
+        skinUrl,
+        view: 'bust',
+      })
+      await this.api.sendMessage({
+        chatId,
+        text: AVATAR_BOT_MESSAGES.nickSaved(text),
+        replyMarkup: buildViewKeyboard(session.view),
+      })
+    } catch {
       await this.api.sendMessage({ chatId, text: AVATAR_BOT_MESSAGES.renderFailed })
-      return
     }
-    const session = saveAvatarSession({
-      chatId,
-      username: text,
-      skinUrl,
-      view: 'bust',
-    })
-    await this.api.sendMessage({
-      chatId,
-      text: AVATAR_BOT_MESSAGES.nickSaved(text),
-      replyMarkup: buildViewKeyboard(session.view),
-    })
   }
 
   private async handleCommand(chatId: number, text: string): Promise<void> {
@@ -110,7 +118,15 @@ export class AvatarTelegramBot {
       await this.api.sendMessage({ chatId, text: AVATAR_BOT_MESSAGES.skinTooLarge })
       return
     }
-    const buffer = await this.api.downloadFile(document.file_id)
+    try {
+      const buffer = await this.api.downloadFile(document.file_id)
+      await this.saveSkinBuffer(chatId, buffer)
+    } catch {
+      await this.api.sendMessage({ chatId, text: AVATAR_BOT_MESSAGES.skinUploadFailed })
+    }
+  }
+
+  private async saveSkinBuffer(chatId: number, buffer: Buffer): Promise<void> {
     if (!validateSkinBuffer(buffer)) {
       await this.api.sendMessage({ chatId, text: AVATAR_BOT_MESSAGES.invalidSkinFile })
       return

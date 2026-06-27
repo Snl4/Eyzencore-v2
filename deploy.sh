@@ -174,12 +174,11 @@ fi
 
 avatar_bot_token="$(grep -E '^AVATAR_BOT_TOKEN=' .env | tail -n 1 | cut -d= -f2- | tr -d '\r' | sed -e 's/^["'\'']//' -e 's/["'\'']$//')"
 if [[ -n "$avatar_bot_token" ]]; then
-  log "Starting avatar bot with PM2"
+  log "Starting avatar bot with PM2 (single instance)"
   if pm2 describe "$PM2_AVATAR_BOT" >/dev/null 2>&1; then
-    pm2 restart "$PM2_AVATAR_BOT" --update-env
-  else
-    pm2 start npm --name "$PM2_AVATAR_BOT" --cwd "$APP_DIR" -- run avatar:bot
+    pm2 delete "$PM2_AVATAR_BOT" || true
   fi
+  pm2 start npm --name "$PM2_AVATAR_BOT" --cwd "$APP_DIR" -i 1 -- run avatar:bot
 elif pm2 describe "$PM2_AVATAR_BOT" >/dev/null 2>&1; then
   log "AVATAR_BOT_TOKEN missing, stopping avatar bot"
   pm2 delete "$PM2_AVATAR_BOT" || true

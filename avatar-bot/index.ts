@@ -4,11 +4,26 @@
  */
 import { AvatarTelegramBot } from '@/lib/avatar-bot/bot'
 import { AVATAR_BOT_MESSAGES, AVATAR_BOT_POLL_TIMEOUT_SECONDS } from '@/lib/avatar-bot/constants'
+import { acquireAvatarBotInstanceLock } from '@/lib/avatar-bot/instance-lock'
 import { loadAvatarBotEnv } from '@/lib/avatar-bot/load-env'
 import { getAvatarBotName, getAvatarBotToken, TelegramAvatarApi } from '@/lib/avatar-bot/telegram-api'
 import type { TelegramUpdate } from '@/lib/avatar-bot/types'
 
 loadAvatarBotEnv()
+acquireAvatarBotInstanceLock()
+
+async function resolvePollingOffset(api: TelegramAvatarApi): Promise<number> {
+  const pending = await api.getUpdates(0, 0)
+  if (pending.length === 0) {
+    return 0
+  }
+  const lastUpdateId = pending[pending.length - 1]?.update_id
+  if (typeof lastUpdateId !== 'number') {
+    return 0
+  }
+  console.log(`[avatar-bot] skipped ${pending.length} pending updates`)
+  return lastUpdateId + 1
+}
 
 async function runAvatarBotPolling(): Promise<void> {
   const token = getAvatarBotToken()
@@ -20,7 +35,7 @@ async function runAvatarBotPolling(): Promise<void> {
   await api.deleteWebhook()
   const me = await api.getMe()
   const bot = new AvatarTelegramBot(api)
-  let offset = 0
+  let offset = await resolvePollingOffset(api)
   const username = me.username ? `@${me.username}` : getAvatarBotName()
   console.log(`[avatar-bot] started as ${username} (${me.first_name || getAvatarBotName()})`)
   for (;;) {

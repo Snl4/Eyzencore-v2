@@ -39,10 +39,10 @@ export async function resolveUsernameSkinUrl(username: string): Promise<string |
 export function isLikelySkinDocument(mimeType: string | undefined, fileName: string | undefined): boolean {
   const normalizedMime = String(mimeType || '').toLowerCase()
   const normalizedName = String(fileName || '').toLowerCase()
-  if (normalizedMime.includes('png')) {
+  if (normalizedName.endsWith('.png')) {
     return true
   }
-  return normalizedName.endsWith('.png')
+  return normalizedMime.includes('png')
 }
 
 export function validateSkinBuffer(buffer: Buffer): boolean {
@@ -52,19 +52,64 @@ export function validateSkinBuffer(buffer: Buffer): boolean {
   return buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47
 }
 
-export async function uploadSkinForRender(buffer: Buffer): Promise<string> {
+async function uploadSkinTo0x0(buffer: Buffer): Promise<string> {
   const form = new FormData()
   form.append('file', new Blob([new Uint8Array(buffer)], { type: 'image/png' }), 'skin.png')
-  const response = await fetch('https://0x0.st', {
+  const response = await fetch('https://0x0.st', { method: 'POST', body: form })
+  if (!response.ok) {
+    throw new Error(`0x0.st: ${response.status}`)
+  }
+  const url = (await response.text()).trim()
+  if (!url.startsWith('http')) {
+    throw new Error('0x0.st: invalid response')
+  }
+  return url
+}
+
+async function uploadSkinToTmpfiles(buffer: Buffer): Promise<string> {
+  const form = new FormData()
+  form.append('file', new Blob([new Uint8Array(buffer)], { type: 'image/png' }), 'skin.png')
+  const response = await fetch('https://tmpfiles.org/api/v1/upload', { method: 'POST', body: form })
+  if (!response.ok) {
+    throw new Error(`tmpfiles.org: ${response.status}`)
+  }
+  const payload = (await response.json()) as { data?: { url?: string } }
+  const pageUrl = String(payload.data?.url || '').trim()
+  if (!pageUrl.startsWith('http')) {
+    throw new Error('tmpfiles.org: invalid response')
+  }
+  return pageUrl.replace('tmpfiles.org/', 'tmpfiles.org/dl/')
+}
+
+async function uploadSkinToCatbox(buffer: Buffer): Promise<string> {
+  const form = new FormData()
+  form.append('reqtype', 'fileupload')
+  form.append('time', '1h')
+  form.append('fileToUpload', new Blob([new Uint8Array(buffer)], { type: 'image/png' }), 'skin.png')
+  const response = await fetch('https://litterbox.catbox.moe/resources/internals/upload.php', {
     method: 'POST',
     body: form,
   })
   if (!response.ok) {
-    throw new Error(`Skin upload failed: ${response.status}`)
+    throw new Error(`catbox: ${response.status}`)
   }
   const url = (await response.text()).trim()
   if (!url.startsWith('http')) {
-    throw new Error('Skin upload returned invalid URL')
+    throw new Error('catbox: invalid response')
   }
   return url
+}
+
+export async function uploadSkinForRender(buffer: Buffer): Promise<string> {
+  const uploaders = [uploadSkinTo0x0, uploadSkinToTmpfiles, uploadSkinToCatbox]
+  const errors: string[] = []
+  for (const upload of uploaders) {
+    try {
+      return await upload(buffer)
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error)
+      errors.push(message)
+    }
+  }
+  throw new Error(errors.join('; ') || 'Skin upload failed')
 }

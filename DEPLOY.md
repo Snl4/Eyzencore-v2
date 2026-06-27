@@ -107,5 +107,16 @@ If `/start` gets no reply, check:
 
 ```bash
 pm2 logs avatar-bot --lines 50
+pm2 list
 grep AVATAR_BOT_TOKEN /root/eyzencore-new/.env
 ```
+
+If the bot replies 2–4 times to one message, duplicate PM2 processes are running:
+
+```bash
+pm2 delete avatar-bot
+pm2 start npm --name avatar-bot --cwd /root/eyzencore-new -i 1 -- run avatar:bot
+pm2 save
+```
+
+Send skins as **File** (📎), not as a gallery photo — Telegram compresses photos and breaks PNG skins.
