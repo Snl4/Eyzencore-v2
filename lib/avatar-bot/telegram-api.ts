@@ -71,6 +71,20 @@ export class TelegramAvatarApi {
     }
   }
 
+  async sendPhotoByUrl(input: {
+    chatId: number
+    photoUrl: string
+    caption?: string
+    replyMarkup?: Record<string, unknown>
+  }): Promise<void> {
+    await this.request('sendPhoto', {
+      chat_id: input.chatId,
+      photo: input.photoUrl,
+      caption: input.caption,
+      reply_markup: input.replyMarkup,
+    })
+  }
+
   async answerCallbackQuery(callbackQueryId: string, text?: string): Promise<void> {
     await this.request('answerCallbackQuery', {
       callback_query_id: callbackQueryId,

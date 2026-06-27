@@ -1,6 +1,6 @@
 import { AVATAR_BOT_MESSAGES, AVATAR_VIEWS } from '@/lib/avatar-bot/constants'
 import { buildViewKeyboard } from '@/lib/avatar-bot/keyboards'
-import { renderAvatarImage } from '@/lib/avatar-bot/renderer'
+import { buildAvatarRenderCandidates, downloadAvatarImage } from '@/lib/avatar-bot/renderer'
 import { getAvatarSession, saveAvatarSession } from '@/lib/avatar-bot/session-store'
 import {
   isLikelySkinDocument,
@@ -180,24 +180,44 @@ export class AvatarTelegramBot {
       return
     }
     await this.api.sendMessage({ chatId, text: AVATAR_BOT_MESSAGES.rendering })
+    const label = session.username ? `@${session.username}` : 'custom skin'
+    const caption = `${AVATAR_VIEWS[view].label} · ${label}`
+    const keyboard = buildViewKeyboard(view)
+    const renderInput = {
+      view,
+      username: session.username,
+      skinUrl: session.skinUrl,
+    }
+    const candidates = buildAvatarRenderCandidates(renderInput)
+    for (const candidate of candidates) {
+      try {
+        await this.api.sendPhotoByUrl({
+          chatId,
+          photoUrl: candidate.url,
+          caption,
+          replyMarkup: keyboard,
+        })
+        return
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error)
+        console.warn(`[avatar-bot] ${candidate.label} via URL failed: ${message}`)
+      }
+    }
     try {
-      const image = await renderAvatarImage({
-        view,
-        username: session.username,
-        skinUrl: session.skinUrl,
-      })
-      const label = session.username ? `@${session.username}` : 'custom skin'
+      const image = await downloadAvatarImage(renderInput)
       await this.api.sendPhoto({
         chatId,
         photo: image,
-        caption: `${AVATAR_VIEWS[view].label} · ${label}`,
-        replyMarkup: buildViewKeyboard(view),
+        caption,
+        replyMarkup: keyboard,
       })
-    } catch {
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error)
+      console.error(`[avatar-bot] render failed: ${message}`)
       await this.api.sendMessage({
         chatId,
         text: AVATAR_BOT_MESSAGES.renderFailed,
-        replyMarkup: buildViewKeyboard(view),
+        replyMarkup: keyboard,
       })
     }
   }
