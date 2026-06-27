@@ -4,8 +4,11 @@
  */
 import { AvatarTelegramBot } from '@/lib/avatar-bot/bot'
 import { AVATAR_BOT_MESSAGES, AVATAR_BOT_POLL_TIMEOUT_SECONDS } from '@/lib/avatar-bot/constants'
+import { loadAvatarBotEnv } from '@/lib/avatar-bot/load-env'
 import { getAvatarBotName, getAvatarBotToken, TelegramAvatarApi } from '@/lib/avatar-bot/telegram-api'
 import type { TelegramUpdate } from '@/lib/avatar-bot/types'
+
+loadAvatarBotEnv()
 
 async function runAvatarBotPolling(): Promise<void> {
   const token = getAvatarBotToken()
@@ -14,9 +17,12 @@ async function runAvatarBotPolling(): Promise<void> {
     process.exit(1)
   }
   const api = new TelegramAvatarApi(token)
+  await api.deleteWebhook()
+  const me = await api.getMe()
   const bot = new AvatarTelegramBot(api)
   let offset = 0
-  console.log(`[avatar-bot] started as "${getAvatarBotName()}"`)
+  const username = me.username ? `@${me.username}` : getAvatarBotName()
+  console.log(`[avatar-bot] started as ${username} (${me.first_name || getAvatarBotName()})`)
   for (;;) {
     try {
       const updates = await api.getUpdates(offset, AVATAR_BOT_POLL_TIMEOUT_SECONDS)
@@ -36,4 +42,8 @@ async function runAvatarBotPolling(): Promise<void> {
   }
 }
 
-runAvatarBotPolling()
+runAvatarBotPolling().catch((error: unknown) => {
+  const message = error instanceof Error ? error.message : String(error)
+  console.error(`[avatar-bot] fatal: ${message}`)
+  process.exit(1)
+})

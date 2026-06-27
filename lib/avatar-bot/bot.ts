@@ -69,7 +69,8 @@ export class AvatarTelegramBot {
   }
 
   private async handleCommand(chatId: number, text: string): Promise<void> {
-    const command = text.split(/\s+/)[0]?.toLowerCase() || '/start'
+    const rawCommand = text.split(/\s+/)[0]?.toLowerCase() || '/start'
+    const command = rawCommand.split('@')[0] || '/start'
     if (command === '/help') {
       await this.api.sendMessage({ chatId, text: AVATAR_BOT_MESSAGES.help })
       return

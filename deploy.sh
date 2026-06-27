@@ -6,6 +6,7 @@ BRANCH="${BRANCH:-main}"
 REMOTE="${REMOTE:-origin}"
 PM2_APP="${PM2_APP:-eyzencore-new}"
 PM2_STATS_APP="${PM2_STATS_APP:-${PM2_APP}-stats}"
+PM2_AVATAR_BOT="${PM2_AVATAR_BOT:-avatar-bot}"
 PORT="${PORT:-3001}"
 HEALTH_URL="${HEALTH_URL:-http://127.0.0.1:${PORT}}"
 BACKUP_DIR="${BACKUP_DIR:-/root/backups/eyzencore}"
@@ -18,6 +19,7 @@ database_path=""
 release_activated=0
 app_was_running=0
 stats_was_running=0
+avatar_bot_was_running=0
 
 log() {
   printf '\n\033[1;36m[%s]\033[0m %s\n' "$(date +%H:%M:%S)" "$*"
@@ -139,6 +141,11 @@ if pm2 describe "$PM2_STATS_APP" >/dev/null 2>&1; then
   log "Stopping stats collector to unlock SQLite"
   pm2 stop "$PM2_STATS_APP"
 fi
+if pm2 describe "$PM2_AVATAR_BOT" >/dev/null 2>&1; then
+  avatar_bot_was_running=1
+  log "Stopping avatar bot during deploy"
+  pm2 stop "$PM2_AVATAR_BOT"
+fi
 sleep 3
 
 log "Applying database migrations"
@@ -163,6 +170,19 @@ if pm2 describe "$PM2_STATS_APP" >/dev/null 2>&1; then
   PORT="$PORT" STATS_COLLECTOR_BASE_URL="$HEALTH_URL" pm2 restart "$PM2_STATS_APP" --update-env
 else
   PORT="$PORT" STATS_COLLECTOR_BASE_URL="$HEALTH_URL" pm2 start npm --name "$PM2_STATS_APP" --cwd "$APP_DIR" -- run stats:collector
+fi
+
+avatar_bot_token="$(grep -E '^AVATAR_BOT_TOKEN=' .env | tail -n 1 | cut -d= -f2- | tr -d '\r' | sed -e 's/^["'\'']//' -e 's/["'\'']$//')"
+if [[ -n "$avatar_bot_token" ]]; then
+  log "Starting avatar bot with PM2"
+  if pm2 describe "$PM2_AVATAR_BOT" >/dev/null 2>&1; then
+    pm2 restart "$PM2_AVATAR_BOT" --update-env
+  else
+    pm2 start npm --name "$PM2_AVATAR_BOT" --cwd "$APP_DIR" -- run avatar:bot
+  fi
+elif pm2 describe "$PM2_AVATAR_BOT" >/dev/null 2>&1; then
+  log "AVATAR_BOT_TOKEN missing, stopping avatar bot"
+  pm2 delete "$PM2_AVATAR_BOT" || true
 fi
 pm2 save
 

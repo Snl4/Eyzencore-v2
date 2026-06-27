@@ -89,6 +89,9 @@ AVATAR_BOT_TOKEN=...
 AVATAR_BOT_NAME=Your Bot Name
 ```
 
+`deploy.sh` starts the avatar bot automatically when `AVATAR_BOT_TOKEN` is set in `.env`.
+The token must belong to the same bot you open in Telegram (from @BotFather), not `TELEGRAM_BOT_TOKEN` used by the site.
+
 Run locally or on VPS with PM2:
 
 ```bash
@@ -98,4 +101,11 @@ npm run avatar:bot
 ```bash
 pm2 start npm --name avatar-bot -- run avatar:bot
 pm2 save
+```
+
+If `/start` gets no reply, check:
+
+```bash
+pm2 logs avatar-bot --lines 50
+grep AVATAR_BOT_TOKEN /root/eyzencore-new/.env
 ```

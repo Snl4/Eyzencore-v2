@@ -16,6 +16,15 @@ export class TelegramAvatarApi {
     this.baseUrl = `https://api.telegram.org/bot${token}`
   }
 
+  async deleteWebhook(): Promise<void> {
+    await this.request('deleteWebhook', { drop_pending_updates: false })
+  }
+
+  async getMe(): Promise<{ username?: string; first_name?: string }> {
+    const result = await this.request<{ username?: string; first_name?: string }>('getMe', {})
+    return result ?? {}
+  }
+
   async getUpdates(offset: number, timeoutSeconds: number): Promise<Array<Record<string, unknown>>> {
     const response = await this.request<Array<Record<string, unknown>>>('getUpdates', {
       offset,
@@ -96,7 +105,7 @@ export class TelegramAvatarApi {
 }
 
 export function getAvatarBotToken(): string {
-  return String(process.env.AVATAR_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || '').trim()
+  return String(process.env.AVATAR_BOT_TOKEN || '').trim()
 }
 
 export function getAvatarBotName(): string {
