@@ -54,7 +54,7 @@ export class TelegramAvatarApi {
   }): Promise<void> {
     const form = new FormData()
     form.append('chat_id', String(input.chatId))
-    form.append('photo', new Blob([input.photo], { type: 'image/png' }), 'avatar.png')
+    form.append('photo', new Blob([new Uint8Array(input.photo)], { type: 'image/png' }), 'avatar.png')
     if (input.caption) {
       form.append('caption', input.caption)
     }

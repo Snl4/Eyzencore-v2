@@ -54,7 +54,7 @@ export function validateSkinBuffer(buffer: Buffer): boolean {
 
 export async function uploadSkinForRender(buffer: Buffer): Promise<string> {
   const form = new FormData()
-  form.append('file', new Blob([buffer], { type: 'image/png' }), 'skin.png')
+  form.append('file', new Blob([new Uint8Array(buffer)], { type: 'image/png' }), 'skin.png')
   const response = await fetch('https://0x0.st', {
     method: 'POST',
     body: form,
