@@ -24,6 +24,7 @@
     "stats:collector": "tsx scripts/server-stats-collector.ts",
     "news:bot": "tsx scripts/news-bot.ts",
     "news:bot:dry": "tsx scripts/news-bot.ts --dry-run",
+    "avatar:bot": "tsx avatar-bot/index.ts",
     "deploy:vps": "bash ./deploy.sh"
   },
   "dependencies": {

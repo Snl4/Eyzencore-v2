@@ -76,3 +76,26 @@ Cron example, every 2 hours:
 crontab -e
 0 */2 * * * cd /root/eyzencore-new && /usr/bin/npm run news:bot >> /root/eyzencore-new/logs/news-bot.log 2>&1
 ```
+
+## Avatar bot (Minecraft 3D avatars)
+
+Long-running Telegram bot similar to `@mc_raya_bot`: user sends a Minecraft nick or
+skin PNG, picks a pose, receives a rendered avatar.
+
+Required `.env` values:
+
+```bash
+AVATAR_BOT_TOKEN=...
+AVATAR_BOT_NAME=Your Bot Name
+```
+
+Run locally or on VPS with PM2:
+
+```bash
+npm run avatar:bot
+```
+
+```bash
+pm2 start npm --name avatar-bot -- run avatar:bot
+pm2 save
+```
