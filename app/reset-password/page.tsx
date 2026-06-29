@@ -7,9 +7,12 @@ import { BrandMark } from '@/components/ui/BrandMark'
 import { getPasswordResetRequest } from '@/lib/auth-db'
 import { getCurrentUser } from '@/lib/auth-server'
 
+import { PRIVATE_PAGE_ROBOTS } from '@/lib/seo'
+
 export const metadata: Metadata = {
   title: 'Новий пароль',
   description: 'Встановіть новий пароль для акаунта Eyzencore',
+  robots: PRIVATE_PAGE_ROBOTS,
 }
 
 export default async function ResetPasswordPage({

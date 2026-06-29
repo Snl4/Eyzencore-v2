@@ -141,7 +141,7 @@ export default async function LandingPage() {
                 <Link href="/servers/minecraft" className="btn btn-primary btn-lg">
                   Переглянути сервери <span aria-hidden="true">→</span>
                 </Link>
-                <Link href="/add-server" className="btn btn-secondary btn-lg">
+                <Link href="/add-server" className="btn btn-secondary btn-lg" rel="nofollow">
                   Додати свій сервер
                 </Link>
               </div>
@@ -181,7 +181,7 @@ export default async function LandingPage() {
                   <span className="home-empty-mark">+</span>
                   <h3>Каталог чекає на перший сервер</h3>
                   <p>Додайте Minecraft або Discord проєкт, і його актуальний онлайн з’явиться тут.</p>
-                  <Link href="/add-server" className="btn btn-primary">Додати сервер</Link>
+                  <Link href="/add-server" className="btn btn-primary" rel="nofollow">Додати сервер</Link>
                 </div>
               )}
 
@@ -242,7 +242,7 @@ export default async function LandingPage() {
                 </div>
                 <span className="home-feature-arrow">→</span>
               </Link>
-              <Link href="/dashboard" className="home-feature">
+              <Link href="/dashboard" className="home-feature" rel="nofollow">
                 <span className="home-feature-index">04</span>
                 <div>
                   <span className="home-feature-tag">Для власників</span>
@@ -251,7 +251,7 @@ export default async function LandingPage() {
                 </div>
                 <span className="home-feature-arrow">→</span>
               </Link>
-              <Link href="/dashboard/developers" className="home-feature">
+              <Link href="/dashboard/developers" className="home-feature" rel="nofollow">
                 <span className="home-feature-index">05</span>
                 <div>
                   <span className="home-feature-tag">Інтеграції</span>
@@ -317,7 +317,7 @@ export default async function LandingPage() {
                 <p>Створи сторінку проєкту, підключи актуальний онлайн і отримай власну панель керування.</p>
               </div>
               <div className="home-cta-actions">
-                <Link href="/add-server" className="btn btn-primary btn-lg">Додати сервер →</Link>
+                <Link href="/add-server" className="btn btn-primary btn-lg" rel="nofollow">Додати сервер →</Link>
                 <Link href="/auth/register" className="btn btn-secondary btn-lg">Створити акаунт</Link>
               </div>
             </div>

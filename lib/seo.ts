@@ -7,6 +7,16 @@ import { buildServerPublicPath } from '@/lib/server-slug'
 export const SITE_URL = 'https://eyzencore.com'
 export const SITE_NAME = 'Eyzencore'
 
+/** Private/auth pages: blocked in robots.txt and excluded from indexing. */
+export const PRIVATE_PAGE_ROBOTS: NonNullable<Metadata['robots']> = {
+  index: false,
+  follow: true,
+  googleBot: {
+    index: false,
+    follow: true,
+  },
+}
+
 export const SEO_KEYWORDS = [
   'Eyzencore',
   'Minecraft сервери',

@@ -9,13 +9,12 @@ import { getAuthReviewTicker } from '@/lib/auth-review-ticker'
 import { getCurrentUser } from '@/lib/auth-server'
 import { getCachedPublicStats } from '@/lib/public-cache'
 
+import { PRIVATE_PAGE_ROBOTS } from '@/lib/seo'
+
 export const metadata: Metadata = {
   title: 'Увійти',
   description: 'Увійдіть в акаунт Eyzencore',
-  robots: {
-    index: false,
-    follow: true,
-  },
+  robots: PRIVATE_PAGE_ROBOTS,
 }
 
 export default async function LoginPage() {

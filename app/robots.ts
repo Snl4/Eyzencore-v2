@@ -1,12 +1,15 @@
 import type { MetadataRoute } from 'next'
 import { SITE_URL } from '@/lib/seo'
 
+/** Intentionally blocked from crawling/indexing (auth, owner tools, forms). */
 const PRIVATE_PATHS = [
   '/api/',
   '/admin/',
   '/cms/',
+  '/auth/',
   '/dashboard/',
   '/settings',
+  '/profile',
   '/login',
   '/register',
   '/reset-password',

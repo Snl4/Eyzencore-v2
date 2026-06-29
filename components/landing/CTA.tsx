@@ -17,7 +17,7 @@ export function CTA() {
             Реєстрація, моніторинг та сторінка сервера - безкоштовно. Без прихованих платежів і реклами.
           </p>
           <div style={{ display:'flex', justifyContent:'center', gap:10, flexWrap:'wrap' }}>
-            <Link href="/add-server" className="btn btn-primary btn-lg">
+            <Link href="/add-server" className="btn btn-primary btn-lg" rel="nofollow">
               Додати сервер <span style={{ opacity:.6 }}>→</span>
             </Link>
             <Link href="#" className="btn btn-secondary btn-lg">Зв&apos;язатись із командою</Link>

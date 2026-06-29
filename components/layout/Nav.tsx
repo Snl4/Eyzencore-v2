@@ -62,12 +62,13 @@ export function Nav() {
             { href: '/servers/minecraft', label: 'Minecraft' },
             { href: '/servers/discord', label: 'Discord' },
             { href: '/news', label: 'Новини' },
-            { href: '/dashboard', label: 'Кабінет' },
-            { href: '/add-server', label: 'Додати сервер' },
-          ].map(({ href, label }) => (
+            { href: '/dashboard', label: 'Кабінет', nofollow: true },
+            { href: '/add-server', label: 'Додати сервер', nofollow: true },
+          ].map(({ href, label, nofollow }) => (
             <Link
               key={href}
               href={href}
+              rel={nofollow ? 'nofollow' : undefined}
               onClick={() => setMobileOpen(false)}
             >
               {label}
@@ -97,8 +98,8 @@ export function Nav() {
               >
                 {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
               </Toggle>
-              <Link className="btn btn-secondary" href="/auth/login">Увійти</Link>
-              <Link className="btn btn-primary" href="/auth/register">
+              <Link className="btn btn-secondary" href="/auth/login" rel="nofollow">Увійти</Link>
+              <Link className="btn btn-primary" href="/auth/register" rel="nofollow">
                 Реєстрація <span style={{ opacity: 0.6 }}>→</span>
               </Link>
             </>

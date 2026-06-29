@@ -6,9 +6,12 @@ import { AuthIcons } from '@/components/auth/AuthIcons'
 import { BrandMark } from '@/components/ui/BrandMark'
 import { getCurrentUser } from '@/lib/auth-server'
 
+import { PRIVATE_PAGE_ROBOTS } from '@/lib/seo'
+
 export const metadata: Metadata = {
   title: 'Відновлення пароля',
   description: 'Отримайте лист для скидання пароля Eyzencore',
+  robots: PRIVATE_PAGE_ROBOTS,
 }
 
 export default async function ForgotPasswordPage() {
