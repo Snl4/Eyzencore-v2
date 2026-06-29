@@ -11,6 +11,8 @@ dist/
 
 # env files
 .env
+.env.*
+!.env.example
 .codex-dev.*.log
 .env.local
 .env.*.local
@@ -44,6 +46,11 @@ avatar-bot/blender/minecraft_avatar.blend
 Thumbs.db
 .idea/
 .vscode/
+.cursor/
+
+# local experiments / drafts
+/headmc-bot/
+/app/api/headmc-bot/
 
 # vercel
 .vercel

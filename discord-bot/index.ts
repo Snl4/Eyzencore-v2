@@ -30,6 +30,8 @@ if (!token || !clientId || !botSecret) {
   process.exit(1)
 }
 
+console.log(`Discord bot API: ${appUrl}`)
+
 const client = new Client({ intents: [GatewayIntentBits.Guilds] })
 
 type LinkableGuild = {
@@ -72,7 +74,16 @@ async function postVerify(code: string, guildId: string, guildName: string): Pro
     },
     body: JSON.stringify({ code, guildId, guildName }),
   })
-  return (await response.json()) as { success?: boolean; serverName?: string; error?: string }
+  const payload = (await response.json()) as { success?: boolean; serverName?: string; error?: string }
+  if (response.status === 401) {
+    return {
+      error: 'Секрет бота не збігається з сайтом. Перевірте, що DISCORD_BOT_SECRET однаковий у .env бота і сайту, потім перезапустіть обидва процеси.',
+    }
+  }
+  if (!response.ok) {
+    return { error: payload.error || `Помилка API (${response.status})` }
+  }
+  return payload
 }
 
 async function syncGuild(guildId: string, players: number, max: number, guildName: string): Promise<void> {
