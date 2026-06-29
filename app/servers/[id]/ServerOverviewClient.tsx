@@ -1304,7 +1304,7 @@ export function ServerOverviewClient({ server: s, cluster, canEdit, initialUser 
                   </a>
                 )}
                 <p style={{ fontSize: 12, color: 'var(--fg-3)' }}>
-                  У Discord: <code>/link {s.discordVerifyCode}</code>
+                  У Discord (ЛС бота або на сервері): <code>/link {s.discordVerifyCode}</code>
                 </p>
               </div>
             )}

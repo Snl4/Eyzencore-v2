@@ -143,9 +143,10 @@ export function VerifyServerClient({
               <ol className="verify-steps">
                 <li>Додайте бота Eyzencore на свій Discord-сервер з правами адміністратора.</li>
                 <li>
-                  На сервері виконайте команду:{' '}
+                  Виконайте команду в ЛС бота або на сервері:{' '}
                   <code>/link {server.discordVerifyCode || 'КОД'}</code>
                 </li>
+                <li>Якщо у вас кілька серверів у ЛС — оберіть потрібний у списку.</li>
                 <li>Після успішного зв’язку статус зміниться на «Верифіковано».</li>
               </ol>
               {server.discordVerifyCode ? (
