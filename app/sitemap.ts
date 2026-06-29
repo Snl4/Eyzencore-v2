@@ -71,13 +71,13 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: slug === 'how-to-add-server' ? 0.78 : 0.72,
     })),
     {
-      url: url('/llms.txt'),
+      url: url('/catalog.txt'),
       lastModified: now,
       changeFrequency: 'daily',
       priority: 0.35,
     },
     {
-      url: url('/llms-full.txt'),
+      url: url('/catalog-full.txt'),
       lastModified: now,
       changeFrequency: 'daily',
       priority: 0.35,

@@ -6,10 +6,34 @@ const MAX_ATTACHMENTS = 6
 
 export type ForumAttachment = {
   url: string
-  kind: 'image' | 'video'
+  kind: 'image' | 'video' | 'file'
   mime: string
   size: number
   name: string
+}
+
+const FORUM_FILE_MIME = new Set([
+  'application/pdf',
+  'application/zip',
+  'application/x-zip-compressed',
+  'application/x-rar-compressed',
+  'application/vnd.rar',
+  'application/x-7z-compressed',
+  'text/plain',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'image/vnd.adobe.photoshop',
+  'application/octet-stream',
+])
+
+const FORUM_FILE_EXT = new Set(['.pdf', '.zip', '.rar', '.7z', '.txt', '.doc', '.docx', '.xls', '.xlsx', '.psd'])
+
+function isForumDocumentMime(mime: string, name: string): boolean {
+  if (FORUM_FILE_MIME.has(mime)) return true
+  const ext = name.includes('.') ? `.${name.split('.').pop()?.toLowerCase()}` : ''
+  return FORUM_FILE_EXT.has(ext)
 }
 
 function cleanText(value: unknown, max: number) {
@@ -35,16 +59,18 @@ function normalizeAttachments(value: unknown): ForumAttachment[] {
     const input = item as Record<string, unknown>
     const url = cleanText(input.url, 1000)
     const mime = cleanText(input.mime, 120).toLowerCase()
-    const kind = input.kind === 'video' ? 'video' : 'image'
+    const name = cleanText(input.name, 255)
+    const kind = input.kind === 'video' ? 'video' : input.kind === 'file' ? 'file' : 'image'
     if (!url.startsWith('/uploads/forum/') && !url.startsWith('/api/uploads/forum/')) return []
     if (kind === 'image' && !mime.startsWith('image/')) return []
     if (kind === 'video' && !mime.startsWith('video/')) return []
+    if (kind === 'file' && !isForumDocumentMime(mime, name)) return []
     return [{
       url,
       kind,
       mime,
       size: Math.max(0, Number(input.size) || 0),
-      name: cleanText(input.name, 255) || (kind === 'video' ? 'video' : 'image'),
+      name: name || (kind === 'video' ? 'video' : kind === 'file' ? 'file' : 'image'),
     }]
   })
 }

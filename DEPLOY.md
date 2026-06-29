@@ -47,8 +47,8 @@ NEWS_BOT_AUTHOR_EMAIL=admin@example.com
 Recommended for clean Ukrainian rewriting:
 
 ```bash
-NEWS_BOT_OPENAI_API_KEY=...
-NEWS_BOT_OPENAI_MODEL=gpt-4o-mini
+NEWS_BOT_REWRITE_API_KEY=...
+NEWS_BOT_REWRITE_MODEL=...
 ```
 
 Custom sources are optional. Format is `kind|Label|URL`, separated by commas or

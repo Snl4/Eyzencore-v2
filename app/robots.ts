@@ -16,7 +16,7 @@ const PRIVATE_PATHS = [
   '/*/edit',
 ]
 
-const AI_BOTS = [
+const EXTRA_CRAWLERS = [
   'GPTBot',
   'ChatGPT-User',
   'OAI-SearchBot',
@@ -44,7 +44,7 @@ export default function robots(): MetadataRoute.Robots {
     rules: [
       { userAgent: '*', ...sharedRule },
       { userAgent: 'Googlebot', ...sharedRule },
-      ...AI_BOTS.map((userAgent) => ({ userAgent, ...sharedRule })),
+      ...EXTRA_CRAWLERS.map((userAgent) => ({ userAgent, ...sharedRule })),
     ],
     sitemap: [
       `${SITE_URL}/sitemap.xml`,

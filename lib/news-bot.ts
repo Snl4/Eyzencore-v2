@@ -279,11 +279,16 @@ function extractResponseText(payload: unknown) {
     .join('\n')
 }
 
-async function composeWithOpenAI(candidate: Candidate): Promise<ComposedNews | null> {
-  const apiKey = String(process.env.NEWS_BOT_OPENAI_API_KEY || process.env.OPENAI_API_KEY || '').trim()
+async function composeWithRewriteService(candidate: Candidate): Promise<ComposedNews | null> {
+  const apiKey = String(
+    process.env.NEWS_BOT_REWRITE_API_KEY
+    || process.env.NEWS_BOT_OPENAI_API_KEY
+    || process.env.OPENAI_API_KEY
+    || ''
+  ).trim()
   if (!apiKey) return null
 
-  const model = String(process.env.NEWS_BOT_OPENAI_MODEL || 'gpt-4o-mini')
+  const model = String(process.env.NEWS_BOT_REWRITE_MODEL || process.env.NEWS_BOT_OPENAI_MODEL || 'gpt-4o-mini')
   const prompt = [
     'Ти редактор українського сайту Eyzencore про Minecraft і Discord сервери.',
     'Створи коротку новину тільки українською мовою.',
@@ -310,7 +315,7 @@ async function composeWithOpenAI(candidate: Candidate): Promise<ComposedNews | n
   })
 
   if (!response.ok) {
-    console.warn(`[news-bot] OpenAI compose failed: ${response.status}`)
+    console.warn(`[news-bot] rewrite compose failed: ${response.status}`)
     return null
   }
 
@@ -344,7 +349,7 @@ function composeFallback(candidate: Candidate): ComposedNews {
   const paragraph = [
     `У спільноті Minecraft та серверних проєктів з'явилася нова тема: ${sourceTitle}.`,
     `Джерело повідомляє деталі за посиланням нижче. Якщо новина важлива для власників серверів, її варто перевірити та врахувати у своїх проєктах.`,
-    'Для красивого автоматичного переказу українською підключіть NEWS_BOT_OPENAI_API_KEY у .env.',
+    'Для розширеного автоматичного переказу українською підключіть NEWS_BOT_REWRITE_API_KEY у .env.',
   ]
 
   return {
@@ -416,7 +421,7 @@ export async function runNewsBot() {
   let created = 0
 
   for (const candidate of collected.slice(0, limit)) {
-    const composed = (await composeWithOpenAI(candidate).catch(() => null)) || composeFallback(candidate)
+    const composed = (await composeWithRewriteService(candidate).catch(() => null)) || composeFallback(candidate)
 
     if (dryRun) {
       console.log('[news-bot] dry-run candidate:', { title: composed.title, source: candidate.source, url: candidate.url })

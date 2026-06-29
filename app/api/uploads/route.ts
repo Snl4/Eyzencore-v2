@@ -128,7 +128,8 @@ export async function POST(request: NextRequest) {
   const mime = resolveMime(file)
   const { isImage, isVideo, isDocument } = classifyUpload(file, mime)
 
-  if (!isImage && !isVideo && !(kind === 'animilair' && isDocument)) {
+  const allowsDocuments = kind === 'animilair' || kind === 'forum'
+  if (!isImage && !isVideo && !(allowsDocuments && isDocument)) {
     return NextResponse.json(
       { error: 'Підтримуються зображення, відео або файли (pdf, zip, doc, txt тощо)' },
       { status: 400 }

@@ -8,7 +8,7 @@ import { absoluteUrl, SITE_NAME, SITE_URL, truncateSeo } from '@/lib/seo'
 import { buildServerPublicPath } from '@/lib/server-slug'
 import type { Server } from '@/lib/types'
 
-interface BuildLlmsCatalogOptions {
+interface BuildSiteCatalogOptions {
   full?: boolean
 }
 
@@ -40,9 +40,9 @@ function renderServerSection(servers: Server[], title: string, full: boolean): s
 }
 
 /**
- * Builds llms.txt or llms-full.txt content for AI crawlers.
+ * Builds catalog.txt or catalog-full.txt for search engines and directory parsers.
  */
-export async function buildLlmsCatalog(options: BuildLlmsCatalogOptions = {}): Promise<string> {
+export async function buildSiteCatalog(options: BuildSiteCatalogOptions = {}): Promise<string> {
   const full = Boolean(options.full)
   const [servers, news, forumThreads] = await Promise.all([
     getCachedPublicServers(),
@@ -57,8 +57,8 @@ export async function buildLlmsCatalog(options: BuildLlmsCatalogOptions = {}): P
     `> Каталог українських серверів майнкрафт і Discord спільнот з живим онлайном, рейтингом, голосами, відгуками, новинами та форумом. Додавай свій сервер безкоштовно.`,
     '',
     full
-      ? 'Це розширена версія llms.txt з повними описами серверів, новин і форуму.'
-      : 'Компактна версія каталогу. Повний файл: https://eyzencore.com/llms-full.txt',
+      ? 'Це розширена версія catalog.txt з повними описами серверів, новин і форуму.'
+      : 'Компактна версія каталогу. Повний файл: https://eyzencore.com/catalog-full.txt',
     '',
     '## Що таке Eyzencore?',
     '',
