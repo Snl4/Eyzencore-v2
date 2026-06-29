@@ -1,10 +1,12 @@
 import type { Metadata } from 'next'
 import { LegalPage } from '@/components/legal/LegalPage'
+import { buildPageMetadata } from '@/lib/seo'
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildPageMetadata({
   title: 'Умови використання',
   description: 'Правила користування платформою Eyzencore.',
-}
+  path: '/terms',
+})
 
 export default function TermsPage() {
   return (

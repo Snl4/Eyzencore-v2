@@ -5,31 +5,45 @@ import { getCachedPublicServers } from '@/lib/public-cache'
 import {
   breadcrumbJsonLd,
   buildPageMetadata,
+  FILTERED_LISTING_ROBOTS,
   faqJsonLd,
+  hasPublicListingFilters,
   itemListJsonLd,
   serverJsonLd,
 } from '@/lib/seo'
 import { buildServerPublicPath } from '@/lib/server-slug'
 
-export const metadata: Metadata = {
-  ...buildPageMetadata({
-    title: 'Discord сервери і спільноти - рейтинг, онлайн, каталог',
-    description:
-      'Каталог Discord серверів і українських спільнот: gaming, Minecraft, support, community, giveaways, voice chat. Онлайн, учасники, категорії та рейтинг.',
-    path: '/servers/discord',
-    keywords: [
-      'Discord сервери',
-      'Discord servers',
-      'українські Discord сервери',
-      'Discord спільноти',
-      'Discord communities',
-      'Minecraft Discord',
-      'gaming Discord Ukraine',
-      'Discord server list',
-      'каталог Discord серверів',
-      'моніторинг Discord серверів',
-    ],
-  }),
+const DISCORD_LISTING_METADATA = buildPageMetadata({
+  title: 'Discord сервери і спільноти - рейтинг, онлайн, каталог',
+  description:
+    'Каталог Discord серверів і українських спільнот: gaming, Minecraft, support, community, giveaways, voice chat. Онлайн, учасники, категорії та рейтинг.',
+  path: '/servers/discord',
+  keywords: [
+    'Discord сервери',
+    'Discord servers',
+    'українські Discord сервери',
+    'Discord спільноти',
+    'Discord communities',
+    'Minecraft Discord',
+    'gaming Discord Ukraine',
+    'Discord server list',
+    'каталог Discord серверів',
+    'моніторинг Discord серверів',
+  ],
+})
+
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams?: Record<string, string | string[] | undefined>
+}): Promise<Metadata> {
+  if (hasPublicListingFilters(searchParams)) {
+    return {
+      ...DISCORD_LISTING_METADATA,
+      robots: FILTERED_LISTING_ROBOTS,
+    }
+  }
+  return DISCORD_LISTING_METADATA
 }
 
 export default async function DiscordServersPage() {

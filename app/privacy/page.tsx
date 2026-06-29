@@ -1,10 +1,12 @@
 import type { Metadata } from 'next'
 import { LegalPage } from '@/components/legal/LegalPage'
+import { buildPageMetadata } from '@/lib/seo'
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildPageMetadata({
   title: 'Політика конфіденційності',
   description: 'Як Eyzencore збирає, використовує та захищає персональні дані.',
-}
+  path: '/privacy',
+})
 
 export default function PrivacyPage() {
   return (

@@ -5,35 +5,49 @@ import { getCachedPublicServers } from '@/lib/public-cache'
 import {
   breadcrumbJsonLd,
   buildPageMetadata,
+  FILTERED_LISTING_ROBOTS,
   faqJsonLd,
+  hasPublicListingFilters,
   itemListJsonLd,
   serverJsonLd,
 } from '@/lib/seo'
 import { buildServerPublicPath } from '@/lib/server-slug'
 
-export const metadata: Metadata = {
-  ...buildPageMetadata({
-    title: 'Українські сервера майнкрафт - рейтинг, онлайн, голосування',
-    description:
-      'Каталог українських серверів майнкрафт: Java, Bedrock, Survival, SkyBlock, RPG, PvP, SMP. Перевіряйте онлайн, рейтинг, голоси, відгуки та IP серверів України.',
-    path: '/servers/minecraft',
-    keywords: [
-      'українські сервера майнкрафт',
-      'українські Minecraft сервери',
-      'майнкрафт сервери',
-      'Minecraft сервери',
-      'моніторинг майнкрафт серверів',
-      'топ майнкрафт серверів',
-      'Minecraft servers',
-      'Minecraft server list',
-      'Minecraft survival server',
-      'Bedrock servers',
-      'Java servers',
-      'SkyBlock сервер',
-      'PvP Minecraft',
-      'SMP Minecraft',
-    ],
-  }),
+const MINECRAFT_LISTING_METADATA = buildPageMetadata({
+  title: 'Українські сервера майнкрафт - рейтинг, онлайн, голосування',
+  description:
+    'Каталог українських серверів майнкрафт: Java, Bedrock, Survival, SkyBlock, RPG, PvP, SMP. Перевіряйте онлайн, рейтинг, голоси, відгуки та IP серверів України.',
+  path: '/servers/minecraft',
+  keywords: [
+    'українські сервера майнкрафт',
+    'українські Minecraft сервери',
+    'майнкрафт сервери',
+    'Minecraft сервери',
+    'моніторинг майнкрафт серверів',
+    'топ майнкрафт серверів',
+    'Minecraft servers',
+    'Minecraft server list',
+    'Minecraft survival server',
+    'Bedrock servers',
+    'Java servers',
+    'SkyBlock сервер',
+    'PvP Minecraft',
+    'SMP Minecraft',
+  ],
+})
+
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams?: Record<string, string | string[] | undefined>
+}): Promise<Metadata> {
+  if (hasPublicListingFilters(searchParams)) {
+    return {
+      ...MINECRAFT_LISTING_METADATA,
+      robots: FILTERED_LISTING_ROBOTS,
+    }
+  }
+  return MINECRAFT_LISTING_METADATA
 }
 
 export default async function MinecraftServersPage() {

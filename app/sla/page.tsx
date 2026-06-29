@@ -1,10 +1,12 @@
 import type { Metadata } from 'next'
 import { LegalPage } from '@/components/legal/LegalPage'
+import { buildPageMetadata } from '@/lib/seo'
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildPageMetadata({
   title: 'SLA',
   description: 'Цільові показники доступності та підтримки Eyzencore.',
-}
+  path: '/sla',
+})
 
 export default function SlaPage() {
   return (

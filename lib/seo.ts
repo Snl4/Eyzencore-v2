@@ -65,6 +65,29 @@ export function truncateSeo(value: string, max = 155) {
   return `${normalized.slice(0, max - 1).trim()}…`
 }
 
+const LISTING_FILTER_KEYS = ['version', 'mode', 'tag', 'sort', 'q', 'search', 'page'] as const
+
+export function hasPublicListingFilters(
+  searchParams: Record<string, string | string[] | undefined> = {},
+): boolean {
+  return LISTING_FILTER_KEYS.some((key) => {
+    const value = searchParams[key]
+    if (Array.isArray(value)) {
+      return value.some((item) => String(item || '').trim().length > 0)
+    }
+    return String(value || '').trim().length > 0
+  })
+}
+
+export const FILTERED_LISTING_ROBOTS: NonNullable<Metadata['robots']> = {
+  index: false,
+  follow: true,
+  googleBot: {
+    index: false,
+    follow: true,
+  },
+}
+
 export function buildPageMetadata(input: {
   title: string
   description: string

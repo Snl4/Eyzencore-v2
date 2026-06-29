@@ -46,14 +46,6 @@ export const metadata: Metadata = {
   creator: SITE_NAME,
   publisher: SITE_NAME,
   category: 'gaming',
-  alternates: {
-    canonical: SITE_URL,
-    languages: {
-      uk: SITE_URL,
-      en: SITE_URL,
-      'x-default': SITE_URL,
-    },
-  },
   openGraph: {
     title: 'Eyzencore - Minecraft і Discord сервери',
     description: 'Моніторинг Minecraft і Discord серверів, рейтинг, голосування, відгуки, новини та форум спільноти.',

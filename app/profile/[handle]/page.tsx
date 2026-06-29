@@ -4,6 +4,7 @@ import { listUserBadges } from '@/lib/achievements'
 import { countServersByOwner, getUserByProfileSlug, getUserProfileSummary, listServersByOwner } from '@/lib/auth-db'
 import { getCurrentUser } from '@/lib/auth-server'
 import { listForumThreadsByUser } from '@/lib/forum-db'
+import { buildPageMetadata } from '@/lib/seo'
 
 export const dynamic = 'force-dynamic'
 
@@ -20,10 +21,12 @@ export async function generateMetadata({ params }: PublicProfilePageProps) {
       title: 'Профіль не знайдено',
     }
   }
-  return {
-    title: `Профіль @${user.user_metadata.profile_slug || 'user'}`,
+  const profileSlug = user.user_metadata.profile_slug || params.handle
+  return buildPageMetadata({
+    title: `Профіль @${profileSlug}`,
     description: `Публічний профіль користувача ${user.user_metadata.full_name || 'Eyzencore user'}.`,
-  }
+    path: `/profile/${profileSlug}`,
+  })
 }
 
 export default async function PublicProfilePage({ params }: PublicProfilePageProps) {
