@@ -2,6 +2,7 @@
  * Eyzencore Discord bot - verification (/link) and guild stats sync.
  * Run: npm run discord-bot
  */
+import { loadAvatarBotEnv } from '@/lib/avatar-bot/load-env'
 import {
   Client,
   GatewayIntentBits,
@@ -9,6 +10,8 @@ import {
   Routes,
   SlashCommandBuilder,
 } from 'discord.js'
+
+loadAvatarBotEnv()
 
 const token = String(process.env.DISCORD_BOT_TOKEN || '').trim()
 const clientId = String(process.env.DISCORD_CLIENT_ID || '').trim()
@@ -92,7 +95,20 @@ client.once('ready', () => {
 })
 
 client.on('interactionCreate', async (interaction) => {
-  if (!interaction.isChatInputCommand() || !interaction.guild) {
+  if (!interaction.isChatInputCommand()) {
+    return
+  }
+  if (!interaction.guild) {
+    await interaction.reply({
+      content: [
+        '❌ Команда `/link` працює **на Discord-сервері**, а не в особистих повідомленнях.',
+        '',
+        '1. Додайте бота EyzenCore на свій Discord-сервер.',
+        '2. На каналі сервера виконайте: `/link код:ВАШ_КОД`',
+        '3. Код береться з панелі Eyzencore → верифікація сервера.',
+      ].join('\n'),
+      ephemeral: true,
+    })
     return
   }
   if (interaction.commandName === 'link') {
