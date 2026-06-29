@@ -1,4 +1,3 @@
-import { AVATAR_BOT_RENDER_SIZE } from '@/lib/avatar-bot/constants'
 import type { AvatarBackgroundKey } from '@/lib/avatar-bot/types'
 
 type ProcessAvatarImageInput = {

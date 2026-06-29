@@ -4866,7 +4866,15 @@ button { cursor: pointer; }
   }
   .sc-title span.sub { font-size: 12px; color: var(--fg-3); font-family: var(--font-mono); }
   .sc-rank { padding: 4px 10px; font-family: var(--font-mono); font-size: 11.5px; font-weight: 600; background: var(--bg-2); border: 1px solid var(--line); border-radius: 999px; color: var(--fg-1); flex-shrink: 0; }
-  .sc-banner { height: 130px; position: relative; overflow: hidden; }
+  .banner-surface {
+    width: 100%;
+    aspect-ratio: 3 / 1;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    overflow: hidden;
+    position: relative;
+  }
   .sc-banner img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .sc-status {
     position: absolute; top: 10px; left: 10px; display: inline-flex; align-items: center; gap: 6px;
@@ -5105,16 +5113,22 @@ button { cursor: pointer; }
 
   /* ── Server overview ────────────────────────────────────────── */
   .so-shell { max-width: 1540px; margin: 0 auto; padding: 0 32px 80px; position: relative; z-index: 1; min-width: 0; }
-  .so-hero { position: relative; min-height: 280px; border-radius: var(--radius-xl); overflow: hidden; border: 1px solid var(--line); isolation: isolate; }
+  .so-hero {
+    position: relative;
+    border-radius: var(--radius-xl);
+    overflow: hidden;
+    border: 1px solid var(--line);
+    isolation: isolate;
+  }
   .so-hero-overlay {
     position: absolute; inset: 0;
     background: linear-gradient(180deg, rgba(10,12,20,0.48) 0%, rgba(10,12,20,0.66) 55%, rgba(10,12,20,0.82) 100%);
     pointer-events: none;
-    z-index: 0;
+    z-index: 1;
   }
   .so-hero-content {
-    position: relative; padding: 28px 32px; min-height: 280px;
-    display: flex; align-items: flex-end; gap: 22px; z-index: 1; flex-wrap: wrap;
+    position: relative; padding: 28px 32px; min-height: 100%;
+    display: flex; align-items: flex-end; gap: 22px; z-index: 2; flex-wrap: wrap;
     color: #f5f6fa;
   }
   [data-theme="light"] .so-hero-overlay {
@@ -5448,14 +5462,13 @@ button { cursor: pointer; }
 
   /* ── Profile page ───────────────────────────────────────────── */
   .profile-cover {
-    height: 290px; border-radius: var(--radius-lg);
+    border-radius: var(--radius-lg);
     background:
       radial-gradient(ellipse 600px 200px at 30% 50%, rgba(123,140,255,0.5), transparent 60%),
       radial-gradient(ellipse 500px 200px at 80% 50%, rgba(167,139,250,0.4), transparent 60%),
       linear-gradient(135deg, #0c0e13 0%, #1a1f2e 100%);
-    border: 1px solid var(--line); position: relative; overflow: hidden;
+    border: 1px solid var(--line);
   }
-  .profile-cover::after { content: ""; position: absolute; inset: 0; background-image: linear-gradient(to right, rgba(255,255,255,0.04) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.04) 1px, transparent 1px); background-size: 32px 32px; }
   .profile-card { margin-top: -60px; position: relative; background: var(--bg-1); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 20px 24px; display: flex; align-items: center; gap: 20px; }
   .profile-avatar { width: 96px; height: 96px; border-radius: 18px; background: linear-gradient(135deg, var(--accent), var(--accent-2)); border: 4px solid var(--bg-1); display: grid; place-items: center; color: #0a0c14; font-weight: 700; font-family: var(--font-mono); font-size: 40px; margin-top: -56px; flex-shrink: 0; box-shadow: 0 0 0 1px var(--line), 0 8px 24px rgba(123,140,255,0.3); }
   .profile-stats { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin: 20px 0 24px; }
@@ -5611,10 +5624,8 @@ button { cursor: pointer; }
   }
   .pserver-card:hover { transform: translateY(-2px); border-color: var(--line-strong); box-shadow: 0 12px 40px rgba(0,0,0,0.4); }
   .pserver-banner {
-    height: 112px;
     width: 100%;
     position: relative;
-    overflow: hidden;
     border-bottom: 1px solid color-mix(in oklab, var(--line) 60%, transparent);
   }
   .pserver-banner-overlay {
@@ -5756,12 +5767,12 @@ button { cursor: pointer; }
     margin-bottom: 10px;
   }
   .modal-banner {
-    height: 120px; border-radius: var(--radius); border: 1px solid var(--line);
+    border-radius: var(--radius);
+    border: 1px solid var(--line);
     background:
       radial-gradient(ellipse 400px 150px at 30% 50%, rgba(123,140,255,0.5), transparent 60%),
       radial-gradient(ellipse 300px 150px at 80% 50%, rgba(167,139,250,0.4), transparent 60%),
       linear-gradient(135deg, #0c0e13 0%, #1a1f2e 100%);
-    position: relative; overflow: hidden;
     display: flex; align-items: flex-end; justify-content: flex-end; gap: 6px; padding: 8px;
   }
   .modal-banner-btn, .modal-banner-clear { height: 32px; padding: 0 12px; font-size: 12px; }
@@ -6190,6 +6201,7 @@ button { cursor: pointer; }
   }
   .add-inline-create--tags { margin-top: 14px; }
   .add-version-select .cs-panel { max-height: min(52vh, 420px); }
+  .add-banner-preview { border-radius: 12px; border: 1px solid var(--line); }
   .add-field-error { color: var(--red); font-size: 12px; margin-top: 6px; display: block; }
   .add-selected-tags {
     display: grid;
@@ -6637,7 +6649,7 @@ button { cursor: pointer; }
   .auth-aside        { display: none; }
   .profile-stats     { grid-template-columns: repeat(2,1fr); }
   .so-grid           { grid-template-columns: 1fr; }
-  .so-hero           { min-height: 240px; }
+  .so-hero           { min-height: 0; }
   .kpi-grid          { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .dash-grid         { grid-template-columns: 1fr; }
   .dash-col-2        { grid-template-columns: 1fr; }
@@ -6645,7 +6657,7 @@ button { cursor: pointer; }
   .so-side           { position: static; }
   .so-stats-summary  { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .so-shell          { padding: 0 20px 80px; }
-  .so-hero-content   { padding: 22px; gap: 16px; min-height: 240px; }
+  .so-hero-content   { padding: 22px; gap: 16px; }
   .so-hero-actions   { width: 100%; margin-left: 0; }
   .so-hero-actions .btn { flex: 1; min-width: 140px; justify-content: center; }
   .so-titles h1      { font-size: 26px; }
@@ -6738,7 +6750,6 @@ button { cursor: pointer; }
     border-color: color-mix(in oklab, var(--accent) 45%, var(--line));
   }
   .page-side .side-item.active .ico { color: var(--accent); }
-  .profile-cover      { height: 190px; }
   .profile-card      { flex-direction: column; align-items: flex-start; gap: 8px; padding: 14px; margin-top: -42px; }
   .profile-avatar    { margin-top: -48px; width: 80px; height: 80px; font-size: 32px; }
   .profile-name      { font-size: 22px; gap: 8px; }
@@ -6758,7 +6769,6 @@ button { cursor: pointer; }
   .modal-avatar-row { flex-wrap: wrap; }
   .modal-avatar-actions { width: 100%; }
   .modal-avatar-actions .btn { flex: 1; min-width: 0; }
-  .modal-banner { height: 102px; }
   .site-toast { right: 10px; left: 10px; top: 10px; max-width: none; min-width: 0; width: auto; }
   .auth-form-wrap    { padding: 20px 0; }
   .auth-main         { padding: 24px 20px; }
@@ -6786,7 +6796,6 @@ button { cursor: pointer; }
   .btn { height: 32px; padding: 0 10px; font-size: 12.5px; }
   .page-main { padding: 14px 10px 88px !important; }
   .page-title { font-size: 20px; }
-  .profile-cover { height: 160px; }
   .profile-avatar { width: 72px; height: 72px; font-size: 28px; margin-top: -40px; }
   .profile-name { font-size: 20px; }
   .profile-stats { grid-template-columns: 1fr 1fr; }
@@ -10146,7 +10155,6 @@ svg {
   .sc-head { padding: 12px 14px; }
   .sc-content { padding: 13px 14px; }
   .sc-foot { padding: 11px 14px; }
-  .sc-banner { height: 116px; }
   .home-hero-copy h1 { font-size: clamp(42px, 12vw, 66px); }
   .home-platform-links { grid-template-columns: 1fr; }
   .home-section-head,

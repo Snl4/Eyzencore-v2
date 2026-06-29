@@ -1,6 +1,7 @@
 import { Icons } from '@/components/ui/Icons';
 import { SidebarIcon } from '@/components/layout/SidebarIcon';
 import { formatJoinedAt, formatNumberUA } from './format';
+import { buildBannerSurfaceStyle } from '@/lib/banner-display';
 import { IMAGE_PLACEHOLDER } from '@/lib/placeholders';
 
 export interface ProfileHeaderData {
@@ -34,15 +35,11 @@ function getProfileTags(data: ProfileHeaderData) {
 
 export function ProfileHeader({ data }: { data: ProfileHeaderData }) {
   const tags = getProfileTags(data);
-  const coverStyle = {
-    backgroundImage: `url(${JSON.stringify(data.bannerUrl || IMAGE_PLACEHOLDER).slice(1, -1)})`,
-    backgroundSize: 'cover',
-    backgroundPosition: 'center',
-  };
+  const coverStyle = buildBannerSurfaceStyle(data.bannerUrl || IMAGE_PLACEHOLDER);
 
   return (
     <>
-      <div className="profile-cover" style={coverStyle} />
+      <div className="profile-cover banner-surface" style={coverStyle} />
       <div className="profile-card">
         <div
           className="profile-avatar"

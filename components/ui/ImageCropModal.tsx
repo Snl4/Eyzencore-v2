@@ -1,6 +1,12 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  BANNER_ASPECT_HEIGHT,
+  BANNER_ASPECT_WIDTH,
+  BANNER_CROP_HEIGHT,
+  BANNER_CROP_WIDTH,
+} from '@/lib/banner-display';
 
 const MIN_SCALE = 1;
 const MAX_SCALE = 3;
@@ -42,9 +48,9 @@ const CROP_PRESETS: Record<ImageCropAspectRatio, CropPreset> = {
   },
   banner: {
     viewportWidth: 420,
-    viewportHeight: 140,
-    outputWidth: 1200,
-    outputHeight: 400,
+    viewportHeight: Math.round(420 * (BANNER_ASPECT_HEIGHT / BANNER_ASPECT_WIDTH)),
+    outputWidth: BANNER_CROP_WIDTH,
+    outputHeight: BANNER_CROP_HEIGHT,
     hint: 'Перетягніть зображення та збільште масштаб, щоб обрати область банера.',
   },
 };

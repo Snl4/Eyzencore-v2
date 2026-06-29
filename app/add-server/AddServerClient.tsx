@@ -7,6 +7,8 @@ import { Icons } from '@/components/ui/Icons'
 import { Select } from '@/components/ui/Select'
 import { Toggle } from '@/components/ui/Toggle'
 import { Breadcrumbs } from '@/components/ui/Breadcrumbs'
+import { ImageCropModal, type ImageCropAspectRatio } from '@/components/ui/ImageCropModal'
+import { buildBannerSurfaceStyle } from '@/lib/banner-display'
 import { DISCORD_CATEGORIES, GAME_MODES } from '@/lib/data'
 import { mergeMinecraftVersionOptions, MINECRAFT_JAVA_VERSIONS } from '@/lib/minecraft-java-versions'
 import {
@@ -178,6 +180,7 @@ export function AddServerClient(input: {
   const [isPending, startTransition] = useTransition()
   const avatarInputRef = useRef<HTMLInputElement>(null)
   const bannerInputRef = useRef<HTMLInputElement>(null)
+  const [cropState, setCropState] = useState<{ src: string; target: ImageCropAspectRatio } | null>(null)
   const galleryInputRef = useRef<HTMLInputElement>(null)
 
   const [submitted, setSubmitted] = useState(false)
@@ -290,15 +293,23 @@ export function AddServerClient(input: {
     const file = event.target.files?.[0]
     if (!file) return
     const imageUrl = await readFileAsDataUrl(file)
-    setField('avatarUrl', imageUrl)
+    setCropState({ src: imageUrl, target: 'square' })
     event.target.value = ''
   }
   const handleUploadBanner = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (!file) return
     const imageUrl = await readFileAsDataUrl(file)
-    setField('bannerUrl', imageUrl)
+    setCropState({ src: imageUrl, target: 'banner' })
     event.target.value = ''
+  }
+  const handleCropConfirm = (croppedDataUrl: string) => {
+    if (cropState?.target === 'banner') {
+      setField('bannerUrl', croppedDataUrl)
+    } else {
+      setField('avatarUrl', croppedDataUrl)
+    }
+    setCropState(null)
   }
   const handleUploadGallery = async (event: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || [])
@@ -494,7 +505,7 @@ export function AddServerClient(input: {
             <aside className="add-preview">
               <div className="add-preview-title">Попередній перегляд</div>
               <div className="server-card" style={{ pointerEvents: 'none' }}>
-                <div className="sc-banner" style={{ backgroundImage: form.bannerUrl ? `url(${form.bannerUrl})` : 'linear-gradient(135deg, #0c0e13, #1a1f2e)', backgroundSize: 'cover', backgroundPosition: 'center' }}>
+                <div className="sc-banner banner-surface" style={buildBannerSurfaceStyle(form.bannerUrl) || { backgroundImage: 'linear-gradient(135deg, #0c0e13, #1a1f2e)' }}>
                   <div className="sc-banner-decor" />
                 </div>
                 <div className="sc-body">
@@ -847,6 +858,15 @@ export function AddServerClient(input: {
                     </button>
                   </div>
 
+                  <div className="auth-field">
+                    <span>Попередній перегляд банера</span>
+                    <div
+                      className="banner-surface add-banner-preview"
+                      style={buildBannerSurfaceStyle(form.bannerUrl) || { backgroundImage: 'linear-gradient(135deg, #0c0e13, #1a1f2e)' }}
+                    />
+                    <small className="add-field-counter">Співвідношення 3:1 — так банер виглядатиме в каталозі та на сторінці сервера</small>
+                  </div>
+
                   <div className="add-grid-2">
                     <label className="auth-field">
                       <span>URL аватара (опційно)</span>
@@ -995,6 +1015,14 @@ export function AddServerClient(input: {
           </div>
         </div>
       </div>
+      <ImageCropModal
+        imageSrc={cropState?.src || ''}
+        open={Boolean(cropState)}
+        title={cropState?.target === 'banner' ? 'Обрізати банер' : 'Обрізати аватарку'}
+        aspectRatio={cropState?.target || 'square'}
+        onClose={() => setCropState(null)}
+        onConfirm={handleCropConfirm}
+      />
     </PageShell>
   )
 }

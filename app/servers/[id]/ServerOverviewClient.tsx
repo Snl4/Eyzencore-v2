@@ -14,6 +14,7 @@ import {
   isDiscordServer,
 } from '@/lib/server-platform';
 import { IMAGE_PLACEHOLDER } from '@/lib/placeholders';
+import { buildBannerSurfaceStyle } from '@/lib/banner-display';
 import { buildServerPublicPath } from '@/lib/server-slug';
 import type { Server } from '@/lib/types';
 import { formatPlural } from '@/lib/format-plural';
@@ -719,11 +720,10 @@ export function ServerOverviewClient({ server: s, cluster, canEdit, initialUser 
 
         {/* Hero banner */}
         <div
-          className="so-hero"
-          style={{
-            background: `linear-gradient(180deg, rgba(10,12,20,0.86) 0%, rgba(10,12,20,0.74) 42%, rgba(10,12,20,0.9) 100%), url(${s.bannerUrl || IMAGE_PLACEHOLDER}) center/cover`,
-          }}
+          className="so-hero banner-surface"
+          style={buildBannerSurfaceStyle(s.bannerUrl || IMAGE_PLACEHOLDER)}
         >
+          <div className="so-hero-overlay" aria-hidden="true" />
           <div className="so-hero-content">
             <div className="so-icon" style={{ background: `url(${s.avatarUrl || IMAGE_PLACEHOLDER}) center/cover` }} />
             <div className="so-titles">

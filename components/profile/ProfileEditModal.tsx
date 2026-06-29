@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import type { AuthUser } from '@/lib/auth-db';
+import { buildBannerSurfaceStyle } from '@/lib/banner-display';
 import { ImageCropModal, type ImageCropAspectRatio } from '@/components/ui/ImageCropModal';
 
 const MAX_AVATAR_BYTES = 800 * 1024;
@@ -233,7 +234,7 @@ export function ProfileEditModal({ user, open, onClose, onSaved }: Props) {
 
           <section className="modal-section-card">
             <div className="modal-section-title">Зовнішній вигляд та посилання</div>
-            <div className="modal-banner" style={bannerUrl ? { backgroundImage: `url(${JSON.stringify(bannerUrl).slice(1, -1)})`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}>
+            <div className="modal-banner banner-surface" style={buildBannerSurfaceStyle(bannerUrl)}>
               <button type="button" className="btn btn-secondary modal-banner-btn" onClick={() => bannerInputRef.current?.click()}>Змінити банер</button>
               {bannerUrl && <button type="button" className="btn btn-ghost modal-banner-clear modal-remove-btn" onClick={() => setBannerUrl(null)} aria-label="Видалити банер">Видалити</button>}
               <input ref={bannerInputRef} type="file" accept="image/*" hidden onChange={(e) => void handleBannerFile(e)} />
