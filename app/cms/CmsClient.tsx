@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { CmsAchievementsPanel } from '@/components/cms/CmsAchievementsPanel'
 import { CmsEngagementResetPanel } from '@/components/cms/CmsEngagementResetPanel'
+import { CmsSiteReportPanel } from '@/components/cms/CmsSiteReportPanel'
 import { Select, type SelectOption } from '@/components/ui/Select'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
 import type { CmsEntity } from '@/lib/cms-db'
@@ -11,7 +12,7 @@ import type { MaintenanceSettings } from '@/lib/maintenance'
 
 type CmsRow = Record<string, unknown> & { id: string | number }
 type CmsStats = Record<CmsEntity, number>
-type CmsSection = CmsEntity | 'maintenance' | 'engagement-reset'
+type CmsSection = CmsEntity | 'maintenance' | 'engagement-reset' | 'site-report'
 type Field = {
   key: string
   label: string
@@ -389,10 +390,10 @@ export function CmsClient({
   const [maintenance, setMaintenance] = useState(initialMaintenance)
   const [maintenanceSaving, setMaintenanceSaving] = useState(false)
 
-  const config = entity === 'maintenance' || entity === 'engagement-reset' ? null : configs[entity]
+  const config = entity === 'maintenance' || entity === 'engagement-reset' || entity === 'site-report' ? null : configs[entity]
 
   const loadRows = useCallback(async (currentEntity?: CmsEntity) => {
-    const targetEntity = currentEntity || (entity === 'maintenance' || entity === 'engagement-reset' ? null : entity)
+    const targetEntity = currentEntity || (entity === 'maintenance' || entity === 'engagement-reset' || entity === 'site-report' ? null : entity)
     if (!targetEntity) {
       setLoading(false)
       return
@@ -422,7 +423,7 @@ export function CmsClient({
   }
 
   useEffect(() => {
-    if (entity === 'maintenance' || entity === 'engagement-reset') {
+    if (entity === 'maintenance' || entity === 'engagement-reset' || entity === 'site-report') {
       setRows([])
       setLoading(false)
       return
@@ -448,7 +449,7 @@ export function CmsClient({
     if (!editing) return
     setSaving(true)
     setError('')
-    if (entity === 'maintenance' || entity === 'engagement-reset') return
+    if (entity === 'maintenance' || entity === 'engagement-reset' || entity === 'site-report') return
     const response = await fetch(`/api/cms/data/${entity}/${editing.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -473,7 +474,7 @@ export function CmsClient({
     })) {
       return
     }
-    if (entity === 'maintenance' || entity === 'engagement-reset') return
+    if (entity === 'maintenance' || entity === 'engagement-reset' || entity === 'site-report') return
     const response = await fetch(`/api/cms/data/${entity}/${row.id}`, {
       method: 'DELETE',
     })
@@ -562,6 +563,14 @@ export function CmsClient({
             </button>
           ))}
           <button
+            className={entity === 'site-report' ? 'active maintenance' : 'maintenance'}
+            onClick={() => selectEntity('site-report')}
+            type="button"
+          >
+            <span>Звіт по сайту</span>
+            <b>📊</b>
+          </button>
+          <button
             className={entity === 'engagement-reset' ? 'active maintenance' : 'maintenance'}
             onClick={() => selectEntity('engagement-reset')}
             type="button"
@@ -599,6 +608,9 @@ export function CmsClient({
 
         <div className="cms-content">
           {error ? <div className="cms-alert">{error}</div> : null}
+          {entity === 'site-report' ? (
+            <CmsSiteReportPanel onError={setError} />
+          ) : null}
           {entity === 'engagement-reset' ? (
             <CmsEngagementResetPanel onError={setError} />
           ) : null}
@@ -680,7 +692,7 @@ export function CmsClient({
               onStatsRefresh={refreshStats}
             />
           ) : null}
-          {entity !== 'achievements' && entity !== 'maintenance' && entity !== 'engagement-reset' && config ? (
+          {entity !== 'achievements' && entity !== 'maintenance' && entity !== 'engagement-reset' && entity !== 'site-report' && config ? (
           <>
           <div className="cms-heading">
             <div>
