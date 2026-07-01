@@ -4,6 +4,7 @@ export type EngagementResetPreview = {
   nicknameVotes: number
   accountVotes: number
   likes: number
+  views: number
   totalVotes: number
   serversCount: number
 }
@@ -17,12 +18,14 @@ export type EngagementResetBatch = {
   nicknameVotesArchived: number
   accountVotesArchived: number
   likesArchived: number
+  viewsArchived: number
 }
 
 type CountRow = {
   nickname_votes: number | bigint
   account_votes: number | bigint
   likes: number | bigint
+  views: number | bigint
   servers_count: number | bigint
 }
 
@@ -35,6 +38,7 @@ type BatchRow = {
   nickname_votes_archived: number | bigint
   account_votes_archived: number | bigint
   likes_archived: number | bigint
+  views_archived: number | bigint
 }
 
 function nowIso(): string {
@@ -59,6 +63,7 @@ function mapBatchRow(row: BatchRow): EngagementResetBatch {
     nicknameVotesArchived: Number(row.nickname_votes_archived || 0),
     accountVotesArchived: Number(row.account_votes_archived || 0),
     likesArchived: Number(row.likes_archived || 0),
+    viewsArchived: Number(row.views_archived || 0),
   }
 }
 
@@ -68,16 +73,19 @@ export async function getEngagementResetPreview(): Promise<EngagementResetPrevie
       (SELECT COUNT(*) FROM app_server_nickname_votes) AS nickname_votes,
       (SELECT COUNT(*) FROM app_server_votes) AS account_votes,
       (SELECT COUNT(*) FROM app_server_likes) AS likes,
+      (SELECT COUNT(*) FROM app_server_views) AS views,
       (SELECT COUNT(*) FROM app_servers) AS servers_count
   `
   const row = rows[0]
   const nicknameVotes = Number(row?.nickname_votes || 0)
   const accountVotes = Number(row?.account_votes || 0)
   const likes = Number(row?.likes || 0)
+  const views = Number(row?.views || 0)
   return {
     nicknameVotes,
     accountVotes,
     likes,
+    views,
     totalVotes: nicknameVotes + accountVotes,
     serversCount: Number(row?.servers_count || 0),
   }
@@ -87,7 +95,7 @@ export async function listEngagementResetBatches(limit = 24): Promise<Engagement
   const safeLimit = Math.max(1, Math.min(limit, 100))
   const rows = await prisma.$queryRawUnsafe<BatchRow[]>(
     `SELECT id, label, performed_by_email, performed_at, servers_count,
-            nickname_votes_archived, account_votes_archived, likes_archived
+            nickname_votes_archived, account_votes_archived, likes_archived, views_archived
      FROM app_engagement_reset_batches
      ORDER BY datetime(performed_at) DESC
      LIMIT ?`,
@@ -104,15 +112,15 @@ export async function executeEngagementReset(input: {
   const label = String(input.label || buildDefaultLabel()).trim().slice(0, 120) || buildDefaultLabel()
   const performedAt = nowIso()
   const preview = await getEngagementResetPreview()
-  if (preview.totalVotes === 0 && preview.likes === 0) {
-    throw new Error('Немає активних голосів або лайків для скидання')
+  if (preview.totalVotes === 0 && preview.likes === 0 && preview.views === 0) {
+    throw new Error('Немає активних голосів, лайків або переглядів для скидання')
   }
   const batchId = await prisma.$transaction(async (tx) => {
     await tx.$executeRawUnsafe(
       `INSERT INTO app_engagement_reset_batches (
          label, performed_by_user_id, performed_by_email, performed_at,
-         servers_count, nickname_votes_archived, account_votes_archived, likes_archived
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+         servers_count, nickname_votes_archived, account_votes_archived, likes_archived, views_archived
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       label,
       input.performedByUserId,
       input.performedByEmail,
@@ -121,6 +129,7 @@ export async function executeEngagementReset(input: {
       preview.nicknameVotes,
       preview.accountVotes,
       preview.likes,
+      preview.views,
     )
     const batchRows = await tx.$queryRawUnsafe<Array<{ id: number | bigint }>>(
       'SELECT last_insert_rowid() AS id',
@@ -131,7 +140,7 @@ export async function executeEngagementReset(input: {
     }
     await tx.$executeRawUnsafe(
       `INSERT INTO app_engagement_reset_server_snapshots (
-         batch_id, server_id, server_name, nickname_votes, account_votes, likes
+         batch_id, server_id, server_name, nickname_votes, account_votes, likes, views
        )
        SELECT
          ?,
@@ -139,7 +148,8 @@ export async function executeEngagementReset(input: {
          s.name,
          COALESCE((SELECT COUNT(*) FROM app_server_nickname_votes nv WHERE nv.server_id = s.id), 0),
          COALESCE((SELECT COUNT(*) FROM app_server_votes av WHERE av.server_id = s.id), 0),
-         COALESCE((SELECT COUNT(*) FROM app_server_likes lk WHERE lk.server_id = s.id), 0)
+         COALESCE((SELECT COUNT(*) FROM app_server_likes lk WHERE lk.server_id = s.id), 0),
+         COALESCE((SELECT COUNT(*) FROM app_server_views vw WHERE vw.server_id = s.id), 0)
        FROM app_servers s`,
       createdBatchId,
     )
@@ -170,14 +180,26 @@ export async function executeEngagementReset(input: {
       createdBatchId,
       performedAt,
     )
+    await tx.$executeRawUnsafe(
+      `INSERT INTO app_server_views_archive (
+         batch_id, original_id, server_id, user_id, fingerprint, ip_address, country_code,
+         referrer, traffic_source, referral_code, created_at, archived_at
+       )
+       SELECT ?, id, server_id, user_id, fingerprint, ip_address, country_code,
+              referrer, traffic_source, referral_code, created_at, ?
+       FROM app_server_views`,
+      createdBatchId,
+      performedAt,
+    )
     await tx.$executeRawUnsafe('DELETE FROM app_server_nickname_votes')
     await tx.$executeRawUnsafe('DELETE FROM app_server_votes')
     await tx.$executeRawUnsafe('DELETE FROM app_server_likes')
+    await tx.$executeRawUnsafe('DELETE FROM app_server_views')
     return createdBatchId
   })
   const rows = await prisma.$queryRawUnsafe<BatchRow[]>(
     `SELECT id, label, performed_by_email, performed_at, servers_count,
-            nickname_votes_archived, account_votes_archived, likes_archived
+            nickname_votes_archived, account_votes_archived, likes_archived, views_archived
      FROM app_engagement_reset_batches
      WHERE id = ?
      LIMIT 1`,
