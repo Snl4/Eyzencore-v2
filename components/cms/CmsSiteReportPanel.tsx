@@ -1,8 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import type { CmsSiteMonthlyReport } from '@/lib/cms-site-report'
-import { formatSiteReportText } from '@/lib/cms-site-report'
+import type { CmsSiteMonthlyReport } from '@/lib/cms-site-report-shared'
+import { formatSiteReportText } from '@/lib/cms-site-report-shared'
 
 type CmsSiteReportPanelProps = {
   onError: (message: string) => void
