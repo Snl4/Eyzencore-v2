@@ -21,17 +21,13 @@ function buildDiscordProfileUrl(userId: string): string {
   return `https://discord.com/users/${userId}`
 }
 
-function getSafeRedirectOrigin(request: NextRequest) {
-  return resolvePublicAppUrl()
-}
-
 function buildOAuthLoginUrl(redirectOrigin: string, errorCode: string): URL {
   return new URL(`/login?error=${encodeURIComponent(errorCode)}`, redirectOrigin)
 }
 
 export async function GET(request: NextRequest) {
   const { isOAuthConfigured } = getDiscordConfig()
-  const redirectOrigin = getSafeRedirectOrigin(request)
+  const redirectOrigin = resolvePublicAppUrl()
   const errorParam = request.nextUrl.searchParams.get('error')
   if (errorParam) {
     return NextResponse.redirect(buildOAuthLoginUrl(redirectOrigin, errorParam))
