@@ -337,7 +337,8 @@ const SERVER_SELECT_COLUMNS = `
   s.name, s.addr, s.platform, s.mode, s.ver, s.core, s.country, s.motd, s.short_desc, s.full_desc, s.desc,
   s.website, s.discord, s.telegram, s.donate, s.tiktok, s.launcher_url, s.avatar_url, s.banner_url,
   s.gallery_json, s.videos_json, s.tags, s.online, s.players, s.max, s.uptime, s.verified, s.boosted,
-  COALESCE((SELECT COUNT(*) FROM app_server_nickname_votes sv WHERE sv.server_id = s.id), 0) AS votes_count,
+  COALESCE((SELECT COUNT(*) FROM app_server_nickname_votes sv WHERE sv.server_id = s.id), 0)
+    + COALESCE((SELECT COUNT(*) FROM app_server_votes av WHERE av.server_id = s.id), 0) AS votes_count,
   COALESCE((SELECT COUNT(*) FROM app_server_likes sl WHERE sl.server_id = s.id), 0) AS likes_count,
   COALESCE((SELECT COUNT(*) FROM app_server_reviews sr WHERE sr.server_id = s.id), 0) AS reviews_count,
   COALESCE((SELECT AVG(sr.rating) FROM app_server_reviews sr WHERE sr.server_id = s.id), 0) AS average_rating,
@@ -2428,7 +2429,11 @@ export async function getOwnerDashboard(userId: string) {
        ) v_stats ON v_stats.server_id = s.id
        LEFT JOIN (
          SELECT server_id, COUNT(*) AS votes_count
-         FROM app_server_nickname_votes
+         FROM (
+           SELECT server_id FROM app_server_nickname_votes
+           UNION ALL
+           SELECT server_id FROM app_server_votes
+         ) vote_rows
          GROUP BY server_id
        ) vote_stats ON vote_stats.server_id = s.id
        LEFT JOIN (
