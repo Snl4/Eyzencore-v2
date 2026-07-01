@@ -1,5 +1,6 @@
 import { createHash, createHmac, randomBytes, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';
 import bcrypt from 'bcryptjs';
+import { buildServerRatingScore } from '@/lib/server-rating-score';
 import { normalizeServerAddress, type ServerPlatform } from '@/lib/discord';
 import { prisma } from '@/lib/prisma';
 import { buildServerDashboardSlug, buildServerPublicPath } from '@/lib/server-slug';
@@ -458,12 +459,12 @@ function mapServerRow(row: DbServerRow): Server {
   const likesCount = Number(row.likes_count || 0);
   const reviewsCount = Number(row.reviews_count || 0);
   const averageRating = Number(row.average_rating || 0);
-  const ratingScore = Number((
-    averageRating * 12 +
-    Math.log1p(votesCount) * 4 +
-    Math.log1p(likesCount) * 3 +
-    Math.log1p(reviewsCount) * 5
-  ).toFixed(2));
+  const ratingScore = buildServerRatingScore({
+    averageRating,
+    votesCount,
+    likesCount,
+    reviewsCount,
+  });
   return {
     seed: Number(row.id),
     ic: getServerInitials(row.name),

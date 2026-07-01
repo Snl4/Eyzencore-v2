@@ -7,7 +7,7 @@ import {
 
 export const getCachedPublicServers = unstable_cache(
   async () => listServers(),
-  ['public-servers-v2'],
+  ['public-servers-v3'],
   { revalidate: 60 }
 )
 

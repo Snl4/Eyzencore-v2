@@ -14,14 +14,43 @@ import type { Server } from '@/lib/types';
 import { IMAGE_PLACEHOLDER } from '@/lib/placeholders';
 import { buildBannerSurfaceStyle } from '@/lib/banner-display';
 import { buildServerPublicPath } from '@/lib/server-slug';
+import { buildServerRatingScore } from '@/lib/server-rating-score';
 
 interface Props { s: Server; }
+
+type ServerCardStats = {
+  votesCount: number
+  likesCount: number
+  reviewsCount: number
+  averageRating: number
+  ratingScore: number
+}
+
+function buildInitialStats(server: Server): ServerCardStats {
+  const votesCount = Number(server.votesCount || 0)
+  const likesCount = Number(server.likesCount || 0)
+  const reviewsCount = Number(server.reviewsCount || 0)
+  const averageRating = Number(server.averageRating || 0)
+  return {
+    votesCount,
+    likesCount,
+    reviewsCount,
+    averageRating,
+    ratingScore: Number(server.ratingScore || buildServerRatingScore({
+      averageRating,
+      votesCount,
+      likesCount,
+      reviewsCount,
+    })),
+  }
+}
 
 export function ServerCard({ s }: Props) {
   const router = useRouter();
   const { copied, copy } = useCopyToClipboard();
   const isDiscord = isDiscordServer(s);
   const projectCount = s.projectCount || s.cluster || 0;
+  const [stats, setStats] = useState<ServerCardStats>(() => buildInitialStats(s));
   const [live, setLive] = useState({
     online: s.on,
     players: s.players,
@@ -64,6 +93,46 @@ export function ServerCard({ s }: Props) {
       window.clearInterval(timer);
     };
   }, [s.addr, s.core, s.platform, s.seed]);
+
+  useEffect(() => {
+    setStats(buildInitialStats(s));
+  }, [s]);
+
+  useEffect(() => {
+    let active = true;
+    const loadEngagement = async () => {
+      try {
+        const response = await fetch(`/api/servers/${s.seed}/engagement`, { cache: 'no-store' });
+        if (!response.ok || !active) return;
+        const payload = await response.json() as {
+          summary?: { votes?: number; reviews?: number; averageRating?: number };
+        };
+        const summary = payload.summary || {};
+        const votesCount = Number(summary.votes || 0);
+        const reviewsCount = Number(summary.reviews || 0);
+        const averageRating = Number(summary.averageRating || 0);
+        const likesCount = Number(s.likesCount || 0);
+        setStats({
+          votesCount,
+          likesCount,
+          reviewsCount,
+          averageRating,
+          ratingScore: buildServerRatingScore({
+            averageRating,
+            votesCount,
+            likesCount,
+            reviewsCount,
+          }),
+        });
+      } catch {
+        // Keep SSR stats when engagement API is unavailable.
+      }
+    };
+    void loadEngagement();
+    return () => {
+      active = false;
+    };
+  }, [s.likesCount, s.seed]);
 
   const displayPlayers = live.online ? Math.max(live.players, s.players || 0) : 0;
   const displayMax = Math.max(live.max, s.max || 0);
@@ -128,15 +197,15 @@ export function ServerCard({ s }: Props) {
           {s.tags.slice(0, 4).map(t => <span key={t} className="sc-tag">{t}</span>)}
         </div>
         <div className="sc-stats">
-          <div><div className="l">Рейтинг</div><div className="v">{Math.round(s.ratingScore || 0)}</div></div>
-          <div><div className="l">Оцінка</div><div className="v">{s.reviewsCount ? `${(s.averageRating || 0).toFixed(1)}★` : '-'}</div></div>
+          <div><div className="l">Рейтинг</div><div className="v">{Math.round(stats.ratingScore)}</div></div>
+          <div><div className="l">Оцінка</div><div className="v">{stats.reviewsCount ? `${stats.averageRating.toFixed(1)}★` : '-'}</div></div>
           <div><div className="l">Онлайн</div><div className="v">{live.online ? onlineLabel : 0}</div></div>
-          <div><div className="l">Активність</div><div className="v">{(s.votesCount || 0) + (s.likesCount || 0) + (s.reviewsCount || 0)}</div></div>
+          <div><div className="l">Активність</div><div className="v">{stats.votesCount + stats.likesCount + stats.reviewsCount}</div></div>
         </div>
         <div className="sc-engagement">
-          <span>▲ {s.votesCount || 0} голосів</span>
-          <span>♥ {s.likesCount || 0}</span>
-          <span>★ {s.reviewsCount || 0} відгуків</span>
+          <span>▲ {stats.votesCount} голосів</span>
+          <span>♥ {stats.likesCount}</span>
+          <span>★ {stats.reviewsCount} відгуків</span>
         </div>
       </div>
 
