@@ -1,13 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerById, getServerEngagementSummary, countServerActivityInDays } from '@/lib/auth-db'
+import { getServerById, countServerActivityInDays } from '@/lib/auth-db'
 import { buildServerDashboardSlug } from '@/lib/server-slug'
 
 type Params = { params: { id: string } }
 
-function buildScore(votes: number, events: number, rating: number, verified: boolean): number {
+function buildScore(votes: number, events: number, verified: boolean): number {
   const bonus = verified ? 8 : 0
-  const ratingBonus = Math.max(0, rating * 4)
-  return Number((votes * 1.2 + events * 0.35 + bonus + ratingBonus).toFixed(4))
+  return Number((votes * 1.2 + events * 0.35 + bonus).toFixed(4))
 }
 
 export async function GET(_request: NextRequest, { params }: Params) {
@@ -20,10 +19,9 @@ export async function GET(_request: NextRequest, { params }: Params) {
     return NextResponse.json({ error: 'Server not found' }, { status: 404 })
   }
 
-  const engagement = await getServerEngagementSummary(server.seed)
   const activity = await countServerActivityInDays({ serverId: server.seed, days: 30 })
-  const eventsMonthly = activity.views + activity.votes + activity.reviews
-  const score = buildScore(activity.votes, eventsMonthly, engagement.averageRating, server.verified)
+  const eventsMonthly = activity.views + activity.votes
+  const score = buildScore(activity.votes, eventsMonthly, server.verified)
 
   return NextResponse.json({
     id: String(server.seed),

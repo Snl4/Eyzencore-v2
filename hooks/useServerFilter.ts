@@ -136,10 +136,8 @@ export function useServerFilter(
       }
       return (
         Number(right.ratingScore || 0) - Number(left.ratingScore || 0) ||
-        Number(right.averageRating || 0) - Number(left.averageRating || 0) ||
         Number(right.votesCount || 0) - Number(left.votesCount || 0) ||
         Number(right.likesCount || 0) - Number(left.likesCount || 0) ||
-        Number(right.reviewsCount || 0) - Number(left.reviewsCount || 0) ||
         left.rank - right.rank
       )
     })

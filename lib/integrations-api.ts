@@ -1,7 +1,6 @@
 import {
   countServerActivityInDays,
   getServerById,
-  getServerEngagementSummary,
   listServerActivityEvents,
   listServers,
 } from '@/lib/auth-db'
@@ -89,10 +88,9 @@ async function resolveServerByIdentifier(identifier: string) {
   }) || null
 }
 
-function buildServerScore(input: { monthlyVotes: number; monthlyEvents: number; averageRating: number; isVerified: boolean }): number {
+function buildServerScore(input: { monthlyVotes: number; monthlyEvents: number; isVerified: boolean }): number {
   const verifiedBonus = input.isVerified ? 8 : 0
-  const ratingBonus = Math.max(0, Number(input.averageRating || 0) * 4)
-  return Number((input.monthlyVotes * 1.2 + input.monthlyEvents * 0.35 + verifiedBonus + ratingBonus).toFixed(4))
+  return Number((input.monthlyVotes * 1.2 + input.monthlyEvents * 0.35 + verifiedBonus).toFixed(4))
 }
 
 function resolveRegion(server: Server): string[] {
@@ -117,13 +115,11 @@ export async function getIntegrationServerResponse(serverIdentifier: string) {
   if (!server) {
     return null
   }
-  const engagement = await getServerEngagementSummary(server.seed)
   const monthActivity = await countServerActivityInDays({ serverId: server.seed, days: 30 })
-  const monthlyEvents = monthActivity.views + monthActivity.votes + monthActivity.reviews
+  const monthlyEvents = monthActivity.views + monthActivity.votes
   const score = buildServerScore({
     monthlyVotes: monthActivity.votes,
     monthlyEvents,
-    averageRating: engagement.averageRating,
     isVerified: server.verified,
   })
   const hasDiscord = Boolean(server.discord)

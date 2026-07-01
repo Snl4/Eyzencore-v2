@@ -460,10 +460,8 @@ function mapServerRow(row: DbServerRow): Server {
   const reviewsCount = Number(row.reviews_count || 0);
   const averageRating = Number(row.average_rating || 0);
   const ratingScore = buildServerRatingScore({
-    averageRating,
     votesCount,
     likesCount,
-    reviewsCount,
   });
   return {
     seed: Number(row.id),
@@ -1168,7 +1166,6 @@ export async function listServers() {
     .sort((left, right) =>
       Number(Boolean(right.boosted)) - Number(Boolean(left.boosted)) ||
       Number(right.ratingScore || 0) - Number(left.ratingScore || 0) ||
-      Number(right.averageRating || 0) - Number(left.averageRating || 0) ||
       Number(right.votesCount || 0) - Number(left.votesCount || 0) ||
       right.players - left.players ||
       left.seed - right.seed

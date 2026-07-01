@@ -37,10 +37,8 @@ function buildInitialStats(server: Server): ServerCardStats {
     reviewsCount,
     averageRating,
     ratingScore: Number(server.ratingScore || buildServerRatingScore({
-      averageRating,
       votesCount,
       likesCount,
-      reviewsCount,
     })),
   }
 }
@@ -118,10 +116,8 @@ export function ServerCard({ s }: Props) {
           reviewsCount,
           averageRating,
           ratingScore: buildServerRatingScore({
-            averageRating,
             votesCount,
             likesCount,
-            reviewsCount,
           }),
         });
       } catch {
