@@ -9296,6 +9296,33 @@ button { cursor: pointer; }
   color: var(--red);
 }
 .cms-maintenance-actions button:disabled { cursor: wait; opacity: .6; }
+.cms-reset-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.cms-reset-stats div {
+  display: grid;
+  gap: 4px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--bg);
+}
+.cms-reset-stats span { color: var(--fg-3); font-size: 12px; }
+.cms-reset-stats b { font-size: 22px; letter-spacing: -.02em; }
+.cms-reset-history { display: grid; gap: 12px; }
+.cms-reset-history-item {
+  display: grid;
+  gap: 4px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--bg);
+}
+.cms-reset-history-item b { font-size: 15px; }
+.cms-reset-history-item span { color: var(--fg-2); font-size: 13px; }
+.cms-reset-history-item small { color: var(--fg-3); font-size: 12px; }
 
 .maintenance-page {
   position: relative;
