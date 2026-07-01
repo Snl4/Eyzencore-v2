@@ -8,7 +8,9 @@ const ALWAYS_ALLOWED = [
   '/api/auth/login',
   '/api/auth/logout',
   '/api/auth/discord',
+  '/api/auth/discord/callback',
   '/api/auth/google',
+  '/api/auth/google/callback',
 ]
 
 function isAlwaysAllowed(pathname: string) {
@@ -16,6 +18,13 @@ function isAlwaysAllowed(pathname: string) {
 }
 
 export async function middleware(request: NextRequest) {
+  const host = request.headers.get('host') || ''
+  if (host.toLowerCase().startsWith('www.')) {
+    const url = request.nextUrl.clone()
+    url.host = host.slice(4)
+    url.protocol = 'https:'
+    return NextResponse.redirect(url, 301)
+  }
   const { pathname } = request.nextUrl
   if (isAlwaysAllowed(pathname)) return NextResponse.next()
 

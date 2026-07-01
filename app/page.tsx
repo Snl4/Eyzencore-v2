@@ -318,7 +318,7 @@ export default async function LandingPage() {
               </div>
               <div className="home-cta-actions">
                 <Link href="/add-server" className="btn btn-primary btn-lg" rel="nofollow">Додати сервер →</Link>
-                <Link href="/auth/register" className="btn btn-secondary btn-lg">Створити акаунт</Link>
+                <Link href="/register" className="btn btn-secondary btn-lg">Створити акаунт</Link>
               </div>
             </div>
           </div>

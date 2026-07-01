@@ -54,12 +54,12 @@ export function UserProfileDropdown({
         }] : [{
           label: 'Увійти',
           description: 'Відкрити свій акаунт',
-          href: '/auth/login',
+          href: '/login',
           icon: <FontAwesomeIcon icon={faUser} />,
         }, {
           label: 'Реєстрація',
           description: 'Створити новий акаунт',
-          href: '/auth/register',
+          href: '/register',
           icon: <FontAwesomeIcon icon={faGear} />,
         }]),
         {

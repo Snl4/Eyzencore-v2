@@ -1,8 +1,8 @@
 'use client'
 import type { FormEvent } from 'react'
 import Link from 'next/link'
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useEffect, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { AuthIcons } from '@/components/auth/AuthIcons'
 
 type LoginStatus = {
@@ -10,14 +10,41 @@ type LoginStatus = {
   readonly message: string
 }
 
+function resolveOAuthErrorMessage(errorCode: string): string {
+  const normalized = decodeURIComponent(errorCode).trim()
+  const messages: Record<string, string> = {
+    discord_not_configured: 'Discord OAuth не налаштовано на сервері. Зверніться до адміністратора.',
+    invalid_discord_state: 'Сесія Discord закінчилася. Спробуйте увійти ще раз.',
+    discord_user_creation_failed: 'Не вдалося створити акаунт через Discord. Спробуйте ще раз.',
+    discord_auth_failed: 'Не вдалося увійти через Discord. Спробуйте ще раз.',
+    login_required: 'Спочатку увійдіть в акаунт, щоб привʼязати Discord.',
+    google_not_configured: 'Google OAuth не налаштовано на сервері.',
+    invalid_google_state: 'Сесія Google закінчилася. Спробуйте увійти ще раз.',
+    google_email_not_verified: 'Email Google не підтверджено.',
+  }
+  return messages[normalized] || normalized || 'Не вдалося увійти через соціальну мережу.'
+}
+
 export function LoginForm() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [showPassword, setShowPassword] = useState<boolean>(false)
   const [email, setEmail] = useState<string>('')
   const [password, setPassword] = useState<string>('')
   const [remember, setRemember] = useState<boolean>(true)
   const [isLoading, setIsLoading] = useState<boolean>(false)
   const [status, setStatus] = useState<LoginStatus>({ type: null, message: '' })
+
+  useEffect(() => {
+    const errorCode = searchParams.get('error')
+    if (!errorCode) {
+      return
+    }
+    setStatus({
+      type: 'error',
+      message: resolveOAuthErrorMessage(errorCode),
+    })
+  }, [searchParams])
 
   const handleSubmitLogin = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault()

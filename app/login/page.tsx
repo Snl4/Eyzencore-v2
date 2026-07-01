@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { Suspense } from 'react'
 import { redirect } from 'next/navigation'
 import { AuthReviewTicker } from '@/components/auth/AuthReviewTicker'
 import { LoginForm } from '@/components/auth/LoginForm'
@@ -65,7 +66,9 @@ export default async function LoginPage() {
         <div className="auth-form-wrap">
           <h1>Увійти в Eyzencore</h1>
           <p className="sub">Введіть свої дані, щоб продовжити роботу.</p>
-          <LoginForm />
+          <Suspense fallback={null}>
+            <LoginForm />
+          </Suspense>
           <div className="auth-switch-link">
             Немає акаунту? <Link href="/register">Зареєструватись</Link>
           </div>

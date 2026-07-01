@@ -1,6 +1,6 @@
 import { buildSiteCatalog } from '@/lib/site-catalog'
 
-export const dynamic = 'force-dynamic'
+export const revalidate = 3600
 
 export async function GET(): Promise<Response> {
   const body = await buildSiteCatalog({ full: true })

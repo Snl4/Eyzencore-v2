@@ -5,9 +5,11 @@ import {
   listServers,
 } from '@/lib/auth-db'
 
-export async function getCachedPublicServers() {
-  return listServers()
-}
+export const getCachedPublicServers = unstable_cache(
+  async () => listServers(),
+  ['public-servers-v2'],
+  { revalidate: 60 }
+)
 
 export const getCachedPublicNews = unstable_cache(
   async (limit: number) => listNewsPosts(limit),
@@ -19,4 +21,13 @@ export const getCachedPublicStats = unstable_cache(
   async () => getAdminStats(),
   ['public-stats-v2'],
   { revalidate: 30 }
+)
+
+export const getCachedForumThreads = unstable_cache(
+  async (limit: number) => {
+    const { listForumThreads } = await import('@/lib/forum-db')
+    return listForumThreads({ limit })
+  },
+  ['public-forum-threads-v1'],
+  { revalidate: 300 }
 )

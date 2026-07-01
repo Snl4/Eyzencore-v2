@@ -14,35 +14,36 @@ import {
   fetchDiscordUserProfile,
   parseDiscordOAuthState,
 } from '@/lib/discord-oauth'
-import { setSessionCookie } from '@/lib/auth-server'
+import { buildOAuthSuccessResponse } from '@/lib/oauth-session'
+import { resolvePublicAppUrl } from '@/lib/app-url'
 
 function buildDiscordProfileUrl(userId: string): string {
   return `https://discord.com/users/${userId}`
 }
 
-function getSafeRedirectOrigin(request: NextRequest, fallback: string) {
-  const origin = request.nextUrl.origin
-  if (origin && !/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?/i.test(origin)) {
-    return origin
-  }
-  return fallback
+function getSafeRedirectOrigin(request: NextRequest) {
+  return resolvePublicAppUrl()
+}
+
+function buildOAuthLoginUrl(redirectOrigin: string, errorCode: string): URL {
+  return new URL(`/login?error=${encodeURIComponent(errorCode)}`, redirectOrigin)
 }
 
 export async function GET(request: NextRequest) {
-  const { isOAuthConfigured, appUrl } = getDiscordConfig()
-  const redirectOrigin = getSafeRedirectOrigin(request, appUrl)
+  const { isOAuthConfigured } = getDiscordConfig()
+  const redirectOrigin = getSafeRedirectOrigin(request)
   const errorParam = request.nextUrl.searchParams.get('error')
   if (errorParam) {
-    return NextResponse.redirect(new URL(`/auth/login?error=${encodeURIComponent(errorParam)}`, redirectOrigin))
+    return NextResponse.redirect(buildOAuthLoginUrl(redirectOrigin, errorParam))
   }
   if (!isOAuthConfigured) {
-    return NextResponse.redirect(new URL('/auth/login?error=discord_not_configured', redirectOrigin))
+    return NextResponse.redirect(buildOAuthLoginUrl(redirectOrigin, 'discord_not_configured'))
   }
   const code = request.nextUrl.searchParams.get('code')
   const stateRaw = request.nextUrl.searchParams.get('state')
   const state = parseDiscordOAuthState(stateRaw)
   if (!code || !state) {
-    return NextResponse.redirect(new URL('/auth/login?error=invalid_discord_state', redirectOrigin))
+    return NextResponse.redirect(buildOAuthLoginUrl(redirectOrigin, 'invalid_discord_state'))
   }
   try {
     const accessToken = await exchangeDiscordCode(code)
@@ -51,7 +52,7 @@ export async function GET(request: NextRequest) {
     if (state.mode === 'link') {
       const auth = await getAuthSessionFromToken(request.cookies.get(AUTH_COOKIE_NAME)?.value)
       if (!auth) {
-        return NextResponse.redirect(new URL('/auth/login?error=login_required', redirectOrigin))
+        return NextResponse.redirect(buildOAuthLoginUrl(redirectOrigin, 'login_required'))
       }
       await linkDiscordUserAccount({
         userId: auth.user.id,
@@ -84,11 +85,13 @@ export async function GET(request: NextRequest) {
       throw new Error('discord_user_creation_failed')
     }
     const { token } = await createSession(user.id, request.headers.get('user-agent'))
-    const response = NextResponse.redirect(new URL('/dashboard', redirectOrigin))
-    await setSessionCookie(response, token)
-    return response
+    return buildOAuthSuccessResponse({
+      redirectOrigin,
+      token,
+      path: '/settings',
+    })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'discord_auth_failed'
-    return NextResponse.redirect(new URL(`/auth/login?error=${encodeURIComponent(message)}`, redirectOrigin))
+    return NextResponse.redirect(buildOAuthLoginUrl(redirectOrigin, message))
   }
 }

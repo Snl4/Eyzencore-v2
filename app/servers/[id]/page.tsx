@@ -1,4 +1,4 @@
-import { notFound, redirect } from 'next/navigation';
+import { notFound, permanentRedirect } from 'next/navigation';
 import { getServerById, listServers } from '@/lib/auth-db';
 import { getCurrentUser } from '@/lib/auth-server';
 import { getClusterForServer } from '@/lib/cluster-db';
@@ -32,7 +32,7 @@ export default async function ServerPage({ params }: Props) {
   if (!server) notFound();
   const canonicalSlug = buildServerPublicSlug(server);
   if (params.id !== canonicalSlug) {
-    redirect(buildServerPublicPath(server));
+    permanentRedirect(buildServerPublicPath(server));
   }
   const [user, cluster] = await Promise.all([
     getCurrentUser(),

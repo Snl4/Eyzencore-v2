@@ -1,12 +1,12 @@
-import { listForumThreads } from '@/lib/forum-db'
+import { getCachedForumThreads } from '@/lib/public-cache'
 import { SITE_URL } from '@/lib/seo'
 import { buildSitemapXml, safeLastModified } from '@/lib/sitemap-xml'
 
-export const dynamic = 'force-dynamic'
+export const revalidate = 3600
 
 export async function GET(): Promise<Response> {
   const now = new Date()
-  const forumThreads = await listForumThreads({ limit: 200 })
+  const forumThreads = await getCachedForumThreads(200)
   const entries = forumThreads.map((thread) => ({
     url: `${SITE_URL}/forum/${thread.id}`,
     lastModified: safeLastModified(thread.updatedAt || thread.createdAt, now),

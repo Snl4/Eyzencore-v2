@@ -1,8 +1,8 @@
-import { notFound, redirect } from 'next/navigation'
+import { notFound, permanentRedirect, redirect } from 'next/navigation'
 import { AddServerClient } from '@/app/add-server/AddServerClient'
-import { getServerById } from '@/lib/auth-db'
+import { getServerById, listServers } from '@/lib/auth-db'
 import { getCurrentUser } from '@/lib/auth-server'
-import { buildServerPublicPath } from '@/lib/server-slug'
+import { buildServerPublicPath, isMatchingServerSlug, parseServerIdFromPublicSlug } from '@/lib/server-slug'
 
 interface Props {
   params: { id: string }
@@ -10,19 +10,28 @@ interface Props {
 
 export const dynamic = 'force-dynamic'
 
+async function getServerFromParam(value: string) {
+  const serverId = parseServerIdFromPublicSlug(value)
+  if (serverId) {
+    return await getServerById(serverId)
+  }
+  const servers = await listServers()
+  return servers.find((server) => isMatchingServerSlug({ name: server.name, slug: value })) || null
+}
+
 export async function generateMetadata({ params }: Props) {
-  const server = await getServerById(Number(params.id))
+  const server = await getServerFromParam(params.id)
   if (!server) return { title: 'Server not found' }
   return { title: `Edit ${server.name} - Eyzencore`, description: `Edit server ${server.name}` }
 }
 
 export default async function EditServerPage({ params }: Props) {
   const user = await getCurrentUser()
-  if (!user) redirect('/auth/login')
-  const server = await getServerById(Number(params.id))
+  if (!user) redirect('/login')
+  const server = await getServerFromParam(params.id)
   if (!server) notFound()
   if (server.ownerId !== user.id) {
-    redirect(buildServerPublicPath(server))
+    permanentRedirect(buildServerPublicPath(server))
   }
   return (
     <>

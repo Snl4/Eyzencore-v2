@@ -98,8 +98,8 @@ export function Nav() {
               >
                 {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
               </Toggle>
-              <Link className="btn btn-secondary" href="/auth/login" rel="nofollow">Увійти</Link>
-              <Link className="btn btn-primary" href="/auth/register" rel="nofollow">
+              <Link className="btn btn-secondary" href="/login" rel="nofollow">Увійти</Link>
+              <Link className="btn btn-primary" href="/register" rel="nofollow">
                 Реєстрація <span style={{ opacity: 0.6 }}>→</span>
               </Link>
             </>

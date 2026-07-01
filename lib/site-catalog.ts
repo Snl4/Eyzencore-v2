@@ -1,5 +1,4 @@
-import { listForumThreads } from '@/lib/forum-db'
-import { getCachedPublicNews, getCachedPublicServers } from '@/lib/public-cache'
+import { getCachedForumThreads, getCachedPublicNews, getCachedPublicServers } from '@/lib/public-cache'
 import { listMinecraftSeoLandingSlugs } from '@/lib/minecraft-seo-pages'
 import { listServicePageSlugs } from '@/lib/service-pages'
 import { buildNewsPath } from '@/lib/news-slug'
@@ -47,7 +46,7 @@ export async function buildSiteCatalog(options: BuildSiteCatalogOptions = {}): P
   const [servers, news, forumThreads] = await Promise.all([
     getCachedPublicServers(),
     getCachedPublicNews(full ? 40 : 12),
-    listForumThreads({ limit: full ? 40 : 12 }),
+    getCachedForumThreads(full ? 40 : 12),
   ])
   const minecraftServers = servers.filter((server) => !isDiscordServer(server))
   const discordServers = servers.filter((server) => isDiscordServer(server))

@@ -1369,7 +1369,7 @@ export async function createUserFromDiscordProfile(input: {
 }) {
   const db = getDb();
   const discordUserId = String(input.discordUserId).trim();
-  const existingDiscord = getUserByDiscordId(discordUserId);
+  const existingDiscord = await getUserByDiscordId(discordUserId);
   if (existingDiscord) {
     return existingDiscord;
   }

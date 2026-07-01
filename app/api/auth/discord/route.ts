@@ -13,6 +13,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(authorizeUrl)
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Помилка Discord OAuth'
-    return NextResponse.redirect(new URL(`/auth/login?error=${encodeURIComponent(message)}`, request.url))
+    return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(message)}`, request.url))
   }
 }

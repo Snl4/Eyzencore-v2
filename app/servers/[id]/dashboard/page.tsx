@@ -1,4 +1,4 @@
-import { notFound, redirect } from 'next/navigation'
+import { notFound, permanentRedirect, redirect } from 'next/navigation'
 import { getServerById, resolveUserRole } from '@/lib/auth-db'
 import { getCurrentUser } from '@/lib/auth-server'
 import { buildServerDashboardSlug, buildServerPublicPath } from '@/lib/server-slug'
@@ -23,7 +23,7 @@ export default async function ServerDashboardPage({ params }: Props) {
   const role = await resolveUserRole({ userId: user.id, role: user.user_metadata.role })
   const isAdmin = role === 'ADMIN'
   if (!isAdmin && server.ownerId !== user.id) {
-    redirect(buildServerPublicPath(server))
+    permanentRedirect(buildServerPublicPath(server))
   }
-  redirect(`/dashboard/${buildServerDashboardSlug(server.name)}`)
+  permanentRedirect(`/dashboard/${buildServerDashboardSlug(server.name)}`)
 }

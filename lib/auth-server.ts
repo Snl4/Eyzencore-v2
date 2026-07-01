@@ -7,10 +7,14 @@ import {
   type AuthUser,
 } from '@/lib/auth-db';
 
-function getAuthCookieDomain() {
-  const domain = String(process.env.AUTH_COOKIE_DOMAIN || process.env.VITE_AUTH_COOKIE_DOMAIN || '').trim();
-  if (!domain || domain === 'localhost' || domain === '127.0.0.1') return undefined;
-  return domain;
+function buildSessionCookieOptions() {
+  return {
+    httpOnly: true,
+    sameSite: 'lax' as const,
+    secure: process.env.NODE_ENV === 'production',
+    path: '/',
+    maxAge: getSessionMaxAgeSeconds(),
+  };
 }
 
 export async function getCurrentAuth() {
@@ -22,26 +26,23 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
   return (await getCurrentAuth())?.user ?? null;
 }
 
+export function persistSessionToken(token: string, response?: NextResponse) {
+  const options = buildSessionCookieOptions();
+  cookies().set(AUTH_COOKIE_NAME, token, options);
+  if (response) {
+    response.cookies.set(AUTH_COOKIE_NAME, token, options);
+  }
+}
+
 export async function setSessionCookie(response: NextResponse, token: string) {
-  const domain = getAuthCookieDomain();
-  response.cookies.set(AUTH_COOKIE_NAME, token, {
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
-    ...(domain ? { domain } : {}),
-    path: '/',
-    maxAge: await getSessionMaxAgeSeconds(),
-  });
+  persistSessionToken(token, response);
 }
 
 export function clearSessionCookie(response: NextResponse) {
-  const domain = getAuthCookieDomain();
-  response.cookies.set(AUTH_COOKIE_NAME, '', {
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
-    ...(domain ? { domain } : {}),
-    path: '/',
+  const options = {
+    ...buildSessionCookieOptions(),
     maxAge: 0,
-  });
+  };
+  cookies().set(AUTH_COOKIE_NAME, '', options);
+  response.cookies.set(AUTH_COOKIE_NAME, '', options);
 }

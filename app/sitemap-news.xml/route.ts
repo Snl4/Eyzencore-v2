@@ -3,7 +3,7 @@ import { buildNewsPath } from '@/lib/news-slug'
 import { SITE_URL } from '@/lib/seo'
 import { buildSitemapXml, safeLastModified } from '@/lib/sitemap-xml'
 
-export const dynamic = 'force-dynamic'
+export const revalidate = 3600
 
 export async function GET(): Promise<Response> {
   const now = new Date()

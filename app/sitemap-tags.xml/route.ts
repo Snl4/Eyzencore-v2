@@ -2,7 +2,7 @@ import { listMinecraftSeoLandingSlugs } from '@/lib/minecraft-seo-pages'
 import { SITE_URL } from '@/lib/seo'
 import { buildSitemapXml } from '@/lib/sitemap-xml'
 
-export const dynamic = 'force-dynamic'
+export const revalidate = 86400
 
 export async function GET(): Promise<Response> {
   const now = new Date()

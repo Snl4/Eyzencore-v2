@@ -55,8 +55,14 @@ export const SEO_KEYWORDS = [
 ]
 
 export function absoluteUrl(path = '/') {
-  if (/^https?:\/\//i.test(path)) return path
-  return `${SITE_URL}${path.startsWith('/') ? path : `/${path}`}`
+  if (/^https?:\/\//i.test(path)) {
+    return path.replace(/([^:]\/)\/+/g, '$1')
+  }
+  const normalizedPath = `/${String(path).replace(/^\/+/, '').replace(/\/+/g, '/')}`
+  if (normalizedPath === '/') {
+    return SITE_URL
+  }
+  return `${SITE_URL}${normalizedPath}`
 }
 
 export function truncateSeo(value: string, max = 155) {
@@ -109,11 +115,6 @@ export function buildPageMetadata(input: {
     keywords: Array.from(new Set([...(input.keywords || []), ...SEO_KEYWORDS])),
     alternates: {
       canonical: url,
-      languages: {
-        uk: url,
-        en: url,
-        'x-default': url,
-      },
     },
     openGraph: {
       title,
@@ -182,7 +183,7 @@ export function siteJsonLd() {
     '@type': 'WebSite',
     name: SITE_NAME,
     url: SITE_URL,
-    inLanguage: ['uk-UA', 'en'],
+    inLanguage: 'uk-UA',
     description: 'Моніторинг Minecraft і Discord серверів, рейтинг, голосування, відгуки, новини та форум спільноти.',
     potentialAction: {
       '@type': 'SearchAction',

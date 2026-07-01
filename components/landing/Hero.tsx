@@ -72,7 +72,7 @@ export function Hero() {
           variants={fade} initial="hidden" animate="show" transition={{ delay:0.2 }}
           className="hero-cta" style={{ display:'flex', justifyContent:'center', gap:10, flexWrap:'wrap', marginBottom:56 }}
         >
-          <Link href="/auth/register" className="btn btn-primary btn-lg">
+          <Link href="/register" className="btn btn-primary btn-lg">
             Почати безкоштовно <span style={{ opacity:.6 }}>→</span>
           </Link>
           <Link href="/#demo" className="btn btn-secondary btn-lg">Переглянути платформу</Link>
