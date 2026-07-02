@@ -1,7 +1,7 @@
 // Client-side helper for uploading files via /api/uploads.
 // Returns the public URL of the saved file or throws with a user-friendly message.
 
-export type UploadKind = 'news' | 'forum' | 'avatar' | 'banner' | 'misc' | 'animilair'
+export type UploadKind = 'news' | 'forum' | 'avatar' | 'banner' | 'misc'
 
 export type UploadedFile = {
   url: string

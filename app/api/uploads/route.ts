@@ -91,15 +91,14 @@ function safeExtension(filename: string, mime: string): string {
   return '.bin'
 }
 
-function safeKind(value: string | null): 'news' | 'forum' | 'avatar' | 'banner' | 'misc' | 'animilair' {
+function safeKind(value: string | null): 'news' | 'forum' | 'avatar' | 'banner' | 'misc' {
   const normalized = String(value || '').toLowerCase()
   if (
     normalized === 'news' ||
     normalized === 'forum' ||
     normalized === 'avatar' ||
     normalized === 'banner' ||
-    normalized === 'misc' ||
-    normalized === 'animilair'
+    normalized === 'misc'
   ) {
     return normalized
   }
@@ -128,7 +127,7 @@ export async function POST(request: NextRequest) {
   const mime = resolveMime(file)
   const { isImage, isVideo, isDocument } = classifyUpload(file, mime)
 
-  const allowsDocuments = kind === 'animilair' || kind === 'forum'
+  const allowsDocuments = kind === 'forum'
   if (!isImage && !isVideo && !(allowsDocuments && isDocument)) {
     return NextResponse.json(
       { error: 'Підтримуються зображення, відео або файли (pdf, zip, doc, txt тощо)' },
@@ -136,9 +135,6 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  if (kind === 'animilair' && isVideo) {
-    return NextResponse.json({ error: 'До чату замовлення можна додати фото або файли, не відео' }, { status: 400 })
-  }
 
   // News videos are reserved for admins or users that actually own a server.
   if (isVideo && kind !== 'forum') {
