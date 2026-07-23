@@ -20,19 +20,6 @@ interface PageShellProps {
   hiddenKeys?: string[];
 }
 
-type SidebarItem = {
-  ico: string;
-  name: string;
-  key: string;
-  href: string | null;
-  badge?: string;
-};
-
-type SidebarSection = {
-  label: string;
-  items: SidebarItem[];
-};
-
 export function PageShell({ children, active, initialUser = null, sidebarRole, hiddenKeys = [] }: PageShellProps) {
   const router = useRouter();
   const { theme, toggle } = useTheme();

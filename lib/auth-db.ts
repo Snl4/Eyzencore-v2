@@ -1760,20 +1760,25 @@ export async function registerServerNicknameVote(input: {
   const cooldownHours = Math.max(1, Number(input.cooldownHours || 24));
   const existingNicknameVote = await db
     .prepare(
-      `SELECT id
+      `SELECT id, created_at
        FROM app_server_nickname_votes
-       WHERE server_id = ? AND nickname = ? AND created_at >= datetime('now', ?)
+       WHERE server_id = ? AND nickname = ? AND datetime(created_at) >= datetime('now', ?)
+       ORDER BY datetime(created_at) DESC
        LIMIT 1`
     )
-    .get(input.serverId, normalizedNickname, `-${cooldownHours} hours`) as { id: number } | undefined;
+    .get(input.serverId, normalizedNickname, `-${cooldownHours} hours`) as { id: number; created_at: string } | undefined;
   if (existingNicknameVote) {
-    return { success: false as const, reason: 'already-voted' as const };
+    const lastVoteTime = new Date(existingNicknameVote.created_at).getTime();
+    const nextVoteAt = Number.isFinite(lastVoteTime)
+      ? new Date(lastVoteTime + cooldownHours * 60 * 60 * 1000).toISOString()
+      : new Date(Date.now() + cooldownHours * 60 * 60 * 1000).toISOString();
+    return { success: false as const, reason: 'already-voted' as const, nextVoteAt };
   }
   const votesByIp = await db
     .prepare(
       `SELECT COUNT(*) AS c
        FROM app_server_nickname_votes
-       WHERE ip_address = ? AND created_at >= datetime('now', '-24 hours')`
+       WHERE ip_address = ? AND datetime(created_at) >= datetime('now', '-24 hours')`
     )
     .get(normalizedIp) as { c: number } | undefined;
   if (Number(votesByIp?.c || 0) >= ipDailyLimit) {
@@ -2164,6 +2169,7 @@ export async function registerAuthenticatedServerVote(input: {
   userId: string;
   nickname: string;
   cooldownHours?: number;
+  enforceCooldown?: boolean;
 }) {
   const db = getDb();
   const cooldownHours = Math.max(1, Number(input.cooldownHours || DEFAULT_VOTE_COOLDOWN_HOURS));
@@ -2191,7 +2197,7 @@ export async function registerAuthenticatedServerVote(input: {
   }
   const lastVoteTime = new Date(existing.updated_at).getTime();
   const nextVoteTimestamp = lastVoteTime + cooldownHours * 60 * 60 * 1000;
-  if (Number.isFinite(lastVoteTime) && Date.now() < nextVoteTimestamp) {
+  if (input.enforceCooldown !== false && Number.isFinite(lastVoteTime) && Date.now() < nextVoteTimestamp) {
     return {
       success: false as const,
       reason: 'cooldown' as const,
@@ -2210,6 +2216,40 @@ export async function registerAuthenticatedServerVote(input: {
     cooldownHours,
     votedAt: nowIsoValue,
     nextVoteAt: new Date(now.getTime() + cooldownHours * 60 * 60 * 1000).toISOString(),
+  };
+}
+
+export async function getAuthenticatedServerVoteCooldown(input: {
+  serverId: number;
+  userId: string;
+  cooldownHours?: number;
+}) {
+  const db = getDb();
+  const cooldownHours = Math.max(1, Number(input.cooldownHours || DEFAULT_VOTE_COOLDOWN_HOURS));
+  const existing = await db
+    .prepare(
+      `SELECT updated_at
+       FROM app_server_votes
+       WHERE server_id = ? AND user_id = ?
+       LIMIT 1`
+    )
+    .get(input.serverId, input.userId) as { updated_at: string } | undefined;
+
+  if (!existing) {
+    return { active: false as const, cooldownHours };
+  }
+
+  const lastVoteTime = new Date(existing.updated_at).getTime();
+  const nextVoteTimestamp = lastVoteTime + cooldownHours * 60 * 60 * 1000;
+  if (!Number.isFinite(lastVoteTime) || Date.now() >= nextVoteTimestamp) {
+    return { active: false as const, cooldownHours };
+  }
+
+  return {
+    active: true as const,
+    cooldownHours,
+    votedAt: existing.updated_at,
+    nextVoteAt: new Date(nextVoteTimestamp).toISOString(),
   };
 }
 
