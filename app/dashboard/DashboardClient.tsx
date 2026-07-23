@@ -8,6 +8,7 @@ import { PageShell } from '@/components/layout/PageShell'
 import { Breadcrumbs } from '@/components/ui/Breadcrumbs'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { ProjectLogo } from '@/components/ui/ProjectLogo'
+import { formatPlural } from '@/lib/format-plural'
 import type {
   AuthUser,
   OwnerDashboardPayload,
@@ -252,25 +253,27 @@ function UserReviewsCard({ reviews }: { reviews: UserDashboardReview[] }) {
 function UserVotesCard({ votes }: { votes: UserDashboardVote[] }) {
   return (
     <section className="set-card">
-      <h3>My Votes</h3>
-      {votes.length === 0 && <p className="dashboard-empty">No votes yet.</p>}
+      <h3>Мої голоси</h3>
+      {votes.length === 0 && <p className="dashboard-empty">Голосів поки немає.</p>}
       {votes.length > 0 && (
         <div className="dashboard-table-wrap">
           <table className="dashboard-table">
             <thead>
               <tr>
-                <th>Server</th>
-                <th>Last Vote</th>
-                <th>Cooldown</th>
+                <th>Сервер</th>
+                <th>Останній голос</th>
+                <th>Наступний голос</th>
               </tr>
             </thead>
             <tbody>
               {votes.map((vote) => (
                 <tr key={`${vote.serverId}-${vote.votedAt}`}>
                   <td>{vote.serverName}</td>
-                  <td>{new Date(vote.votedAt).toLocaleString()}</td>
+                  <td>{new Date(vote.votedAt).toLocaleString('uk-UA')}</td>
                   <td>
-                    {vote.isCooldownActive ? `You can vote again in ${vote.cooldownRemainingHours} hour(s)` : 'Ready to vote'}
+                    {vote.isCooldownActive
+                      ? `Можна голосувати знову через ${formatPlural(vote.cooldownRemainingHours, ['годину', 'години', 'годин'])}`
+                      : 'Можна голосувати'}
                   </td>
                 </tr>
               ))}
