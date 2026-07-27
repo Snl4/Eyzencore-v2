@@ -1,5 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+const CANONICAL_HOST = 'eyzencore.com'
+const CANONICAL_REDIRECT_HOSTS = new Set([
+  'www.eyzencore.com',
+  'status.eyzencore.com',
+  'acp.eyzencore.com',
+])
+
 const ALWAYS_ALLOWED = [
   '/maintenance',
   '/cms/login',
@@ -19,9 +26,10 @@ function isAlwaysAllowed(pathname: string) {
 
 export async function middleware(request: NextRequest) {
   const host = request.headers.get('host') || ''
-  if (host.toLowerCase().startsWith('www.')) {
+  const normalizedHost = host.toLowerCase().split(':')[0]
+  if (CANONICAL_REDIRECT_HOSTS.has(normalizedHost)) {
     const url = request.nextUrl.clone()
-    url.host = host.slice(4)
+    url.host = CANONICAL_HOST
     url.protocol = 'https:'
     return NextResponse.redirect(url, 301)
   }
