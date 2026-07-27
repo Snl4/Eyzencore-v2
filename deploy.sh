@@ -181,7 +181,7 @@ else
   PORT="$PORT" STATS_COLLECTOR_BASE_URL="$HEALTH_URL" pm2 start npm --name "$PM2_STATS_APP" --cwd "$APP_DIR" -- run stats:collector
 fi
 
-avatar_bot_token="$(grep -E '^AVATAR_BOT_TOKEN=' .env | tail -n 1 | cut -d= -f2- | tr -d '\r' | sed -e 's/^["'\'']//' -e 's/["'\'']$//')"
+avatar_bot_token="$(grep -E '^(AVATAR_BOT_TOKEN|TELEGRAM_BOT_TOKEN)=' .env | tail -n 1 | cut -d= -f2- | tr -d '\r' | sed -e 's/^["'\'']//' -e 's/["'\'']$//')"
 if [[ -n "$avatar_bot_token" ]]; then
   log "Starting avatar bot with PM2 (single instance)"
   if pm2 describe "$PM2_AVATAR_BOT" >/dev/null 2>&1; then
@@ -189,7 +189,7 @@ if [[ -n "$avatar_bot_token" ]]; then
   fi
   pm2 start npm --name "$PM2_AVATAR_BOT" --cwd "$APP_DIR" -i 1 -- run avatar:bot
 elif pm2 describe "$PM2_AVATAR_BOT" >/dev/null 2>&1; then
-  log "AVATAR_BOT_TOKEN missing, stopping avatar bot"
+  log "TELEGRAM_BOT_TOKEN/AVATAR_BOT_TOKEN missing, stopping avatar bot"
   pm2 delete "$PM2_AVATAR_BOT" || true
 fi
 pm2 save

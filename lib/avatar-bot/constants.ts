@@ -23,7 +23,7 @@ export const AVATAR_BACKGROUNDS: Record<AvatarBackgroundKey, { label: string }> 
 }
 
 export const AVATAR_BOT_MESSAGES = {
-  missingToken: 'AVATAR_BOT_TOKEN не налаштовано в .env',
+  missingToken: 'TELEGRAM_BOT_TOKEN або AVATAR_BOT_TOKEN не налаштовано в .env',
   welcome: (botName: string) =>
     `Привіт! Я ${botName} — бот для Minecraft-аватарок у 3D стилі.\n\n` +
     'Надішли Minecraft нік (наприклад Steve) або файл скіну PNG без стиснення.\n\n' +

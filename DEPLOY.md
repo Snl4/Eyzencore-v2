@@ -85,12 +85,12 @@ skin PNG, picks a pose, receives a rendered avatar.
 Required `.env` values:
 
 ```bash
-AVATAR_BOT_TOKEN=...
+TELEGRAM_BOT_TOKEN=...
 AVATAR_BOT_NAME=Your Bot Name
 ```
 
-`deploy.sh` starts the avatar bot automatically when `AVATAR_BOT_TOKEN` is set in `.env`.
-The token must belong to the same bot you open in Telegram (from @BotFather), not `TELEGRAM_BOT_TOKEN` used by the site.
+`deploy.sh` starts the Telegram bot automatically when `TELEGRAM_BOT_TOKEN` or `AVATAR_BOT_TOKEN` is set in `.env`.
+For account verification, `TELEGRAM_BOT_TOKEN` must belong to the same bot username configured as `VITE_TELEGRAM_BOT_USERNAME`.
 
 Run locally or on VPS with PM2:
 
@@ -108,7 +108,7 @@ If `/start` gets no reply, check:
 ```bash
 pm2 logs avatar-bot --lines 50
 pm2 list
-grep AVATAR_BOT_TOKEN /root/eyzencore-new/.env
+grep -E '^(TELEGRAM_BOT_TOKEN|AVATAR_BOT_TOKEN|VITE_TELEGRAM_BOT_USERNAME)=' /root/eyzencore-new/.env
 ```
 
 If the bot replies 2–4 times to one message, duplicate PM2 processes are running:

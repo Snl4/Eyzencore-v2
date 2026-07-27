@@ -119,7 +119,7 @@ export class TelegramAvatarApi {
 }
 
 export function getAvatarBotToken(): string {
-  return String(process.env.AVATAR_BOT_TOKEN || '').trim()
+  return String(process.env.AVATAR_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || '').trim()
 }
 
 export function getAvatarBotName(): string {
