@@ -6,7 +6,8 @@ BRANCH="${BRANCH:-main}"
 REMOTE="${REMOTE:-origin}"
 PM2_APP="${PM2_APP:-eyzencore-new}"
 PM2_STATS_APP="${PM2_STATS_APP:-${PM2_APP}-stats}"
-PM2_AVATAR_BOT="${PM2_AVATAR_BOT:-avatar-bot}"
+PM2_TELEGRAM_BOT="${PM2_TELEGRAM_BOT:-telegram-bot}"
+PM2_LEGACY_AVATAR_BOT="${PM2_LEGACY_AVATAR_BOT:-avatar-bot}"
 PORT="${PORT:-3001}"
 HEALTH_URL="${HEALTH_URL:-http://127.0.0.1:${PORT}}"
 BACKUP_DIR="${BACKUP_DIR:-/root/backups/eyzencore}"
@@ -19,7 +20,6 @@ database_path=""
 release_activated=0
 app_was_running=0
 stats_was_running=0
-avatar_bot_was_running=0
 
 log() {
   printf '\n\033[1;36m[%s]\033[0m %s\n' "$(date +%H:%M:%S)" "$*"
@@ -131,12 +131,6 @@ npm ci
 log "Clearing stale Next.js build artifacts"
 rm -rf .next
 
-avatar_blend_file="${APP_DIR}/avatar-bot/blender/minecraft_avatar.blend"
-if command -v blender >/dev/null 2>&1 && [[ ! -f "$avatar_blend_file" ]]; then
-  log "Generating Blender avatar scene (.blend)"
-  AVATAR_BOT_BLEND_FILE="$avatar_blend_file" blender --background --python "$APP_DIR/avatar-bot/blender/generate_scene.py"
-fi
-
 log "Generating Prisma client"
 npm run db:generate
 
@@ -150,10 +144,13 @@ if pm2 describe "$PM2_STATS_APP" >/dev/null 2>&1; then
   log "Stopping stats collector to unlock SQLite"
   pm2 stop "$PM2_STATS_APP"
 fi
-if pm2 describe "$PM2_AVATAR_BOT" >/dev/null 2>&1; then
-  avatar_bot_was_running=1
-  log "Stopping avatar bot during deploy"
-  pm2 stop "$PM2_AVATAR_BOT"
+if pm2 describe "$PM2_TELEGRAM_BOT" >/dev/null 2>&1; then
+  log "Stopping Telegram bot during deploy"
+  pm2 stop "$PM2_TELEGRAM_BOT"
+fi
+if pm2 describe "$PM2_LEGACY_AVATAR_BOT" >/dev/null 2>&1; then
+  log "Removing legacy avatar bot"
+  pm2 delete "$PM2_LEGACY_AVATAR_BOT" || true
 fi
 sleep 3
 
@@ -181,16 +178,16 @@ else
   PORT="$PORT" STATS_COLLECTOR_BASE_URL="$HEALTH_URL" pm2 start npm --name "$PM2_STATS_APP" --cwd "$APP_DIR" -- run stats:collector
 fi
 
-avatar_bot_token="$(grep -E '^(AVATAR_BOT_TOKEN|TELEGRAM_BOT_TOKEN)=' .env | tail -n 1 | cut -d= -f2- | tr -d '\r' | sed -e 's/^["'\'']//' -e 's/["'\'']$//')"
-if [[ -n "$avatar_bot_token" ]]; then
-  log "Starting avatar bot with PM2 (single instance)"
-  if pm2 describe "$PM2_AVATAR_BOT" >/dev/null 2>&1; then
-    pm2 delete "$PM2_AVATAR_BOT" || true
+telegram_bot_token="$(grep -E '^TELEGRAM_BOT_TOKEN=' .env | tail -n 1 | cut -d= -f2- | tr -d '\r' | sed -e 's/^["'\'']//' -e 's/["'\'']$//')"
+if [[ -n "$telegram_bot_token" ]]; then
+  log "Starting Telegram verification bot with PM2 (single instance)"
+  if pm2 describe "$PM2_TELEGRAM_BOT" >/dev/null 2>&1; then
+    pm2 delete "$PM2_TELEGRAM_BOT" || true
   fi
-  pm2 start npm --name "$PM2_AVATAR_BOT" --cwd "$APP_DIR" -i 1 -- run avatar:bot
-elif pm2 describe "$PM2_AVATAR_BOT" >/dev/null 2>&1; then
-  log "TELEGRAM_BOT_TOKEN/AVATAR_BOT_TOKEN missing, stopping avatar bot"
-  pm2 delete "$PM2_AVATAR_BOT" || true
+  pm2 start npm --name "$PM2_TELEGRAM_BOT" --cwd "$APP_DIR" -i 1 -- run telegram:bot
+elif pm2 describe "$PM2_TELEGRAM_BOT" >/dev/null 2>&1; then
+  log "TELEGRAM_BOT_TOKEN missing, stopping Telegram bot"
+  pm2 delete "$PM2_TELEGRAM_BOT" || true
 fi
 pm2 save
 

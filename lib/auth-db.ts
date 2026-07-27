@@ -1446,7 +1446,6 @@ function getTelegramLinkSecret() {
     process.env.TELEGRAM_LINK_SECRET ||
     process.env.JWT_SECRET ||
     process.env.TELEGRAM_BOT_TOKEN ||
-    process.env.AVATAR_BOT_TOKEN ||
     'eyzencore-telegram-dev'
   ).trim();
 }

@@ -4,7 +4,6 @@ import { linkTelegramUserAccount } from '@/lib/auth-db'
 export async function POST(request: NextRequest) {
   const configuredTokens = [
     process.env.TELEGRAM_BOT_TOKEN,
-    process.env.AVATAR_BOT_TOKEN,
   ].map((token) => String(token || '').trim()).filter(Boolean)
   const incomingToken = String(request.headers.get('x-telegram-bot-token') || '').trim()
   if (!configuredTokens.length || !configuredTokens.includes(incomingToken)) {

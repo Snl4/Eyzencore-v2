@@ -25,8 +25,7 @@
     "news:bot": "tsx scripts/news-bot.ts",
     "news:bot:dry": "tsx scripts/news-bot.ts --dry-run",
     "badge:human": "tsx scripts/made-by-human-stats.ts",
-    "avatar:bot": "tsx avatar-bot/index.ts",
-    "avatar:blender:setup": "blender --background --python avatar-bot/blender/generate_scene.py",
+    "telegram:bot": "tsx telegram-bot/index.ts",
     "deploy:vps": "bash ./deploy.sh"
   },
   "dependencies": {

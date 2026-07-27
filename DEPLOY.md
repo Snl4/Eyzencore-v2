@@ -77,77 +77,44 @@ crontab -e
 0 */2 * * * cd /root/eyzencore-new && /usr/bin/npm run news:bot >> /root/eyzencore-new/logs/news-bot.log 2>&1
 ```
 
-## Avatar bot (Minecraft 3D avatars)
+## Telegram Verification Bot
 
-Long-running Telegram bot similar to `@mc_raya_bot`: user sends a Minecraft nick or
-skin PNG, picks a pose, receives a rendered avatar.
+Long-running Telegram bot for Eyzencore account verification. It only handles
+`/start link_...` links generated from user settings.
 
 Required `.env` values:
 
 ```bash
 TELEGRAM_BOT_TOKEN=...
-AVATAR_BOT_NAME=Your Bot Name
+VITE_TELEGRAM_BOT_USERNAME=EyzenCore_bot
 ```
 
-`deploy.sh` starts the Telegram bot automatically when `TELEGRAM_BOT_TOKEN` or `AVATAR_BOT_TOKEN` is set in `.env`.
-For account verification, `TELEGRAM_BOT_TOKEN` must belong to the same bot username configured as `VITE_TELEGRAM_BOT_USERNAME`.
+`TELEGRAM_BOT_TOKEN` must belong to the same bot username configured as `VITE_TELEGRAM_BOT_USERNAME`.
 
 Run locally or on VPS with PM2:
 
 ```bash
-npm run avatar:bot
+npm run telegram:bot
 ```
 
 ```bash
-pm2 start npm --name avatar-bot -- run avatar:bot
+pm2 start npm --name telegram-bot -- run telegram:bot
 pm2 save
 ```
 
 If `/start` gets no reply, check:
 
 ```bash
-pm2 logs avatar-bot --lines 50
+pm2 logs telegram-bot --lines 50
 pm2 list
-grep -E '^(TELEGRAM_BOT_TOKEN|AVATAR_BOT_TOKEN|VITE_TELEGRAM_BOT_USERNAME)=' /root/eyzencore-new/.env
+grep -E '^(TELEGRAM_BOT_TOKEN|VITE_TELEGRAM_BOT_USERNAME)=' /root/eyzencore-new/.env
 ```
 
 If the bot replies 2–4 times to one message, duplicate PM2 processes are running:
 
 ```bash
-pm2 delete avatar-bot
-pm2 start npm --name avatar-bot --cwd /root/eyzencore-new -i 1 -- run avatar:bot
+pm2 delete telegram-bot
+pm2 start npm --name telegram-bot --cwd /root/eyzencore-new -i 1 -- run telegram:bot
 pm2 save
 ```
 
-Send skins as **File** (📎), not as a gallery photo — Telegram compresses photos and breaks PNG skins.
-
-### Blender render + image processing
-
-The bot renders 3D avatars from `avatar-bot/blender/minecraft_avatar.blend` (Steve mesh,
-cameras per pose, `Skin` material) and applies background gradients inside Blender.
-
-Install Blender on VPS:
-
-```bash
-apt update && apt install -y blender
-```
-
-Generate the scene file once (also runs automatically on deploy if Blender is installed):
-
-```bash
-cd /root/eyzencore-new
-npm run avatar:blender:setup
-```
-
-Optional `.env`:
-
-```bash
-AVATAR_BOT_RENDER_MODE=blender   # blender | remote
-AVATAR_BOT_BLENDER_PATH=blender
-AVATAR_BOT_BLEND_FILE=avatar-bot/blender/minecraft_avatar.blend
-```
-
-Use your own `.blend` scene: keep material name `Skin`, image node `SkinTexture`, cameras
-`cam_bust`, `cam_full`, `cam_face`, `cam_front`, `cam_back`, `cam_frontfull`, mesh `Avatar`.
-
-If Blender is missing, the bot falls back to Visage (without local post-processing).
