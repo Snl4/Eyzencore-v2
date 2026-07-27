@@ -37,6 +37,30 @@ function legacyRedirectPath(pathname: string): string | null {
   return null
 }
 
+function isPrivateNoindexPath(pathname: string) {
+  return (
+    pathname.startsWith('/dashboard') ||
+    pathname.startsWith('/admin') ||
+    pathname.startsWith('/cms') ||
+    pathname.startsWith('/auth') ||
+    pathname.startsWith('/settings') ||
+    pathname.startsWith('/login') ||
+    pathname.startsWith('/register') ||
+    pathname.startsWith('/reset-password') ||
+    pathname.startsWith('/forgot-password') ||
+    pathname.startsWith('/add-server') ||
+    pathname.endsWith('/edit')
+  )
+}
+
+function nextWithOptionalNoindex(pathname: string) {
+  const response = NextResponse.next()
+  if (isPrivateNoindexPath(pathname)) {
+    response.headers.set('X-Robots-Tag', 'noindex, follow')
+  }
+  return response
+}
+
 export async function middleware(request: NextRequest) {
   const host = request.headers.get('host') || ''
   const normalizedHost = host.toLowerCase().split(':')[0]
@@ -54,7 +78,7 @@ export async function middleware(request: NextRequest) {
     url.search = ''
     return NextResponse.redirect(url, 301)
   }
-  if (isAlwaysAllowed(pathname)) return NextResponse.next()
+  if (isAlwaysAllowed(pathname)) return nextWithOptionalNoindex(pathname)
 
   try {
     const internalOrigin =
@@ -68,9 +92,9 @@ export async function middleware(request: NextRequest) {
       cache: 'no-store',
     })
     const status = await response.json() as { enabled?: boolean; adminAccess?: boolean }
-    if (!status.enabled) return NextResponse.next()
+    if (!status.enabled) return nextWithOptionalNoindex(pathname)
     if (status.adminAccess) {
-      const response = NextResponse.next()
+      const response = nextWithOptionalNoindex(pathname)
       response.headers.set('x-eyzencore-maintenance-admin', '1')
       return response
     }
@@ -89,7 +113,7 @@ export async function middleware(request: NextRequest) {
         { status: 503, headers: { 'Retry-After': '60' } }
       )
     }
-    return NextResponse.next()
+    return nextWithOptionalNoindex(pathname)
   }
 }
 

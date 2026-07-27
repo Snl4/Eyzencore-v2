@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import {
   AUTH_COOKIE_NAME,
-  createTelegramLinkToken,
+  createTelegramLinkTokenForUser,
   getAuthSessionFromToken,
   getTelegramBotUsername,
 } from '@/lib/auth-db'
@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
   if (!botUsername) {
     return NextResponse.json({ error: 'Telegram bot username не налаштовано в env' }, { status: 503 })
   }
-  const token = createTelegramLinkToken(auth.user.id)
+  const token = await createTelegramLinkTokenForUser(auth.user.id)
   const url = `https://t.me/${botUsername}?start=link_${encodeURIComponent(token)}`
   return NextResponse.json({ url, token, botUsername, expiresInSeconds: 900 })
 }

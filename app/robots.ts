@@ -1,7 +1,7 @@
 import type { MetadataRoute } from 'next'
 import { SITE_URL } from '@/lib/seo'
 
-/** Intentionally blocked from crawling/indexing (auth, owner tools, forms). */
+/** Intentionally blocked from crawling by generic bots (auth, owner tools, forms). */
 const PRIVATE_PATHS = [
   '/api/',
   '/admin/',
@@ -17,6 +17,10 @@ const PRIVATE_PATHS = [
   '/maintenance',
   '/add-server',
   '/*/edit',
+]
+
+const GOOGLEBOT_DISALLOW = [
+  '/api/',
 ]
 
 const EXTRA_CRAWLERS = [
@@ -46,7 +50,7 @@ export default function robots(): MetadataRoute.Robots {
   return {
     rules: [
       { userAgent: '*', ...sharedRule },
-      { userAgent: 'Googlebot', ...sharedRule },
+      { userAgent: 'Googlebot', allow: '/', disallow: GOOGLEBOT_DISALLOW },
       ...EXTRA_CRAWLERS.map((userAgent) => ({ userAgent, ...sharedRule })),
     ],
     sitemap: [

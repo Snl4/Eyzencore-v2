@@ -1458,6 +1458,19 @@ export function getTelegramBotUsername() {
   return String(process.env.VITE_TELEGRAM_BOT_USERNAME || process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || '').trim().replace(/^@/, '');
 }
 
+async function ensureTelegramLinkTokensTable() {
+  const db = getDb();
+  await db.exec(
+    `CREATE TABLE IF NOT EXISTS app_telegram_link_tokens (
+      token TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      expires_at INTEGER NOT NULL,
+      created_at TEXT NOT NULL,
+      used_at TEXT
+    )`
+  );
+}
+
 export function createTelegramLinkToken(userId: string) {
   const expiresAt = Date.now() + 1000 * 60 * 15;
   const payload = Buffer.from(JSON.stringify({ userId, exp: expiresAt })).toString('base64url');
@@ -1465,7 +1478,45 @@ export function createTelegramLinkToken(userId: string) {
   return `${payload}.${signature}`;
 }
 
-function parseTelegramLinkToken(token: string) {
+export async function createTelegramLinkTokenForUser(userId: string) {
+  await ensureTelegramLinkTokensTable();
+  const db = getDb();
+  const token = randomBytes(24).toString('base64url');
+  const expiresAt = Date.now() + 1000 * 60 * 15;
+  const timestamp = nowIso();
+  await db
+    .prepare(
+      `INSERT INTO app_telegram_link_tokens (token, user_id, expires_at, created_at)
+       VALUES (?, ?, ?, ?)`
+    )
+    .run(token, userId, expiresAt, timestamp);
+  await db
+    .prepare('DELETE FROM app_telegram_link_tokens WHERE expires_at < ? OR used_at IS NOT NULL')
+    .run(Date.now());
+  return token;
+}
+
+async function parseTelegramLinkToken(token: string) {
+  const normalizedToken = String(token || '').trim();
+  if (normalizedToken && !normalizedToken.includes('.')) {
+    await ensureTelegramLinkTokensTable();
+    const db = getDb();
+    const row = await db
+      .prepare(
+        `SELECT user_id, expires_at, used_at
+         FROM app_telegram_link_tokens
+         WHERE token = ?
+         LIMIT 1`
+      )
+      .get(normalizedToken) as { user_id: string; expires_at: number; used_at: string | null } | undefined;
+    if (!row || row.used_at || Number(row.expires_at) < Date.now()) {
+      throw new Error('Telegram token застарів. Спробуйте привʼязати Telegram ще раз із налаштувань.');
+    }
+    await db
+      .prepare('UPDATE app_telegram_link_tokens SET used_at = ? WHERE token = ?')
+      .run(nowIso(), normalizedToken);
+    return row.user_id;
+  }
   const [payload, signature] = String(token || '').trim().split('.');
   if (!payload || !signature) {
     throw new Error('Некоректний Telegram token');
@@ -1488,7 +1539,7 @@ export async function linkTelegramUserAccount(input: {
   telegramUserId: string;
   username?: string | null;
 }) {
-  const userId = parseTelegramLinkToken(input.token);
+  const userId = await parseTelegramLinkToken(input.token);
   const telegramUserId = String(input.telegramUserId || '').trim();
   const username = String(input.username || '').trim().replace(/^@/, '').slice(0, 80) || null;
   if (!telegramUserId) {
