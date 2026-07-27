@@ -53,5 +53,7 @@ export function parseServerIdFromPublicSlug(value: string): number | null {
 }
 
 export function isMatchingServerSlug(input: { name: string; slug: string }): boolean {
-  return buildServerDashboardSlug(input.name) === normalizeSlugText(input.slug)
+  const canonical = buildServerDashboardSlug(input.name)
+  const incoming = normalizeSlugText(input.slug)
+  return canonical === incoming || canonical.replace(/-/g, '') === incoming.replace(/-/g, '')
 }

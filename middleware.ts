@@ -24,6 +24,19 @@ function isAlwaysAllowed(pathname: string) {
   return ALWAYS_ALLOWED.some((path) => pathname === path || pathname.startsWith(`${path}/`))
 }
 
+function legacyRedirectPath(pathname: string): string | null {
+  if (/^\/forum\/category-[^/]+\/topic-[^/]+\/?$/i.test(pathname)) {
+    return '/forum'
+  }
+  if (/^\/giveaway\/[^/]+\/?$/i.test(pathname)) {
+    return '/'
+  }
+  if (pathname === '/src/main' || pathname === '/src/main/') {
+    return '/'
+  }
+  return null
+}
+
 export async function middleware(request: NextRequest) {
   const host = request.headers.get('host') || ''
   const normalizedHost = host.toLowerCase().split(':')[0]
@@ -34,6 +47,13 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url, 301)
   }
   const { pathname } = request.nextUrl
+  const legacyPath = legacyRedirectPath(pathname)
+  if (legacyPath) {
+    const url = request.nextUrl.clone()
+    url.pathname = legacyPath
+    url.search = ''
+    return NextResponse.redirect(url, 301)
+  }
   if (isAlwaysAllowed(pathname)) return NextResponse.next()
 
   try {

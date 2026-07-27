@@ -1,7 +1,7 @@
 import { notFound, permanentRedirect } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth-server'
-import { getNewsPostById, resolveUserRole } from '@/lib/auth-db'
-import { buildNewsPath, parseNewsIdFromSlug } from '@/lib/news-slug'
+import { getNewsPostById, listNewsPosts, resolveUserRole } from '@/lib/auth-db'
+import { buildNewsPath, buildNewsSlug, parseNewsIdFromSlug } from '@/lib/news-slug'
 import { buildNewsMetadata, newsJsonLd } from '@/lib/seo'
 import { NewsDetailsClient } from './NewsDetailsClient'
 
@@ -11,12 +11,24 @@ type NewsDetailsPageProps = {
   }
 }
 
-export async function generateMetadata({ params }: NewsDetailsPageProps) {
-  const newsId = parseNewsIdFromSlug(params.id)
-  if (!newsId) {
-    return { title: 'Новину не знайдено' }
+const LEGACY_NEWS_SLUG_IDS: Record<string, number> = {
+  'minecraft-261-release-candidate-2-vzhe-vyishov': 8,
+  'novyi-kontent-v-minecraft-marketplace': 14,
+  'boatview360': 15,
+  'minecraft-twitch-drops': 7,
+}
+
+async function getNewsPostFromParam(value: string) {
+  const newsId = parseNewsIdFromSlug(value) || LEGACY_NEWS_SLUG_IDS[value]
+  if (newsId) {
+    return getNewsPostById(newsId)
   }
-  const post = await getNewsPostById(newsId)
+  const posts = await listNewsPosts(100)
+  return posts.find((post) => buildNewsSlug({ title: post.title }) === value) || null
+}
+
+export async function generateMetadata({ params }: NewsDetailsPageProps) {
+  const post = await getNewsPostFromParam(params.id)
   if (!post) {
     return { title: 'Новину не знайдено' }
   }
@@ -24,11 +36,7 @@ export async function generateMetadata({ params }: NewsDetailsPageProps) {
 }
 
 export default async function NewsDetailsPage({ params }: NewsDetailsPageProps) {
-  const newsId = parseNewsIdFromSlug(params.id)
-  if (!newsId) {
-    notFound()
-  }
-  const post = await getNewsPostById(newsId)
+  const post = await getNewsPostFromParam(params.id)
   if (!post) {
     notFound()
   }

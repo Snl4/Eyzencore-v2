@@ -15,7 +15,8 @@ export const dynamic = 'force-dynamic';
 async function getServerFromParam(value: string) {
   const serverId = parseServerIdFromPublicSlug(value);
   if (serverId) {
-    return await getServerById(serverId);
+    const server = await getServerById(serverId);
+    if (server) return server;
   }
   const servers = await listServers();
   return servers.find((server) => isMatchingServerSlug({ name: server.name, slug: value })) || null;
