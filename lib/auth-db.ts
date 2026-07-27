@@ -1442,7 +1442,13 @@ export async function unlinkDiscordUserAccount(userId: string) {
 }
 
 function getTelegramLinkSecret() {
-  return String(process.env.TELEGRAM_LINK_SECRET || process.env.TELEGRAM_BOT_TOKEN || process.env.JWT_SECRET || 'eyzencore-telegram-dev').trim();
+  return String(
+    process.env.TELEGRAM_LINK_SECRET ||
+    process.env.JWT_SECRET ||
+    process.env.TELEGRAM_BOT_TOKEN ||
+    process.env.AVATAR_BOT_TOKEN ||
+    'eyzencore-telegram-dev'
+  ).trim();
 }
 
 function signTelegramLinkPayload(payload: string) {
@@ -4202,6 +4208,17 @@ export async function approveServerApplication(id: number) {
   await db.prepare(
     "UPDATE app_server_applications SET status = 'approved', reviewed_at = ? WHERE id = ?"
   ).run(nowIso(), id);
+  const ownerRow = await db
+    .prepare('SELECT role FROM app_users WHERE id = ? LIMIT 1')
+    .get(app.ownerId) as { role: string } | undefined;
+  const ownerRole = normalizeUserRole(ownerRow?.role);
+  if (ownerRole !== 'OWNER' && ownerRole !== 'ADMIN') {
+    await db.prepare('UPDATE app_users SET role = ?, updated_at = ? WHERE id = ?').run(
+      'OWNER',
+      nowIso(),
+      app.ownerId
+    );
+  }
   const notificationPreferences = await db
     .prepare(
       `SELECT enabled, system_enabled

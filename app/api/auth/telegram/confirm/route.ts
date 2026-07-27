@@ -2,9 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { linkTelegramUserAccount } from '@/lib/auth-db'
 
 export async function POST(request: NextRequest) {
-  const configuredToken = String(process.env.TELEGRAM_BOT_TOKEN || '').trim()
+  const configuredTokens = [
+    process.env.TELEGRAM_BOT_TOKEN,
+    process.env.AVATAR_BOT_TOKEN,
+  ].map((token) => String(token || '').trim()).filter(Boolean)
   const incomingToken = String(request.headers.get('x-telegram-bot-token') || '').trim()
-  if (!configuredToken || incomingToken !== configuredToken) {
+  if (!configuredTokens.length || !configuredTokens.includes(incomingToken)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 

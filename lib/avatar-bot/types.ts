@@ -20,6 +20,7 @@ export type TelegramUpdate = {
 export type TelegramMessage = {
   message_id: number
   chat: { id: number; type: string }
+  from?: { id: number; username?: string; first_name?: string }
   text?: string
   document?: TelegramDocument
   photo?: TelegramPhotoSize[]

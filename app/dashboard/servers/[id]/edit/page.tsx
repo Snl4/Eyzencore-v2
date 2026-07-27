@@ -47,7 +47,7 @@ export default async function DashboardEditServerPage({ params }: DashboardEditS
         initialServer={server}
         initialUser={user}
         sidebarRole={role}
-        activeSection="my-servers"
+        activeSection="dashboard"
         dashboardSlug={slug}
         ownedServers={ownedServers}
       />

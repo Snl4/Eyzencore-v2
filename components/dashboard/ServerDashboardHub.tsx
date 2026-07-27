@@ -130,7 +130,6 @@ export function ServerDashboardHub({
         <div className="server-hub-info">
           <Breadcrumbs items={[
             { label: 'Dashboard', href: '/dashboard' },
-            { label: 'Мої сервери', href: '/dashboard?tab=servers' },
             { label: server.name },
           ]} />
           <div className="server-hub-title-row">

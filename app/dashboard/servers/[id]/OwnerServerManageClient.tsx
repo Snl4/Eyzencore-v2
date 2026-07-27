@@ -166,7 +166,7 @@ export function OwnerServerManageClient({ initialUser, role, serverId, dashboard
       window.alert('Failed to delete server')
       return
     }
-    router.push('/dashboard?tab=servers')
+    router.push('/dashboard')
     router.refresh()
   }
 

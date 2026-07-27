@@ -441,11 +441,11 @@ export function AddServerClient(input: {
               <h2 style={{ fontSize: 22, fontWeight: 700, marginBottom: 8 }}>Заявку відправлено!</h2>
               <p style={{ color: 'var(--fg-2)', fontSize: 14, maxWidth: 420, lineHeight: 1.6 }}>
                 Ваш сервер <b style={{ color: 'var(--fg-1)' }}>{form.name}</b> відправлено на розгляд адміністратором.
-                Після схвалення відкрийте Dashboard → Мої сервери → «Верифікувати» (MOTD або DNS TXT), щоб підтвердити власність і отримати API.
+                Після схвалення відкрийте Dashboard → «Верифікувати» (MOTD або DNS TXT), щоб підтвердити власність і отримати API.
               </p>
             </div>
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
-              <button className="btn btn-primary" onClick={() => router.push('/dashboard?tab=servers')}>Мої сервери</button>
+              <button className="btn btn-primary" onClick={() => router.push('/dashboard')}>Dashboard</button>
               <button className="btn btn-secondary" onClick={() => router.push('/service/how-to-add-server')}>Інструкція з верифікації</button>
             </div>
           </div>

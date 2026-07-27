@@ -9,6 +9,7 @@ import {
   uploadSkinForRender,
   validateSkinBuffer,
 } from '@/lib/avatar-bot/skin-resolver'
+import { linkTelegramUserAccount } from '@/lib/auth-db'
 import { getAvatarBotName, TelegramAvatarApi } from '@/lib/avatar-bot/telegram-api'
 import type {
   AvatarBackgroundKey,
@@ -63,7 +64,7 @@ export class AvatarTelegramBot {
     }
     const text = String(message.text || '').trim()
     if (!text || text.startsWith('/')) {
-      await this.handleCommand(chatId, text)
+      await this.handleCommand(chatId, text, message)
       return
     }
     if (!isValidMinecraftNick(text)) {
@@ -93,9 +94,17 @@ export class AvatarTelegramBot {
     }
   }
 
-  private async handleCommand(chatId: number, text: string): Promise<void> {
-    const rawCommand = text.split(/\s+/)[0]?.toLowerCase() || '/start'
+  private async handleCommand(chatId: number, text: string, message: TelegramMessage): Promise<void> {
+    const parts = text.split(/\s+/)
+    const rawCommand = parts[0]?.toLowerCase() || '/start'
     const command = rawCommand.split('@')[0] || '/start'
+    if (command === '/start') {
+      const payload = parts[1] || ''
+      if (payload.startsWith('link_')) {
+        await this.handleTelegramLink(chatId, payload.slice(5), message)
+        return
+      }
+    }
     if (command === '/help') {
       await this.api.sendMessage({ chatId, text: AVATAR_BOT_MESSAGES.help })
       return
@@ -120,6 +129,21 @@ export class AvatarTelegramBot {
       chatId,
       text: AVATAR_BOT_MESSAGES.welcome(getAvatarBotName()),
     })
+  }
+
+  private async handleTelegramLink(chatId: number, token: string, message: TelegramMessage): Promise<void> {
+    const telegramUserId = String(message.from?.id || chatId)
+    const username = message.from?.username || null
+    try {
+      await linkTelegramUserAccount({ token, telegramUserId, username })
+      await this.api.sendMessage({
+        chatId,
+        text: 'Telegram привʼязано до акаунта Eyzencore. Можна повернутися на сайт і оновити сторінку.',
+      })
+    } catch (error) {
+      const messageText = error instanceof Error ? error.message : 'Не вдалося привʼязати Telegram'
+      await this.api.sendMessage({ chatId, text: messageText })
+    }
   }
 
   private async handleSkinDocument(chatId: number, message: TelegramMessage): Promise<void> {

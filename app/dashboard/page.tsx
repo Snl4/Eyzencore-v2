@@ -12,7 +12,7 @@ export const metadata: Metadata = {
   description: 'Role-based dashboard for users and server owners',
 }
 
-export default async function DashboardPage({ searchParams }: { searchParams?: Record<string, string | string[] | undefined> }) {
+export default async function DashboardPage() {
   const user = await getCurrentUser()
   if (!user) {
     redirect('/auth/login')
@@ -27,12 +27,8 @@ export default async function DashboardPage({ searchParams }: { searchParams?: R
     redirect('/')
   }
   // Owners and admins land on the per-server dashboard for their first server.
-  // ?tab=servers escapes the redirect (used by sidebar "My Servers" link).
-  if (canUseOwnerDashboard) {
-    const escape = String(searchParams?.tab || '')
-    if (escape !== 'servers' && owned.length > 0) {
-      redirect(`/dashboard/${buildServerDashboardSlug(owned[0].name)}`)
-    }
+  if (canUseOwnerDashboard && owned.length > 0) {
+    redirect(`/dashboard/${buildServerDashboardSlug(owned[0].name)}`)
   }
   const dashboardRole = role === 'ADMIN' ? 'ADMIN' : 'OWNER'
   return (

@@ -119,7 +119,6 @@ export function getDashboardSidebarSections(role: string): SidebarSection[] {
         { ico: 'news', name: 'Новини', key: 'news', href: '/news' },
         ...(isOwnerRole ? [
           { ico: 'key', name: 'Для розробників', key: 'developers', href: '/dashboard/developers' },
-          { ico: 'chart', name: 'Мої сервери', key: 'my-servers', href: '/dashboard?tab=servers' },
           { ico: 'cluster', name: 'Проєкти серверів', key: 'clusters', href: '/dashboard/clusters' },
         ] : []),
       ],
@@ -128,7 +127,7 @@ export function getDashboardSidebarSections(role: string): SidebarSection[] {
       label: 'Акаунт',
       items: [
         { ico: 'users', name: 'Профіль', key: 'profile', href: '/profile' },
-        { ico: 'bell', name: 'Сповіщення', key: 'notifications', href: '/settings#notifications' },
+        { ico: 'shield', name: 'Налаштування', key: 'settings', href: '/settings' },
       ],
     },
   ];

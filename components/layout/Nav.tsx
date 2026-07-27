@@ -62,7 +62,6 @@ export function Nav() {
             { href: '/servers/minecraft', label: 'Minecraft' },
             { href: '/servers/discord', label: 'Discord' },
             { href: '/news', label: 'Новини' },
-            { href: '/dashboard', label: 'Кабінет', nofollow: true },
             { href: '/add-server', label: 'Додати сервер', nofollow: true },
           ].map(({ href, label, nofollow }) => (
             <Link

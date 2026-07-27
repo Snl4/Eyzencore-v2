@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useMemo, useState, useEffect } from 'react'
-import { usePathname, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts'
 import { PageShell } from '@/components/layout/PageShell'
 import { Breadcrumbs } from '@/components/ui/Breadcrumbs'
@@ -47,7 +47,6 @@ type DashboardChartTooltipProps = {
 
 export function DashboardClient({ initialUser, initialRole }: DashboardClientProps) {
   const searchParams = useSearchParams()
-  const pathname = usePathname()
   const [userDashboard, setUserDashboard] = useState<UserDashboardPayload | null>(null)
   const [ownerDashboard, setOwnerDashboard] = useState<OwnerDashboardPayload | null>(null)
   const [projects, setProjects] = useState<Project[]>([])
@@ -140,10 +139,8 @@ export function DashboardClient({ initialUser, initialRole }: DashboardClientPro
     return ownerDashboard.ownedServers.find((server) => server.serverId === selectedServerId) || null
   }, [ownerDashboard, selectedServerId])
 
-  const activeSidebarItem = pathname.startsWith('/dashboard/servers') ? 'my-servers' : 'dashboard'
-
   return (
-    <PageShell active={activeSidebarItem} initialUser={initialUser} sidebarRole={initialRole}>
+    <PageShell active="dashboard" initialUser={initialUser} sidebarRole={initialRole}>
       <div className="page-main">
         <div className="page-topbar">
           <div>
