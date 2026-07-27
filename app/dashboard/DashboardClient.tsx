@@ -143,7 +143,7 @@ export function DashboardClient({ initialUser, initialRole }: DashboardClientPro
   const activeSidebarItem = pathname.startsWith('/dashboard/servers') ? 'my-servers' : 'dashboard'
 
   return (
-    <PageShell active={activeSidebarItem} initialUser={initialUser} sidebarRole={role}>
+    <PageShell active={activeSidebarItem} initialUser={initialUser} sidebarRole={initialRole}>
       <div className="page-main">
         <div className="page-topbar">
           <div>

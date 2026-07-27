@@ -117,8 +117,8 @@ export function getDashboardSidebarSections(role: string): SidebarSection[] {
         { ico: 'minecraft', name: 'Minecraft', key: 'servers-minecraft', href: '/servers/minecraft' },
         { ico: 'discord', name: 'Discord', key: 'servers-discord', href: '/servers/discord' },
         { ico: 'news', name: 'Новини', key: 'news', href: '/news' },
-        { ico: 'key', name: 'Для розробників', key: 'developers', href: '/dashboard/developers' },
         ...(isOwnerRole ? [
+          { ico: 'key', name: 'Для розробників', key: 'developers', href: '/dashboard/developers' },
           { ico: 'chart', name: 'Мої сервери', key: 'my-servers', href: '/dashboard?tab=servers' },
           { ico: 'cluster', name: 'Проєкти серверів', key: 'clusters', href: '/dashboard/clusters' },
         ] : []),

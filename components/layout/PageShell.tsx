@@ -27,7 +27,7 @@ export function PageShell({ children, active, initialUser = null, sidebarRole, h
   const [forumThreadCount, setForumThreadCount] = useState<number | null>(null);
   const user = initialUser;
   const resolvedRole = sidebarRole ?? String(user?.user_metadata.role || 'USER').toUpperCase();
-  const isOwnerNavigation = resolvedRole === 'ADMIN' || Boolean(sidebarRole && resolvedRole === 'OWNER');
+  const isOwnerNavigation = resolvedRole === 'ADMIN' || resolvedRole === 'OWNER';
   const isAdminUser = user?.email === ADMIN_EMAIL;
   const rawSections = sidebarRole ? getDashboardSidebarSections(sidebarRole) : getSidebarSections(isOwnerNavigation);
   const sectionsBase = isAdminUser

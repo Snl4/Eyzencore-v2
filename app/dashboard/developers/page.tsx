@@ -38,6 +38,7 @@ export default async function DevelopersPage({ searchParams }: DevelopersPagePro
       <div className="bg-aurora" />
       <DeveloperHubClient
         initialUser={user}
+        role={role}
         serverOptions={servers.map((server) => ({ id: server.seed, name: server.name, addr: server.addr }))}
         selectedServerId={selectedServerId}
         initialTokens={initialTokens}

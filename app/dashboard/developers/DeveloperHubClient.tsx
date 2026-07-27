@@ -7,7 +7,7 @@ import { PageShell } from '@/components/layout/PageShell'
 import { Toggle } from '@/components/ui/Toggle'
 import { Breadcrumbs } from '@/components/ui/Breadcrumbs'
 import { Select } from '@/components/ui/Select'
-import type { ApiToken, AuthUser } from '@/lib/auth-db'
+import type { ApiToken, AuthUser, UserRole } from '@/lib/auth-db'
 
 type Tab = 'docs' | 'keys' | 'callback' | 'test'
 type ServerOption = { id: number; name: string; addr: string }
@@ -15,6 +15,7 @@ type QueryKey = 'votes_today' | 'votes_month' | 'votes_prev_month' | 'votes_all'
 
 interface DeveloperHubClientProps {
   initialUser: AuthUser
+  role: UserRole
   serverOptions: ServerOption[]
   selectedServerId: number | null
   initialTokens: ApiToken[]
@@ -446,7 +447,7 @@ const TABS: Array<{ key: Tab; label: string; description: string }> = [
   { key: 'test', label: 'Тест API', description: 'Живий запит' },
 ]
 
-export function DeveloperHubClient({ initialUser, serverOptions, selectedServerId, initialTokens }: DeveloperHubClientProps) {
+export function DeveloperHubClient({ initialUser, role, serverOptions, selectedServerId, initialTokens }: DeveloperHubClientProps) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -463,7 +464,7 @@ export function DeveloperHubClient({ initialUser, serverOptions, selectedServerI
     <PageShell
       active="developers"
       initialUser={initialUser}
-      sidebarRole={serverOptions.length > 0 ? 'OWNER' : undefined}
+      sidebarRole={role}
       hiddenKeys={['notifications']}
     >
       <main className="page-main external-api-page">
