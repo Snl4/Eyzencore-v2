@@ -128,6 +128,9 @@ git pull --ff-only "$REMOTE" "$BRANCH"
 log "Installing dependencies"
 npm ci
 
+log "Clearing stale Next.js build artifacts"
+rm -rf .next
+
 avatar_blend_file="${APP_DIR}/avatar-bot/blender/minecraft_avatar.blend"
 if command -v blender >/dev/null 2>&1 && [[ ! -f "$avatar_blend_file" ]]; then
   log "Generating Blender avatar scene (.blend)"
