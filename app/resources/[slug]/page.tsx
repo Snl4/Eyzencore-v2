@@ -1,4 +1,5 @@
-﻿import type { Metadata } from 'next'
+﻿import { stat } from 'node:fs/promises'
+import type { Metadata } from 'next'
 import { notFound, permanentRedirect } from 'next/navigation'
 import Link from 'next/link'
 import { PageShell } from '@/components/layout/PageShell'
@@ -10,6 +11,7 @@ import { buildPageMetadata, SITE_URL } from '@/lib/seo'
 import { buildResourcePath, parseResourceIdFromSlug } from '@/lib/resource-slug'
 import { getCommunityResourceById, getCommunityResourceBySlug, listCommunityResources } from '@/lib/resources-db'
 import { IMAGE_PLACEHOLDER } from '@/lib/placeholders'
+import { resolveUploadPath, UPLOAD_URL_PREFIX } from '@/lib/upload-store'
 import { DeleteResourceButton } from './DeleteResourceButton'
 import { ResourceMediaGallery } from './ResourceMediaGallery'
 
@@ -36,6 +38,32 @@ async function getResourceFromParam(value: string) {
   if (bySlug) return bySlug
   const resources = await listCommunityResources({ limit: 200 })
   return resources.find((resource) => resource.slug === value) || null
+}
+
+async function localUploadExists(url: string) {
+  if (!url.startsWith(`${UPLOAD_URL_PREFIX}/`)) return true
+  const parts = url
+    .slice(UPLOAD_URL_PREFIX.length + 1)
+    .split('/')
+    .filter(Boolean)
+  const filePath = resolveUploadPath(parts)
+  if (!filePath) return false
+  try {
+    const info = await stat(filePath)
+    return info.isFile()
+  } catch {
+    return false
+  }
+}
+
+async function filterExistingResourceMedia(media: string[]) {
+  const checks = await Promise.all(
+    media.map(async (item) => ({
+      item,
+      exists: await localUploadExists(item),
+    })),
+  )
+  return checks.filter((check) => check.exists).map((check) => check.item)
 }
 
 export async function generateMetadata({ params }: ResourceDetailsPageProps): Promise<Metadata> {
@@ -67,6 +95,7 @@ export default async function ResourceDetailsPage({ params }: ResourceDetailsPag
       })
     : null
   const canManage = Boolean(initialUser && (role === 'ADMIN' || initialUser.email === ADMIN_EMAIL))
+  const gallery = await filterExistingResourceMedia(resource.gallery)
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'SoftwareApplication',
@@ -126,7 +155,7 @@ export default async function ResourceDetailsPage({ params }: ResourceDetailsPag
             </aside>
           </div>
 
-          {resource.gallery.length > 0 && <ResourceMediaGallery media={resource.gallery} />}
+          {gallery.length > 0 && <ResourceMediaGallery media={gallery} />}
         </article>
       </PageShell>
     </>
