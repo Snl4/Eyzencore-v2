@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { IMAGE_PLACEHOLDER } from '@/lib/placeholders';
+import { getServerAvatarImage, getServerBannerImage } from '@/lib/placeholders';
 import { buildBannerSurfaceStyle } from '@/lib/banner-display';
 import { buildServerPublicPath } from '@/lib/server-slug';
 
@@ -30,12 +30,12 @@ export function UserServersTab({ servers, isOwnerView }: UserServersTabProps) {
         <div className="pserver-card" key={s.seed}>
           <div
             className="pserver-banner banner-surface"
-            style={buildBannerSurfaceStyle(s.bannerUrl || IMAGE_PLACEHOLDER)}
+            style={buildBannerSurfaceStyle(getServerBannerImage(s.bannerUrl))}
           >
             <div className="pserver-banner-overlay" />
           </div>
           <div className="pserver-head">
-            <div className="pserver-icon" style={{ background: `url(${s.avatarUrl || IMAGE_PLACEHOLDER}) center/cover`, color: 'transparent' }} />
+            <div className="pserver-icon" style={{ background: `url(${getServerAvatarImage(s.avatarUrl)}) center/cover`, color: 'transparent' }} />
             <div className="pserver-title">
               <b>{s.name}</b>
               <span>{s.addr}</span>

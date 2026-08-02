@@ -9,6 +9,7 @@ import type { ServerDashboardTab } from '@/lib/server-dashboard-routes'
 import { buildServerDashboardTabPath } from '@/lib/server-dashboard-routes'
 import type { DashboardHubOwnedServer } from '@/lib/server-dashboard-hub-data'
 import { buildServerDashboardSlug, buildServerPublicPath } from '@/lib/server-slug'
+import { getServerAvatarImage } from '@/lib/placeholders'
 
 export type ServerDashboardHubServer = {
   seed: number
@@ -22,14 +23,6 @@ export type ServerDashboardHubServer = {
 export type ServerDashboardHubOwnedServer = DashboardHubOwnedServer
 
 const OWNED_SERVERS_STORAGE_KEY = 'eyzencore-dashboard-owned-servers'
-
-function serverInitials(name: string): string {
-  const cleaned = String(name || '').replace(/^@/, '')
-  const parts = cleaned.split(/[._\s-]+/).filter(Boolean)
-  if (parts.length === 0) return '??'
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
-  return (parts[0][0] + parts[1][0]).toUpperCase()
-}
 
 export function ServerDashboardHub({
   activeTab,
@@ -158,14 +151,13 @@ export function ServerDashboardHub({
             >
               <span
                 className="ic"
-                style={server.avatarUrl ? {
-                  backgroundImage: `url(${JSON.stringify(server.avatarUrl).slice(1, -1)})`,
+                style={{
+                  backgroundImage: `url(${JSON.stringify(getServerAvatarImage(server.avatarUrl)).slice(1, -1)})`,
                   backgroundSize: 'cover',
                   backgroundPosition: 'center',
                   color: 'transparent',
-                } : undefined}
+                }}
               >
-                {server.avatarUrl ? '' : (server.ic || serverInitials(server.name))}
               </span>
               <span className="dash-server-pick-info">
                 <b>Змінити сервер</b>
@@ -192,7 +184,15 @@ export function ServerDashboardHub({
                         className={`dash-server-pick-item${isCurrent ? ' current' : ''}`}
                         onClick={() => handleSwitchServer(item)}
                       >
-                        <span className="ic">{item.ic || serverInitials(item.name)}</span>
+                        <span
+                          className="ic"
+                          style={{
+                            backgroundImage: `url(${JSON.stringify(getServerAvatarImage(item.avatarUrl)).slice(1, -1)})`,
+                            backgroundSize: 'cover',
+                            backgroundPosition: 'center',
+                            color: 'transparent',
+                          }}
+                        />
                         <span className="info">
                           <b>{item.name}</b>
                           <span>{item.addr || 'Сервер у кабінеті'}</span>

@@ -11,7 +11,7 @@ import {
   isDiscordServer,
 } from '@/lib/server-platform';
 import type { Server } from '@/lib/types';
-import { IMAGE_PLACEHOLDER } from '@/lib/placeholders';
+import { getServerAvatarImage, getServerBannerImage } from '@/lib/placeholders';
 import { buildBannerSurfaceStyle } from '@/lib/banner-display';
 import { buildServerPublicPath } from '@/lib/server-slug';
 import { buildServerRatingScore } from '@/lib/server-rating-score';
@@ -142,7 +142,7 @@ export function ServerCard({ s }: Props) {
   return (
     <div className={`server-card${s.boosted ? ' is-boosted' : ''}`} onClick={() => router.push(buildServerPublicPath(s))}>
       {/* Banner */}
-      <div className="sc-banner banner-surface" style={buildBannerSurfaceStyle(s.bannerUrl || IMAGE_PLACEHOLDER)}>
+      <div className="sc-banner banner-surface" style={buildBannerSurfaceStyle(getServerBannerImage(s.bannerUrl))}>
         {s.boosted && (
           <span className="sc-sponsored">
             <span className="sc-sponsored-star">★</span>
@@ -173,7 +173,7 @@ export function ServerCard({ s }: Props) {
 
       {/* Head */}
       <div className="sc-head">
-        <div className="sc-icon" style={{ background: `url(${s.avatarUrl || IMAGE_PLACEHOLDER}) center/cover` }} />
+        <div className="sc-icon" style={{ background: `url(${getServerAvatarImage(s.avatarUrl)}) center/cover` }} />
         <div className="sc-title">
           <b className="sc-name-line">
             <span className="sc-name-text">{s.name}</span>

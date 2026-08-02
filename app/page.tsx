@@ -9,7 +9,7 @@ import {
   getCachedPublicServers,
   getCachedPublicStats,
 } from '@/lib/public-cache'
-import { IMAGE_PLACEHOLDER } from '@/lib/placeholders'
+import { IMAGE_PLACEHOLDER, getServerAvatarImage } from '@/lib/placeholders'
 import { SITE_URL, buildPageMetadata, serverJsonLd } from '@/lib/seo'
 import { buildNewsPath } from '@/lib/news-slug'
 import { buildServerPublicPath } from '@/lib/server-slug'
@@ -53,7 +53,7 @@ function ServerSpotlight({ server }: { server: Server }) {
     <Link href={buildServerPublicPath(server)} className="home-server-row">
       <span
         className="home-server-avatar"
-        style={{ backgroundImage: `url(${server.avatarUrl || IMAGE_PLACEHOLDER})` }}
+        style={{ backgroundImage: `url(${getServerAvatarImage(server.avatarUrl)})` }}
       />
       <span className="home-server-copy">
         <span className="home-server-name">

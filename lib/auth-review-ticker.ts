@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma'
+import { SERVER_AVATAR_PLACEHOLDER } from '@/lib/placeholders'
 
 export type AuthReviewTickerItem = {
   id: number
@@ -47,7 +48,7 @@ export async function getAuthReviewTicker(): Promise<AuthReviewTickerItem[]> {
     rating: Math.max(1, Math.min(5, Number(review.rating || 5))),
     author: review.app_users?.full_name || review.author_name || 'Гість',
     serverName: review.app_servers?.name || 'сервер спільноти',
-    serverAvatarUrl: review.app_servers?.avatar_url || '/project-default-logo.png',
+    serverAvatarUrl: review.app_servers?.avatar_url || SERVER_AVATAR_PLACEHOLDER,
     platform: review.app_servers?.platform === 'discord' || review.app_servers?.core === 'discord' ? 'Discord' : 'Minecraft',
   }))
 }

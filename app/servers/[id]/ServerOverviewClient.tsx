@@ -13,7 +13,7 @@ import {
   getOnlineCountLabel,
   isDiscordServer,
 } from '@/lib/server-platform';
-import { IMAGE_PLACEHOLDER } from '@/lib/placeholders';
+import { getServerAvatarImage, getServerBannerImage } from '@/lib/placeholders';
 import { buildBannerSurfaceStyle } from '@/lib/banner-display';
 import { buildServerPublicPath } from '@/lib/server-slug';
 import type { Server } from '@/lib/types';
@@ -721,11 +721,11 @@ export function ServerOverviewClient({ server: s, cluster, canEdit, initialUser 
         {/* Hero banner */}
         <div
           className="so-hero banner-surface"
-          style={buildBannerSurfaceStyle(s.bannerUrl || IMAGE_PLACEHOLDER)}
+          style={buildBannerSurfaceStyle(getServerBannerImage(s.bannerUrl))}
         >
           <div className="so-hero-overlay" aria-hidden="true" />
           <div className="so-hero-content">
-            <div className="so-icon" style={{ background: `url(${s.avatarUrl || IMAGE_PLACEHOLDER}) center/cover` }} />
+            <div className="so-icon" style={{ background: `url(${getServerAvatarImage(s.avatarUrl)}) center/cover` }} />
             <div className="so-titles">
               <h1>
                 <span className="so-titles-name">{s.name}</span>

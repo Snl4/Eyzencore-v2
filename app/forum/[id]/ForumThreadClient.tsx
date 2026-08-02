@@ -563,7 +563,7 @@ export function ForumThreadClient({
                   ? 'Напишіть відповідь по суті обговорення...'
                   : 'Увійдіть, щоб відповісти'
               }
-              rows={7}
+              rows={4}
               value={reply}
               onChange={(event) => setReply(event.target.value)}
               onFocus={requireLogin}

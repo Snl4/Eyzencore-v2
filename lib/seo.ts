@@ -3,6 +3,7 @@ import type { NewsPost } from '@/lib/auth-db'
 import { buildNewsPath } from '@/lib/news-slug'
 import type { Server } from '@/lib/types'
 import { buildServerPublicPath } from '@/lib/server-slug'
+import { SERVER_AVATAR_PLACEHOLDER, SERVER_BANNER_PLACEHOLDER } from '@/lib/placeholders'
 
 export const SITE_URL = 'https://eyzencore.com'
 export const SITE_NAME = 'Eyzencore'
@@ -150,7 +151,7 @@ export function buildServerMetadata(server: Server): Metadata {
     title: `${server.name} - ${platform} сервер`,
     description: `${description} ${online}. Рейтинг: ${Math.round(server.ratingScore || 0)}.`,
     path: buildServerPublicPath(server),
-    image: server.bannerUrl || server.avatarUrl || '/icon.png',
+    image: server.bannerUrl || server.avatarUrl || SERVER_BANNER_PLACEHOLDER,
     keywords: [
       server.name,
       server.addr,
@@ -213,7 +214,7 @@ export function serverJsonLd(server: Server) {
     '@type': 'Product',
     name: server.name,
     url: `${SITE_URL}${buildServerPublicPath(server)}`,
-    image: absoluteUrl(server.avatarUrl || server.bannerUrl || '/icon.png'),
+    image: absoluteUrl(server.avatarUrl || server.bannerUrl || SERVER_AVATAR_PLACEHOLDER),
     description: truncateSeo(server.fullDesc || server.shortDesc || server.desc || `${platform} server on Eyzencore`, 500),
     category: `${platform} server`,
     brand: {
