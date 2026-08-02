@@ -79,6 +79,7 @@ export function ResourceEditorClient({ initialUser }: { initialUser: AuthUser })
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isUploadingIcon, setIsUploadingIcon] = useState(false)
   const [isUploadingGallery, setIsUploadingGallery] = useState(false)
+  const [isUploadingDownload, setIsUploadingDownload] = useState(false)
 
   const setField = <K extends keyof ResourceDraft>(key: K, value: ResourceDraft[K]) => {
     setForm((previous) => ({ ...previous, [key]: value }))
@@ -123,6 +124,21 @@ export function ResourceEditorClient({ initialUser }: { initialUser: AuthUser })
       setMessage(error instanceof Error ? error.message : 'Не вдалося завантажити медіа')
     } finally {
       setIsUploadingGallery(false)
+    }
+  }
+
+  const handleDownloadUpload = async (file: File | null) => {
+    if (!file) return
+    setMessage('')
+    setIsUploadingDownload(true)
+    try {
+      const uploaded = await uploadFile(file, 'resource')
+      setField('downloadUrl', uploaded.url)
+      setMessage(`Файл для завантаження додано: ${uploaded.name}`)
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Не вдалося завантажити файл')
+    } finally {
+      setIsUploadingDownload(false)
     }
   }
 
@@ -286,6 +302,16 @@ export function ResourceEditorClient({ initialUser }: { initialUser: AuthUser })
             <label>
               <span>Посилання на завантаження</span>
               <input value={form.downloadUrl} onChange={(event) => setField('downloadUrl', event.target.value)} />
+            </label>
+            <label className="resource-file-picker">
+              <span>Завантажити файл ресурсу з ПК</span>
+              <input
+                type="file"
+                accept=".jar,.zip,.rar,.7z,.mrpack,.mcpack,.mcaddon,.mcworld"
+                onChange={(event) => void handleDownloadUpload(event.target.files?.[0] || null)}
+                disabled={isUploadingDownload}
+              />
+              <small>{isUploadingDownload ? 'Завантажуємо...' : 'JAR, ZIP, RAR, 7Z, MRPACK, MCPACK до 25 МБ. Посилання також можна вставити вручну.'}</small>
             </label>
           </section>
 

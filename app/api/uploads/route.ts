@@ -20,6 +20,8 @@ const FILE_MIME = new Set([
   'application/x-rar-compressed',
   'application/vnd.rar',
   'application/x-7z-compressed',
+  'application/java-archive',
+  'application/x-java-archive',
   'text/plain',
   'application/msword',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -44,6 +46,11 @@ const EXT_TO_MIME: Record<string, string> = {
   '.zip': 'application/zip',
   '.rar': 'application/vnd.rar',
   '.7z': 'application/x-7z-compressed',
+  '.jar': 'application/java-archive',
+  '.mrpack': 'application/zip',
+  '.mcpack': 'application/zip',
+  '.mcaddon': 'application/zip',
+  '.mcworld': 'application/zip',
   '.txt': 'text/plain',
   '.doc': 'application/msword',
   '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -54,7 +61,7 @@ const EXT_TO_MIME: Record<string, string> = {
 
 const IMAGE_EXT = new Set(['.avif', '.gif', '.jpg', '.jpeg', '.png', '.webp'])
 const VIDEO_EXT = new Set(['.mp4', '.webm', '.ogv', '.mov'])
-const FILE_EXT = new Set(['.pdf', '.zip', '.rar', '.7z', '.txt', '.doc', '.docx', '.xls', '.xlsx', '.psd'])
+const FILE_EXT = new Set(['.pdf', '.zip', '.rar', '.7z', '.jar', '.mrpack', '.mcpack', '.mcaddon', '.mcworld', '.txt', '.doc', '.docx', '.xls', '.xlsx', '.psd'])
 
 function resolveMime(file: File): string {
   const fromType = String(file.type || '').toLowerCase().trim()
@@ -128,7 +135,7 @@ export async function POST(request: NextRequest) {
   const mime = resolveMime(file)
   const { isImage, isVideo, isDocument } = classifyUpload(file, mime)
 
-  const allowsDocuments = kind === 'forum'
+  const allowsDocuments = kind === 'forum' || kind === 'resource'
   if (!isImage && !isVideo && !(allowsDocuments && isDocument)) {
     return NextResponse.json(
       { error: 'Підтримуються зображення, відео або файли (pdf, zip, doc, txt тощо)' },
