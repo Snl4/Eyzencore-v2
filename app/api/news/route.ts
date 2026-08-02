@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { countServersByOwner, createNewsPost, listNewsPosts, resolveUserRole, type NewsContentBlock } from '@/lib/auth-db'
 import { getCurrentUser } from '@/lib/auth-server'
+import { buildNewsPath } from '@/lib/news-slug'
+import { revalidatePublicNews } from '@/lib/public-cache'
 
 type CreateNewsRequestBody = {
   title?: string
@@ -40,6 +42,7 @@ export async function POST(request: Request) {
       category: String(body.category || 'Новини'),
       coverUrl: body.coverUrl ?? null,
     })
+    revalidatePublicNews(buildNewsPath(createdPost))
     return NextResponse.json({ post: createdPost }, { status: 201 })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Не вдалося створити новину'

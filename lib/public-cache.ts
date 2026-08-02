@@ -1,9 +1,11 @@
-import { unstable_cache } from 'next/cache'
+import { revalidatePath, revalidateTag, unstable_cache } from 'next/cache'
 import {
   getAdminStats,
   listNewsPosts,
   listServers,
 } from '@/lib/auth-db'
+
+export const PUBLIC_NEWS_CACHE_TAG = 'public-news'
 
 export const getCachedPublicServers = unstable_cache(
   async () => listServers(),
@@ -14,7 +16,7 @@ export const getCachedPublicServers = unstable_cache(
 export const getCachedPublicNews = unstable_cache(
   async (limit: number) => listNewsPosts(limit),
   ['public-news-v2'],
-  { revalidate: 30 }
+  { revalidate: 30, tags: [PUBLIC_NEWS_CACHE_TAG] }
 )
 
 export const getCachedPublicStats = unstable_cache(
@@ -31,3 +33,12 @@ export const getCachedForumThreads = unstable_cache(
   ['public-forum-threads-v1'],
   { revalidate: 300 }
 )
+
+export function revalidatePublicNews(postPath?: string | null) {
+  revalidateTag(PUBLIC_NEWS_CACHE_TAG)
+  revalidatePath('/news')
+  revalidatePath('/')
+  if (postPath) {
+    revalidatePath(postPath)
+  }
+}

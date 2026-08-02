@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { deleteNewsPost, getNewsPostById, resolveUserRole, updateNewsPost, type NewsContentBlock } from '@/lib/auth-db'
 import { getCurrentUser } from '@/lib/auth-server'
+import { buildNewsPath } from '@/lib/news-slug'
+import { revalidatePublicNews } from '@/lib/public-cache'
 
 type NewsParams = {
   params: {
@@ -64,6 +66,7 @@ export async function PATCH(request: Request, { params }: NewsParams) {
       category: String(body.category || 'Новини'),
       coverUrl: body.coverUrl ?? null,
     })
+    revalidatePublicNews(buildNewsPath(post))
     return NextResponse.json({ post })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Не вдалося оновити новину'
@@ -87,11 +90,13 @@ export async function DELETE(_request: Request, { params }: NewsParams) {
   })
   const isAdmin = role === 'ADMIN'
   try {
+    const currentPost = await getNewsPostById(newsId)
     await deleteNewsPost({
       newsId,
       actorUserId: user.id,
       isAdmin,
     })
+    revalidatePublicNews(currentPost ? buildNewsPath(currentPost) : null)
     return NextResponse.json({ success: true })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Не вдалося видалити новину'
