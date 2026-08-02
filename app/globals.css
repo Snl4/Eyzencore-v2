@@ -10036,6 +10036,18 @@ iframe {
   margin-top: 18px;
 }
 
+.resource-delete-wrap {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.resource-delete-message {
+  color: var(--red);
+  font-size: 12px;
+}
+
 .resource-detail-stats {
   display: grid;
   gap: 9px;

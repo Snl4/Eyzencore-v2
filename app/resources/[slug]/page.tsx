@@ -1,13 +1,16 @@
-import type { Metadata } from 'next'
+﻿import type { Metadata } from 'next'
 import { notFound, permanentRedirect } from 'next/navigation'
 import Link from 'next/link'
 import { PageShell } from '@/components/layout/PageShell'
 import { Breadcrumbs } from '@/components/ui/Breadcrumbs'
 import { getCurrentUser } from '@/lib/auth-server'
+import { resolveUserRole } from '@/lib/auth-db'
+import { ADMIN_EMAIL } from '@/lib/constants'
 import { buildPageMetadata, SITE_URL } from '@/lib/seo'
 import { buildResourcePath, parseResourceIdFromSlug } from '@/lib/resource-slug'
 import { getCommunityResourceById, getCommunityResourceBySlug, listCommunityResources } from '@/lib/resources-db'
 import { IMAGE_PLACEHOLDER } from '@/lib/placeholders'
+import { DeleteResourceButton } from './DeleteResourceButton'
 
 type ResourceDetailsPageProps = {
   params: {
@@ -56,6 +59,13 @@ export default async function ResourceDetailsPage({ params }: ResourceDetailsPag
   if (params.slug !== canonicalPath.split('/').pop()) {
     permanentRedirect(canonicalPath)
   }
+  const role = initialUser
+    ? await resolveUserRole({
+        userId: initialUser.id,
+        role: initialUser.user_metadata.role,
+      })
+    : null
+  const canManage = Boolean(initialUser && (role === 'ADMIN' || initialUser.email === ADMIN_EMAIL))
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'SoftwareApplication',
@@ -86,6 +96,7 @@ export default async function ResourceDetailsPage({ params }: ResourceDetailsPag
                   Відкрити джерело
                 </a>
                 <Link className="btn btn-secondary" href="/resources">До каталогу</Link>
+                {canManage && <DeleteResourceButton resourceId={resource.id} />}
               </div>
             </div>
             <aside className="resource-detail-stats">
@@ -137,3 +148,4 @@ function ResourceList({ title, items, empty }: { title: string; items: string[];
     </div>
   )
 }
+

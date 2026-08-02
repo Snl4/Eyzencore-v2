@@ -337,3 +337,13 @@ export async function createCommunityResource(input: CommunityResourceInput) {
   if (!created) throw new Error('Не вдалося створити ресурс')
   return created
 }
+
+export async function deleteCommunityResource(resourceId: number) {
+  await ensureCommunityResourceTables()
+  const existing = await getCommunityResourceById(resourceId, true)
+  if (!existing) {
+    throw new Error('Ресурс не знайдено')
+  }
+  await prisma.$executeRawUnsafe('DELETE FROM community_resources WHERE id = ?', resourceId)
+  return existing
+}
