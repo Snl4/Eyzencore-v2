@@ -28,6 +28,10 @@ const TYPE_LABELS: Record<string, string> = {
   tool: 'Інструмент',
 }
 
+function isVideoMedia(url: string) {
+  return /\.(mp4|webm|ogv|mov)(\?|#|$)/i.test(url)
+}
+
 async function getResourceFromParam(value: string) {
   const byId = parseResourceIdFromSlug(value)
   if (byId) return getCommunityResourceById(byId)
@@ -127,8 +131,10 @@ export default async function ResourceDetailsPage({ params }: ResourceDetailsPag
 
           {resource.gallery.length > 0 && (
             <section className="resource-gallery">
-              {resource.gallery.map((image) => (
-                <img key={image} src={image} alt="" loading="lazy" />
+              {resource.gallery.map((media) => (
+                isVideoMedia(media)
+                  ? <video key={media} src={media} controls preload="metadata" />
+                  : <img key={media} src={media} alt="" loading="lazy" />
               ))}
             </section>
           )}

@@ -91,13 +91,14 @@ function safeExtension(filename: string, mime: string): string {
   return '.bin'
 }
 
-function safeKind(value: string | null): 'news' | 'forum' | 'avatar' | 'banner' | 'misc' {
+function safeKind(value: string | null): 'news' | 'forum' | 'avatar' | 'banner' | 'resource' | 'misc' {
   const normalized = String(value || '').toLowerCase()
   if (
     normalized === 'news' ||
     normalized === 'forum' ||
     normalized === 'avatar' ||
     normalized === 'banner' ||
+    normalized === 'resource' ||
     normalized === 'misc'
   ) {
     return normalized

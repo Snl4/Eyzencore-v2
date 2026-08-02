@@ -9890,7 +9890,8 @@ iframe {
 
 .resource-card-media img,
 .resource-detail-icon,
-.resource-gallery img {
+.resource-gallery img,
+.resource-gallery video {
   display: block;
   width: 100%;
   height: 100%;
@@ -10137,6 +10138,13 @@ iframe {
   background: var(--bg-1);
 }
 
+.resource-gallery video {
+  aspect-ratio: 16 / 9;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: #05070d;
+}
+
 .resource-editor-page {
   display: flex;
   flex-direction: column;
@@ -10217,6 +10225,24 @@ iframe {
 .resource-editor-card label > span {
   color: var(--fg-2);
   font-size: 13px;
+}
+
+.resource-file-picker {
+  padding: 12px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 8px;
+  background: color-mix(in oklab, var(--bg-2) 72%, transparent);
+}
+
+.resource-file-picker input[type="file"] {
+  height: auto;
+  padding: 9px;
+  cursor: pointer;
+}
+
+.resource-file-picker small {
+  color: var(--fg-3);
+  font-size: 12px;
 }
 
 .resource-editor-preview {

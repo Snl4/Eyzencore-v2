@@ -9,6 +9,7 @@ import { Icons } from '@/components/ui/Icons'
 import type { AuthUser } from '@/lib/auth-db'
 import type { CommunityResourceType } from '@/lib/resources-db'
 import { buildResourcePath } from '@/lib/resource-slug'
+import { uploadFile } from '@/lib/upload'
 
 type ResourceDraft = {
   name: string
@@ -76,9 +77,53 @@ export function ResourceEditorClient({ initialUser }: { initialUser: AuthUser })
   const [message, setMessage] = useState('')
   const [isImporting, setIsImporting] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isUploadingIcon, setIsUploadingIcon] = useState(false)
+  const [isUploadingGallery, setIsUploadingGallery] = useState(false)
 
   const setField = <K extends keyof ResourceDraft>(key: K, value: ResourceDraft[K]) => {
     setForm((previous) => ({ ...previous, [key]: value }))
+  }
+
+  const appendGalleryUrls = (urls: string[]) => {
+    setForm((previous) => {
+      const current = linesToList(previous.galleryText)
+      const next = Array.from(new Set([...current, ...urls]))
+      return { ...previous, galleryText: next.join('\n') }
+    })
+  }
+
+  const handleIconUpload = async (file: File | null) => {
+    if (!file) return
+    setMessage('')
+    setIsUploadingIcon(true)
+    try {
+      const uploaded = await uploadFile(file, 'resource')
+      if (uploaded.kind !== 'image') {
+        setMessage('Для іконки оберіть зображення')
+        return
+      }
+      setField('iconUrl', uploaded.url)
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Не вдалося завантажити іконку')
+    } finally {
+      setIsUploadingIcon(false)
+    }
+  }
+
+  const handleGalleryUpload = async (files: FileList | null) => {
+    const selectedFiles = Array.from(files || [])
+    if (selectedFiles.length === 0) return
+    setMessage('')
+    setIsUploadingGallery(true)
+    try {
+      const uploaded = await Promise.all(selectedFiles.map((file) => uploadFile(file, 'resource')))
+      appendGalleryUrls(uploaded.map((file) => file.url))
+      setMessage(`Додано файлів: ${uploaded.length}`)
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Не вдалося завантажити медіа')
+    } finally {
+      setIsUploadingGallery(false)
+    }
   }
 
   const handleImport = async () => {
@@ -220,9 +265,19 @@ export function ResourceEditorClient({ initialUser }: { initialUser: AuthUser })
               <span>Іконка</span>
               <input value={form.iconUrl} onChange={(event) => setField('iconUrl', event.target.value)} />
             </label>
+            <label className="resource-file-picker">
+              <span>Завантажити іконку з ПК</span>
+              <input type="file" accept="image/*" onChange={(event) => void handleIconUpload(event.target.files?.[0] || null)} disabled={isUploadingIcon} />
+              <small>{isUploadingIcon ? 'Завантажуємо...' : 'PNG, JPG, WEBP, GIF або AVIF до 8 МБ'}</small>
+            </label>
             <label>
               <span>Галерея</span>
               <textarea value={form.galleryText} onChange={(event) => setField('galleryText', event.target.value)} rows={4} placeholder="URL через кому або з нового рядка" />
+            </label>
+            <label className="resource-file-picker">
+              <span>Завантажити фото або відео з ПК</span>
+              <input type="file" accept="image/*,video/*" multiple onChange={(event) => void handleGalleryUpload(event.target.files)} disabled={isUploadingGallery} />
+              <small>{isUploadingGallery ? 'Завантажуємо...' : 'Фото до 8 МБ, відео до 80 МБ. URL також можна вставити вище.'}</small>
             </label>
             <label>
               <span>Посилання на джерело</span>
