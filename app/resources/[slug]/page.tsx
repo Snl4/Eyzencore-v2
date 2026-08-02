@@ -11,6 +11,7 @@ import { buildResourcePath, parseResourceIdFromSlug } from '@/lib/resource-slug'
 import { getCommunityResourceById, getCommunityResourceBySlug, listCommunityResources } from '@/lib/resources-db'
 import { IMAGE_PLACEHOLDER } from '@/lib/placeholders'
 import { DeleteResourceButton } from './DeleteResourceButton'
+import { ResourceMediaGallery } from './ResourceMediaGallery'
 
 type ResourceDetailsPageProps = {
   params: {
@@ -26,10 +27,6 @@ const TYPE_LABELS: Record<string, string> = {
   datapack: 'Датапак',
   modpack: 'Збірка',
   tool: 'Інструмент',
-}
-
-function isVideoMedia(url: string) {
-  return /\.(mp4|webm|ogv|mov)(\?|#|$)/i.test(url)
 }
 
 async function getResourceFromParam(value: string) {
@@ -129,15 +126,7 @@ export default async function ResourceDetailsPage({ params }: ResourceDetailsPag
             </aside>
           </div>
 
-          {resource.gallery.length > 0 && (
-            <section className="resource-gallery">
-              {resource.gallery.map((media) => (
-                isVideoMedia(media)
-                  ? <video key={media} src={media} controls preload="metadata" />
-                  : <img key={media} src={media} alt="" loading="lazy" />
-              ))}
-            </section>
-          )}
+          {resource.gallery.length > 0 && <ResourceMediaGallery media={resource.gallery} />}
         </article>
       </PageShell>
     </>
