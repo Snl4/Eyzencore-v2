@@ -1,4 +1,6 @@
 import type { MetadataRoute } from 'next'
+import { listCommunityResources } from '@/lib/resources-db'
+import { buildResourcePath } from '@/lib/resource-slug'
 import { listServicePageSlugs } from '@/lib/service-pages'
 import { SITE_URL } from '@/lib/seo'
 
@@ -8,7 +10,8 @@ function url(path: string): string {
   return `${SITE_URL}${path}`
 }
 
-export default function sitemap(): MetadataRoute.Sitemap {
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const resources = await listCommunityResources({ limit: 200 })
   return [
     {
       url: url('/'),
@@ -40,6 +43,18 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: 'daily',
       priority: 0.72,
     },
+    {
+      url: url('/resources'),
+      lastModified: now,
+      changeFrequency: 'daily',
+      priority: 0.78,
+    },
+    ...resources.map((resource) => ({
+      url: url(buildResourcePath(resource)),
+      lastModified: new Date(resource.updatedAt),
+      changeFrequency: 'weekly' as const,
+      priority: resource.featured ? 0.74 : 0.66,
+    })),
     {
       url: url('/terms'),
       lastModified: now,

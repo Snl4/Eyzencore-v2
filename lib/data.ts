@@ -98,6 +98,7 @@ export function getSidebarSections(isOwner = false): SidebarSection[] {
     ] },
     { label: 'Спільнота', items: [
         { ico: 'forum', name: 'Форум', key: 'forum', href: '/forum' },
+        { ico: 'folder', name: 'Ресурси', key: 'resources', href: '/resources' },
     ] },
     { label: 'Акаунт', items: [
       { ico: 'users', name: 'Профіль', key: 'profile', href: '/profile' },

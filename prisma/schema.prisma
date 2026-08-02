@@ -555,6 +555,7 @@ model app_users {
   app_news_likes             app_news_likes[]
   app_news_posts             app_news_posts[]
   app_news_views             app_news_views[]
+  community_resources        community_resources[]
   app_notifications          app_notifications[]
   app_server_events          app_server_events[]
   app_server_event_attendees app_server_event_attendees[]
@@ -579,6 +580,42 @@ model app_users {
   user_login_sessions        user_login_sessions[]
 
   @@index([email], map: "idx_app_users_email")
+}
+
+model community_resources {
+  id                 Int       @id @default(autoincrement())
+  author_user_id     String
+  name               String
+  slug               String    @unique
+  type               String    @default("mod")
+  summary            String    @default("")
+  description        String    @default("")
+  icon_url           String?
+  gallery_json       String    @default("[]")
+  source_url         String
+  download_url       String?
+  source_host        String?
+  project_id         String?
+  author_name        String?
+  license            String?
+  loaders_json       String    @default("[]")
+  game_versions_json String    @default("[]")
+  tags_json          String    @default("[]")
+  side               String?
+  downloads          Int       @default(0)
+  followers          Int       @default(0)
+  status             String    @default("published")
+  featured           Int       @default(0)
+  verified           Int       @default(1)
+  published_at       String?
+  updated_remote_at  String?
+  created_at         String
+  updated_at         String
+  app_users          app_users @relation(fields: [author_user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([status, created_at], map: "idx_community_resources_status_created")
+  @@index([type], map: "idx_community_resources_type")
+  @@index([source_host, project_id], map: "idx_community_resources_source")
 }
 
 model password_reset_tokens {

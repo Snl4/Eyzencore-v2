@@ -6,6 +6,7 @@ import {
 } from '@/lib/auth-db'
 
 export const PUBLIC_NEWS_CACHE_TAG = 'public-news'
+export const PUBLIC_RESOURCES_CACHE_TAG = 'public-resources'
 
 export const getCachedPublicServers = unstable_cache(
   async () => listServers(),
@@ -40,5 +41,13 @@ export function revalidatePublicNews(postPath?: string | null) {
   revalidatePath('/')
   if (postPath) {
     revalidatePath(postPath)
+  }
+}
+
+export function revalidatePublicResources(resourcePath?: string | null) {
+  revalidateTag(PUBLIC_RESOURCES_CACHE_TAG)
+  revalidatePath('/resources')
+  if (resourcePath) {
+    revalidatePath(resourcePath)
   }
 }
