@@ -82,25 +82,6 @@ function normalizeMediaUrl(value: string) {
   return ''
 }
 
-function extractMediaFromContent(content: string) {
-  const media = new Set<string>()
-  const patterns = [
-    /!\[[^\]]*]\((https?:\/\/[^)\s]+)\)/gi,
-    /<img[^>]+src=["']([^"']+)["'][^>]*>/gi,
-    /<video[^>]+src=["']([^"']+)["'][^>]*>/gi,
-    /<source[^>]+src=["']([^"']+)["'][^>]*>/gi,
-    /\[[^\]]*]\((https?:\/\/[^)\s]+\.(?:png|jpe?g|webp|gif|avif|mp4|webm|ogv|mov)(?:\?[^)\s]*)?)\)/gi,
-  ]
-  for (const pattern of patterns) {
-    let match: RegExpExecArray | null
-    while ((match = pattern.exec(content)) !== null) {
-      const normalized = normalizeMediaUrl(match[1] || '')
-      if (normalized) media.add(normalized)
-    }
-  }
-  return Array.from(media)
-}
-
 async function getModrinthAuthorName(teamId: string | undefined) {
   if (!teamId) return null
   try {
@@ -138,10 +119,7 @@ async function importModrinth(url: URL): Promise<ImportedResourceDraft | null> {
   const project = (await response.json()) as ModrinthProject
   const authorName = await getModrinthAuthorName(project.team)
   const description = project.body || project.description || ''
-  const gallery = [
-    ...(project.gallery || []).map((item) => item.raw_url || item.url || ''),
-    ...extractMediaFromContent(description),
-  ].map(normalizeMediaUrl).filter(Boolean)
+  const gallery = (project.gallery || []).map((item) => normalizeMediaUrl(item.raw_url || item.url || '')).filter(Boolean)
   return {
     name: project.title || project.slug,
     type: asType(project.project_type),
@@ -183,7 +161,7 @@ async function importOpenGraph(url: URL): Promise<ImportedResourceDraft> {
   const image = readMeta(html, 'og:image') || null
   const video = readMeta(html, 'og:video') || readMeta(html, 'og:video:url') || null
   const authorName = readMeta(html, 'author') || readMeta(html, 'article:author') || readMeta(html, 'og:site_name') || null
-  const media = [image, video, ...extractMediaFromContent(html)].map((item) => normalizeMediaUrl(item || '')).filter(Boolean)
+  const media = [image, video].map((item) => normalizeMediaUrl(item || '')).filter(Boolean)
   return {
     name: title.replace(/\s*\|.*$/, '').trim(),
     type: 'mod',
