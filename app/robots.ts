@@ -58,6 +58,7 @@ export default function robots(): MetadataRoute.Robots {
       `${SITE_URL}/sitemap-servers.xml`,
       `${SITE_URL}/sitemap-news.xml`,
       `${SITE_URL}/sitemap-forum.xml`,
+      `${SITE_URL}/sitemap-resources.xml`,
       `${SITE_URL}/sitemap-tags.xml`,
     ],
     host: SITE_URL,

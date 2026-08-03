@@ -1,19 +1,20 @@
 ﻿import { stat } from 'node:fs/promises'
 import type { Metadata } from 'next'
-import { notFound, permanentRedirect } from 'next/navigation'
 import Link from 'next/link'
+import { notFound, permanentRedirect } from 'next/navigation'
 import { PageShell } from '@/components/layout/PageShell'
 import { Breadcrumbs } from '@/components/ui/Breadcrumbs'
 import { getCurrentUser } from '@/lib/auth-server'
 import { resolveUserRole } from '@/lib/auth-db'
 import { ADMIN_EMAIL } from '@/lib/constants'
-import { buildPageMetadata, SITE_URL } from '@/lib/seo'
+import { absoluteUrl, breadcrumbJsonLd, buildPageMetadata, SITE_URL } from '@/lib/seo'
 import { buildResourcePath, parseResourceIdFromSlug } from '@/lib/resource-slug'
 import { getCommunityResourceById, getCommunityResourceBySlug, listCommunityResources } from '@/lib/resources-db'
 import { IMAGE_PLACEHOLDER } from '@/lib/placeholders'
 import { resolveUploadPath, UPLOAD_URL_PREFIX } from '@/lib/upload-store'
 import { DeleteResourceButton } from './DeleteResourceButton'
-import { ResourceMediaGallery } from './ResourceMediaGallery'
+import { ResourceDownloadButton } from './ResourceDownloadButton'
+import { ResourceDetailTabs } from './ResourceDetailTabs'
 
 type ResourceDetailsPageProps = {
   params: {
@@ -29,6 +30,35 @@ const TYPE_LABELS: Record<string, string> = {
   datapack: 'Датапак',
   modpack: 'Збірка',
   tool: 'Інструмент',
+}
+
+type ResourceDownloadVersion = {
+  id: string
+  name: string
+  number: string
+  type: string
+  gameVersions: string[]
+  loaders: string[]
+  datePublished: string
+  fileName: string
+  fileUrl: string
+  fileSize: number | null
+}
+
+type ModrinthVersion = {
+  id: string
+  name: string
+  version_number: string
+  version_type: string
+  game_versions: string[]
+  loaders: string[]
+  date_published: string
+  files: Array<{
+    url: string
+    filename: string
+    primary?: boolean
+    size?: number
+  }>
 }
 
 async function getResourceFromParam(value: string) {
@@ -66,6 +96,45 @@ async function filterExistingResourceMedia(media: string[]) {
   return checks.filter((check) => check.exists).map((check) => check.item)
 }
 
+async function getModrinthDownloadVersions(projectId: string | null, sourceHost: string | null): Promise<ResourceDownloadVersion[]> {
+  if (!projectId || sourceHost !== 'modrinth.com') return []
+  try {
+    const response = await fetch(`https://api.modrinth.com/v2/project/${encodeURIComponent(projectId)}/version`, {
+      headers: {
+        Accept: 'application/json',
+        'User-Agent': 'Eyzencore resources (https://eyzencore.com)',
+      },
+      next: { revalidate: 3600 },
+    })
+    if (!response.ok) return []
+    const versions = (await response.json()) as ModrinthVersion[]
+    return versions
+      .map((version) => {
+        const file = version.files.find((item) => item.primary) || version.files[0]
+        if (!file?.url) return null
+        return {
+          id: version.id,
+          name: version.name || version.version_number,
+          number: version.version_number,
+          type: version.version_type,
+          gameVersions: version.game_versions || [],
+          loaders: version.loaders || [],
+          datePublished: version.date_published,
+          fileName: file.filename,
+          fileUrl: file.url,
+          fileSize: typeof file.size === 'number' ? file.size : null,
+        }
+      })
+      .filter((version): version is ResourceDownloadVersion => Boolean(version))
+  } catch {
+    return []
+  }
+}
+
+function formatCompactNumber(value: number) {
+  return new Intl.NumberFormat('uk-UA', { notation: value > 9999 ? 'compact' : 'standard' }).format(value)
+}
+
 export async function generateMetadata({ params }: ResourceDetailsPageProps): Promise<Metadata> {
   const resource = await getResourceFromParam(params.slug)
   if (!resource) return { title: 'Ресурс не знайдено' }
@@ -74,7 +143,18 @@ export async function generateMetadata({ params }: ResourceDetailsPageProps): Pr
     description: resource.summary || resource.description,
     path: buildResourcePath(resource),
     image: resource.iconUrl || IMAGE_PLACEHOLDER,
-    keywords: [resource.name, resource.type, ...resource.loaders, ...resource.gameVersions, ...resource.tags],
+    modifiedTime: resource.updatedAt,
+    keywords: [
+      resource.name,
+      resource.type,
+      `${resource.name} download`,
+      `${resource.name} Minecraft`,
+      `${resource.name} скачати`,
+      `${TYPE_LABELS[resource.type] || 'Ресурс'} Minecraft`,
+      ...resource.loaders.map((loader) => `${loader} Minecraft`),
+      ...resource.gameVersions.map((version) => `Minecraft ${version}`),
+      ...resource.tags,
+    ],
   })
 }
 
@@ -95,19 +175,54 @@ export default async function ResourceDetailsPage({ params }: ResourceDetailsPag
       })
     : null
   const canManage = Boolean(initialUser && (role === 'ADMIN' || initialUser.email === ADMIN_EMAIL))
-  const gallery = await filterExistingResourceMedia(resource.gallery)
-  const jsonLd = {
-    '@context': 'https://schema.org',
-    '@type': 'SoftwareApplication',
-    name: resource.name,
-    url: `${SITE_URL}${canonicalPath}`,
-    image: resource.iconUrl || undefined,
-    description: resource.summary || resource.description,
-    applicationCategory: 'GameApplication',
-    operatingSystem: 'Minecraft',
-    downloadUrl: resource.downloadUrl || resource.sourceUrl,
-    author: resource.authorName ? { '@type': 'Person', name: resource.authorName } : undefined,
-  }
+  const [gallery, downloadVersions] = await Promise.all([
+    filterExistingResourceMedia(resource.gallery),
+    getModrinthDownloadVersions(resource.projectId, resource.sourceHost),
+  ])
+  const primaryDownloadUrl = downloadVersions[0]?.fileUrl || resource.downloadUrl || resource.sourceUrl
+  const jsonLd = [
+    {
+      '@context': 'https://schema.org',
+      '@type': 'SoftwareApplication',
+      name: resource.name,
+      url: `${SITE_URL}${canonicalPath}`,
+      image: absoluteUrl(resource.iconUrl || IMAGE_PLACEHOLDER),
+      description: resource.summary || resource.description,
+      applicationCategory: 'GameApplication',
+      operatingSystem: `Minecraft ${resource.gameVersions.slice(0, 8).join(', ') || 'Java Edition'}`,
+      softwareVersion: downloadVersions[0]?.number || resource.gameVersions[0] || undefined,
+      downloadUrl: primaryDownloadUrl,
+      fileSize: downloadVersions[0]?.fileSize || undefined,
+      dateModified: resource.updatedAt,
+      datePublished: resource.publishedAt || resource.createdAt,
+      license: resource.license || undefined,
+      applicationSubCategory: TYPE_LABELS[resource.type] || resource.type,
+      keywords: [...resource.loaders, ...resource.gameVersions, ...resource.tags].join(', '),
+      author: resource.authorName ? { '@type': 'Person', name: resource.authorName } : undefined,
+      offers: {
+        '@type': 'Offer',
+        price: '0',
+        priceCurrency: 'USD',
+        availability: 'https://schema.org/InStock',
+      },
+      interactionStatistic: [
+        {
+          '@type': 'InteractionCounter',
+          interactionType: 'https://schema.org/DownloadAction',
+          userInteractionCount: resource.downloads,
+        },
+        {
+          '@type': 'InteractionCounter',
+          interactionType: 'https://schema.org/FollowAction',
+          userInteractionCount: resource.followers,
+        },
+      ],
+    },
+    breadcrumbJsonLd([
+      { name: 'Ресурси', path: '/resources' },
+      { name: resource.name, path: canonicalPath },
+    ]),
+  ]
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
@@ -115,61 +230,53 @@ export default async function ResourceDetailsPage({ params }: ResourceDetailsPag
       <PageShell active="resources" initialUser={initialUser}>
         <article className="page-main resource-details">
           <Breadcrumbs items={[{ label: 'Спільнота', href: '/forum' }, { label: 'Ресурси', href: '/resources' }, { label: resource.name }]} />
-          <section className="resource-detail-hero">
-            <img className="resource-detail-icon" src={resource.iconUrl || IMAGE_PLACEHOLDER} alt="" />
-            <div className="resource-detail-heading">
-              <span className="resource-type-pill">{TYPE_LABELS[resource.type] || resource.type}</span>
-              <h1>{resource.name}</h1>
+          <section className="resource-project-hero">
+            <img className="resource-project-icon" src={resource.iconUrl || IMAGE_PLACEHOLDER} alt="" loading="eager" decoding="async" fetchPriority="high" />
+            <div className="resource-project-heading">
+              <div className="resource-project-title-row">
+                <h1>{resource.name}</h1>
+                <span className="resource-type-pill">{TYPE_LABELS[resource.type] || resource.type}</span>
+              </div>
               <p>{resource.summary || resource.description.slice(0, 240)}</p>
-              <div className="resource-detail-actions">
-                <a className="btn btn-primary" href={resource.downloadUrl || resource.sourceUrl} target="_blank" rel="noopener noreferrer">
-                  Відкрити джерело
-                </a>
-                <Link className="btn btn-secondary" href="/resources">До каталогу</Link>
-                {canManage && <DeleteResourceButton resourceId={resource.id} />}
+              <div className="resource-project-meta">
+                <span>↓ {formatCompactNumber(resource.downloads)} завантажень</span>
+                <span>♡ {formatCompactNumber(resource.followers)} підписок</span>
+                {resource.tags[0] && <span>{resource.tags[0]}</span>}
               </div>
             </div>
-            <aside className="resource-detail-stats">
-              <span><b>{resource.downloads.toLocaleString('uk-UA')}</b> завантажень</span>
-              <span><b>{resource.followers.toLocaleString('uk-UA')}</b> підписок</span>
-              <span><b>{resource.sourceHost || 'джерело'}</b> платформа</span>
-            </aside>
+            <div className="resource-project-actions">
+              <ResourceDownloadButton
+                resourceName={resource.name}
+                iconUrl={resource.iconUrl || IMAGE_PLACEHOLDER}
+                versions={downloadVersions}
+                fallbackDownloadUrl={primaryDownloadUrl}
+              />
+              {canManage && (
+                <>
+                  <Link className="btn btn-secondary" href={`${canonicalPath}/edit`}>
+                    Редагувати
+                  </Link>
+                  <DeleteResourceButton resourceId={resource.id} />
+                </>
+              )}
+            </div>
           </section>
 
-          <div className="resource-detail-grid">
-            <section className="resource-detail-panel">
-              <h2>Опис</h2>
-              <div className="resource-description">
-                {(resource.description || resource.summary).split(/\n{2,}/).filter(Boolean).map((paragraph, index) => (
-                  <p key={index}>{paragraph}</p>
-                ))}
-              </div>
-            </section>
-            <aside className="resource-detail-panel resource-side-panel">
-              <h2>Сумісність</h2>
-              <ResourceList title="Loader-и" items={resource.loaders} empty="Не вказано" />
-              <ResourceList title="Версії Minecraft" items={resource.gameVersions} empty="Не вказано" />
-              <ResourceList title="Теги" items={resource.tags} empty="Без тегів" />
-              {resource.license && <p className="resource-fact"><span>Ліцензія</span><b>{resource.license}</b></p>}
-              {resource.side && <p className="resource-fact"><span>Сторона</span><b>{resource.side}</b></p>}
-            </aside>
-          </div>
-
-          {gallery.length > 0 && <ResourceMediaGallery media={gallery} />}
+          <ResourceDetailTabs
+            description={resource.description || resource.summary}
+            gallery={gallery}
+            downloadVersions={downloadVersions}
+            fallbackDownloadUrl={primaryDownloadUrl}
+            sourceUrl={resource.sourceUrl}
+            gameVersions={resource.gameVersions}
+            loaders={resource.loaders}
+            tags={resource.tags}
+            side={resource.side}
+            license={resource.license}
+          />
         </article>
       </PageShell>
     </>
-  )
-}
-
-function ResourceList({ title, items, empty }: { title: string; items: string[]; empty: string }) {
-  return (
-    <div className="resource-list-block">
-      <span>{title}</span>
-      <div className="resource-chip-row">
-        {items.length > 0 ? items.slice(0, 18).map((item) => <span key={item} className="resource-chip">{item}</span>) : <span className="resource-muted">{empty}</span>}
-      </div>
-    </div>
   )
 }
 

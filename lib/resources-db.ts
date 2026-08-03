@@ -123,16 +123,16 @@ function cleanUrl(value: unknown) {
   }
 }
 
-function cleanList(value: unknown, maxItems = 40) {
+function cleanList(value: unknown, maxItems = 40, maxLength = 64) {
   const list = Array.isArray(value) ? value : []
-  return Array.from(new Set(list.map((item) => cleanText(item, 64)).filter(Boolean))).slice(0, maxItems)
+  return Array.from(new Set(list.map((item) => cleanText(item, maxLength)).filter(Boolean))).slice(0, maxItems)
 }
 
-function parseList(raw: string | null) {
+function parseList(raw: string | null, maxItems = 40, maxLength = 64) {
   if (!raw) return []
   try {
     const parsed = JSON.parse(raw) as unknown
-    return cleanList(parsed)
+    return cleanList(parsed, maxItems, maxLength)
   } catch {
     return []
   }
@@ -160,7 +160,7 @@ function mapResourceRow(row: CommunityResourceRow): CommunityResource {
     summary: row.summary || '',
     description: row.description || '',
     iconUrl: row.icon_url || null,
-    gallery: parseList(row.gallery_json),
+    gallery: parseList(row.gallery_json, 24, 2048),
     sourceUrl: row.source_url,
     downloadUrl: row.download_url || null,
     sourceHost: row.source_host || null,
@@ -224,15 +224,16 @@ export async function ensureCommunityResourceTables() {
   ensuredTables = true
 }
 
-async function ensureUniqueResourceSlug(base: string) {
+async function ensureUniqueResourceSlug(base: string, ignoreId?: number) {
   await ensureCommunityResourceTables()
   const cleanBase = buildResourceSlug({ name: base })
   let candidate = cleanBase
   let suffix = 2
   while (true) {
     const rows = await prisma.$queryRawUnsafe<Array<{ id: number }>>(
-      'SELECT id FROM community_resources WHERE slug = ? LIMIT 1',
+      `SELECT id FROM community_resources WHERE slug = ? ${ignoreId ? 'AND id != ?' : ''} LIMIT 1`,
       candidate,
+      ...(ignoreId ? [ignoreId] : []),
     )
     if (rows.length === 0) return candidate
     candidate = `${cleanBase}-${suffix}`
@@ -311,7 +312,7 @@ export async function createCommunityResource(input: CommunityResourceInput) {
     cleanText(input.summary, 500),
     cleanText(input.description, 16000),
     cleanUrl(input.iconUrl),
-    JSON.stringify(cleanList(input.gallery, 12)),
+    JSON.stringify(cleanList(input.gallery, 24, 2048)),
     sourceUrl,
     cleanUrl(input.downloadUrl),
     cleanText(input.sourceHost, 80) || new URL(sourceUrl).hostname.replace(/^www\./, ''),
@@ -336,6 +337,57 @@ export async function createCommunityResource(input: CommunityResourceInput) {
   const created = await getCommunityResourceById(Number(rows[0]?.id || 0), true)
   if (!created) throw new Error('Не вдалося створити ресурс')
   return created
+}
+
+export async function updateCommunityResource(resourceId: number, input: Omit<CommunityResourceInput, 'authorUserId'>) {
+  await ensureCommunityResourceTables()
+  const existing = await getCommunityResourceById(resourceId, true)
+  if (!existing) {
+    throw new Error('Р РµСЃСѓСЂСЃ РЅРµ Р·РЅР°Р№РґРµРЅРѕ')
+  }
+  const name = cleanText(input.name, 140)
+  const sourceUrl = cleanUrl(input.sourceUrl)
+  if (!name) throw new Error('Р’РєР°Р¶С–С‚СЊ РЅР°Р·РІСѓ СЂРµСЃСѓСЂСЃСѓ')
+  if (!sourceUrl) throw new Error('Р”РѕРґР°Р№С‚Рµ РєРѕСЂРµРєС‚РЅРµ РїРѕСЃРёР»Р°РЅРЅСЏ РЅР° СЂРµСЃСѓСЂСЃ')
+  const slug = await ensureUniqueResourceSlug(name, resourceId)
+  const now = nowIso()
+  await prisma.$executeRawUnsafe(
+    `UPDATE community_resources SET
+      name = ?, slug = ?, type = ?, summary = ?, description = ?, icon_url = ?, gallery_json = ?,
+      source_url = ?, download_url = ?, source_host = ?, project_id = ?, author_name = ?, license = ?,
+      loaders_json = ?, game_versions_json = ?, tags_json = ?, side = ?, downloads = ?, followers = ?,
+      status = ?, featured = ?, verified = ?, published_at = ?, updated_remote_at = ?, updated_at = ?
+    WHERE id = ?`,
+    name,
+    slug,
+    normalizeType(input.type),
+    cleanText(input.summary, 500),
+    cleanText(input.description, 16000),
+    cleanUrl(input.iconUrl),
+    JSON.stringify(cleanList(input.gallery, 24, 2048)),
+    sourceUrl,
+    cleanUrl(input.downloadUrl),
+    cleanText(input.sourceHost, 80) || new URL(sourceUrl).hostname.replace(/^www\./, ''),
+    cleanText(input.projectId, 120) || null,
+    cleanText(input.authorName, 120) || null,
+    cleanText(input.license, 80) || null,
+    JSON.stringify(cleanList(input.loaders, 20)),
+    JSON.stringify(cleanList(input.gameVersions, 60)),
+    JSON.stringify(cleanList(input.tags, 30)),
+    cleanText(input.side, 80) || null,
+    Math.max(0, Number(input.downloads ?? existing.downloads)),
+    Math.max(0, Number(input.followers ?? existing.followers)),
+    normalizeStatus(input.status),
+    input.featured ? 1 : 0,
+    input.verified === false ? 0 : 1,
+    input.publishedAt || existing.publishedAt,
+    input.updatedRemoteAt || existing.updatedRemoteAt,
+    now,
+    resourceId,
+  )
+  const updated = await getCommunityResourceById(resourceId, true)
+  if (!updated) throw new Error('РќРµ РІРґР°Р»РѕСЃСЏ РѕРЅРѕРІРёС‚Рё СЂРµСЃСѓСЂСЃ')
+  return updated
 }
 
 export async function deleteCommunityResource(resourceId: number) {

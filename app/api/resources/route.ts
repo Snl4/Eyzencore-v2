@@ -28,7 +28,14 @@ export async function GET(request: Request) {
     search: url.searchParams.get('search') || '',
     type: url.searchParams.get('type') || 'all',
   })
-  return NextResponse.json({ resources })
+  return NextResponse.json(
+    { resources },
+    {
+      headers: {
+        'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=3600',
+      },
+    },
+  )
 }
 
 export async function POST(request: Request) {

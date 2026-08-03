@@ -4,6 +4,7 @@ export type ImportedResourceDraft = Omit<CommunityResourceInput, 'authorUserId' 
 
 type ModrinthProject = {
   slug: string
+  team?: string
   project_type: string
   title: string
   description?: string
@@ -23,6 +24,15 @@ type ModrinthProject = {
   categories?: string[]
   loaders?: string[]
   game_versions?: string[]
+}
+
+type ModrinthTeamMember = {
+  role?: string
+  accepted?: boolean
+  user?: {
+    username?: string
+    name?: string | null
+  }
 }
 
 function asType(value: string): CommunityResourceType {
@@ -64,6 +74,54 @@ function readMeta(html: string, property: string) {
   return decodeHtml(pattern.exec(html)?.[1] || '')
 }
 
+function normalizeMediaUrl(value: string) {
+  const url = decodeHtml(value.trim())
+  if (!url) return ''
+  if (url.startsWith('//')) return `https:${url}`
+  if (/^https?:\/\//i.test(url) || url.startsWith('/api/uploads/')) return url
+  return ''
+}
+
+function extractMediaFromContent(content: string) {
+  const media = new Set<string>()
+  const patterns = [
+    /!\[[^\]]*]\((https?:\/\/[^)\s]+)\)/gi,
+    /<img[^>]+src=["']([^"']+)["'][^>]*>/gi,
+    /<video[^>]+src=["']([^"']+)["'][^>]*>/gi,
+    /<source[^>]+src=["']([^"']+)["'][^>]*>/gi,
+    /\[[^\]]*]\((https?:\/\/[^)\s]+\.(?:png|jpe?g|webp|gif|avif|mp4|webm|ogv|mov)(?:\?[^)\s]*)?)\)/gi,
+  ]
+  for (const pattern of patterns) {
+    let match: RegExpExecArray | null
+    while ((match = pattern.exec(content)) !== null) {
+      const normalized = normalizeMediaUrl(match[1] || '')
+      if (normalized) media.add(normalized)
+    }
+  }
+  return Array.from(media)
+}
+
+async function getModrinthAuthorName(teamId: string | undefined) {
+  if (!teamId) return null
+  try {
+    const response = await fetch(`https://api.modrinth.com/v2/team/${encodeURIComponent(teamId)}/members`, {
+      headers: {
+        Accept: 'application/json',
+        'User-Agent': 'Eyzencore resources importer (https://eyzencore.com)',
+      },
+      cache: 'no-store',
+    })
+    if (!response.ok) return null
+    const members = (await response.json()) as ModrinthTeamMember[]
+    const accepted = members.filter((member) => member.accepted !== false && member.user)
+    const owner = accepted.find((member) => member.role?.toLowerCase() === 'owner') || accepted[0]
+    const name = owner?.user?.username || owner?.user?.name || ''
+    return name.trim() || null
+  } catch {
+    return null
+  }
+}
+
 async function importModrinth(url: URL): Promise<ImportedResourceDraft | null> {
   const projectId = getModrinthProjectId(url)
   if (!projectId) return null
@@ -78,18 +136,24 @@ async function importModrinth(url: URL): Promise<ImportedResourceDraft | null> {
     throw new Error('Modrinth не віддав дані для цього посилання')
   }
   const project = (await response.json()) as ModrinthProject
+  const authorName = await getModrinthAuthorName(project.team)
+  const description = project.body || project.description || ''
+  const gallery = [
+    ...(project.gallery || []).map((item) => item.raw_url || item.url || ''),
+    ...extractMediaFromContent(description),
+  ].map(normalizeMediaUrl).filter(Boolean)
   return {
     name: project.title || project.slug,
     type: asType(project.project_type),
     summary: project.description || '',
-    description: project.body || project.description || '',
+    description,
     iconUrl: project.icon_url || null,
-    gallery: (project.gallery || []).map((item) => item.raw_url || item.url || '').filter(Boolean).slice(0, 8),
+    gallery: Array.from(new Set(gallery)).slice(0, 24),
     sourceUrl: url.toString(),
     downloadUrl: url.toString(),
     sourceHost: 'modrinth.com',
     projectId: project.slug || projectId,
-    authorName: null,
+    authorName,
     license: project.license?.name || project.license?.id || null,
     loaders: project.loaders || [],
     gameVersions: project.game_versions || [],
@@ -117,18 +181,21 @@ async function importOpenGraph(url: URL): Promise<ImportedResourceDraft> {
   const title = readMeta(html, 'og:title') || /<title[^>]*>([^<]+)<\/title>/i.exec(html)?.[1] || url.hostname
   const description = readMeta(html, 'og:description') || readMeta(html, 'description')
   const image = readMeta(html, 'og:image') || null
+  const video = readMeta(html, 'og:video') || readMeta(html, 'og:video:url') || null
+  const authorName = readMeta(html, 'author') || readMeta(html, 'article:author') || readMeta(html, 'og:site_name') || null
+  const media = [image, video, ...extractMediaFromContent(html)].map((item) => normalizeMediaUrl(item || '')).filter(Boolean)
   return {
     name: title.replace(/\s*\|.*$/, '').trim(),
     type: 'mod',
     summary: description,
     description,
     iconUrl: image,
-    gallery: image ? [image] : [],
+    gallery: Array.from(new Set(media)).slice(0, 24),
     sourceUrl: url.toString(),
     downloadUrl: url.toString(),
     sourceHost: url.hostname.replace(/^www\./, ''),
     projectId: null,
-    authorName: null,
+    authorName,
     license: null,
     loaders: [],
     gameVersions: [],

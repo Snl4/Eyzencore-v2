@@ -24,8 +24,17 @@ export function ResourceMediaGallery({ media }: { media: string[] }) {
     <section className="resource-gallery">
       {visibleMedia.map((item) => (
         isVideoMedia(item)
-          ? <video key={item} src={item} controls preload="metadata" onError={() => markFailed(item)} />
-          : <img key={item} src={item} alt="" loading="lazy" onError={() => markFailed(item)} />
+          ? (
+            <figure key={item} className="resource-gallery-item">
+              <video src={item} controls preload="metadata" onError={() => markFailed(item)} />
+            </figure>
+          )
+          : (
+            <figure key={item} className="resource-gallery-item">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={item} alt="" loading="lazy" decoding="async" onError={() => markFailed(item)} />
+            </figure>
+          )
       ))}
     </section>
   )

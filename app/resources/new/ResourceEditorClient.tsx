@@ -7,7 +7,7 @@ import { PageShell } from '@/components/layout/PageShell'
 import { Breadcrumbs } from '@/components/ui/Breadcrumbs'
 import { Icons } from '@/components/ui/Icons'
 import type { AuthUser } from '@/lib/auth-db'
-import type { CommunityResourceType } from '@/lib/resources-db'
+import type { CommunityResource, CommunityResourceType } from '@/lib/resources-db'
 import { buildResourcePath } from '@/lib/resource-slug'
 import { uploadFile } from '@/lib/upload'
 
@@ -70,10 +70,36 @@ function listToText(value: unknown) {
   return Array.isArray(value) ? value.filter(Boolean).join(', ') : ''
 }
 
-export function ResourceEditorClient({ initialUser }: { initialUser: AuthUser }) {
+type ResourceEditorClientProps = {
+  initialUser: AuthUser
+  initialResource?: CommunityResource
+}
+
+function resourceToDraft(resource: CommunityResource): ResourceDraft {
+  return {
+    name: resource.name,
+    type: resource.type,
+    summary: resource.summary,
+    description: resource.description,
+    iconUrl: resource.iconUrl || '',
+    galleryText: resource.gallery.join('\n'),
+    sourceUrl: resource.sourceUrl,
+    downloadUrl: resource.downloadUrl || resource.sourceUrl,
+    sourceHost: resource.sourceHost || '',
+    projectId: resource.projectId || '',
+    authorName: resource.authorName || '',
+    license: resource.license || '',
+    loadersText: resource.loaders.join(', '),
+    gameVersionsText: resource.gameVersions.join(', '),
+    tagsText: resource.tags.join(', '),
+    side: resource.side || '',
+  }
+}
+
+export function ResourceEditorClient({ initialUser, initialResource }: ResourceEditorClientProps) {
   const router = useRouter()
   const [importUrl, setImportUrl] = useState('')
-  const [form, setForm] = useState<ResourceDraft>(EMPTY_DRAFT)
+  const [form, setForm] = useState<ResourceDraft>(() => initialResource ? resourceToDraft(initialResource) : EMPTY_DRAFT)
   const [message, setMessage] = useState('')
   const [isImporting, setIsImporting] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -175,7 +201,7 @@ export function ResourceEditorClient({ initialUser }: { initialUser: AuthUser })
         tagsText: listToText(draft.tags),
         side: String(draft.side || ''),
       })
-      setMessage('Дані підтягнулись. Перевір український опис і публікуй.')
+      setMessage('Дані підтягнулися. Перевір український опис і публікуй.')
     } catch {
       setMessage('Помилка мережі під час імпорту')
     } finally {
@@ -188,8 +214,8 @@ export function ResourceEditorClient({ initialUser }: { initialUser: AuthUser })
     setMessage('')
     setIsSubmitting(true)
     try {
-      const response = await fetch('/api/resources', {
-        method: 'POST',
+      const response = await fetch(initialResource ? `/api/resources/${initialResource.id}` : '/api/resources', {
+        method: initialResource ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: form.name,
@@ -226,6 +252,14 @@ export function ResourceEditorClient({ initialUser }: { initialUser: AuthUser })
     }
   }
 
+  const previewChips = [
+    form.side,
+    form.license,
+    ...linesToList(form.loadersText),
+    ...linesToList(form.gameVersionsText),
+    ...linesToList(form.tagsText),
+  ].filter(Boolean).slice(0, 6)
+
   return (
     <PageShell active="resources" initialUser={initialUser}>
       <div className="page-main resource-editor-page">
@@ -237,131 +271,205 @@ export function ResourceEditorClient({ initialUser }: { initialUser: AuthUser })
           <Link href="/resources" className="btn btn-secondary">До каталогу</Link>
         </div>
 
-        <section className="resource-import-panel">
-          <div>
-            <h2>Імпорт із посилання</h2>
-            <p>Найкраще працює з Modrinth. Для інших сайтів підтягнуться базові OpenGraph-дані.</p>
-          </div>
-          <div className="resource-import-row">
-            <input value={importUrl} onChange={(event) => setImportUrl(event.target.value)} placeholder="https://modrinth.com/mod/..." />
-            <button type="button" className="btn btn-primary" onClick={() => void handleImport()} disabled={isImporting || !importUrl.trim()}>
-              {isImporting ? 'Імпортуємо...' : 'Підтягнути'}
-            </button>
-          </div>
-        </section>
-
         {message && <div className="resource-editor-message">{message}</div>}
 
-        <form className="resource-editor-grid" onSubmit={handleSubmit}>
-          <section className="resource-editor-card">
-            <h2>Основне</h2>
-            <label>
-              <span>Назва</span>
-              <input value={form.name} onChange={(event) => setField('name', event.target.value)} maxLength={140} required />
-            </label>
-            <label>
-              <span>Тип</span>
-              <select value={form.type} onChange={(event) => setField('type', event.target.value as CommunityResourceType)}>
-                {TYPE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-              </select>
-            </label>
-            <label>
-              <span>Короткий опис українською</span>
-              <textarea value={form.summary} onChange={(event) => setField('summary', event.target.value)} rows={3} maxLength={500} required />
-            </label>
-            <label>
-              <span>Повний опис українською</span>
-              <textarea value={form.description} onChange={(event) => setField('description', event.target.value)} rows={10} required />
-            </label>
-          </section>
-
-          <section className="resource-editor-card">
-            <h2>Медіа й джерело</h2>
-            <label>
-              <span>Іконка</span>
-              <input value={form.iconUrl} onChange={(event) => setField('iconUrl', event.target.value)} />
-            </label>
-            <label className="resource-file-picker">
-              <span>Завантажити іконку з ПК</span>
-              <input type="file" accept="image/*" onChange={(event) => void handleIconUpload(event.target.files?.[0] || null)} disabled={isUploadingIcon} />
-              <small>{isUploadingIcon ? 'Завантажуємо...' : 'PNG, JPG, WEBP, GIF або AVIF до 8 МБ'}</small>
-            </label>
-            <label>
-              <span>Галерея</span>
-              <textarea value={form.galleryText} onChange={(event) => setField('galleryText', event.target.value)} rows={4} placeholder="URL через кому або з нового рядка" />
-            </label>
-            <label className="resource-file-picker">
-              <span>Завантажити фото або відео з ПК</span>
-              <input type="file" accept="image/*,video/*" multiple onChange={(event) => void handleGalleryUpload(event.target.files)} disabled={isUploadingGallery} />
-              <small>{isUploadingGallery ? 'Завантажуємо...' : 'Фото до 8 МБ, відео до 80 МБ. URL також можна вставити вище.'}</small>
-            </label>
-            <label>
-              <span>Посилання на джерело</span>
-              <input value={form.sourceUrl} onChange={(event) => setField('sourceUrl', event.target.value)} required />
-            </label>
-            <label>
-              <span>Посилання на завантаження</span>
-              <input value={form.downloadUrl} onChange={(event) => setField('downloadUrl', event.target.value)} />
-            </label>
-            <label className="resource-file-picker">
-              <span>Завантажити файл ресурсу з ПК</span>
-              <input
-                type="file"
-                accept=".jar,.zip,.rar,.7z,.mrpack,.mcpack,.mcaddon,.mcworld"
-                onChange={(event) => void handleDownloadUpload(event.target.files?.[0] || null)}
-                disabled={isUploadingDownload}
-              />
-              <small>{isUploadingDownload ? 'Завантажуємо...' : 'JAR, ZIP, RAR, 7Z, MRPACK, MCPACK до 25 МБ. Посилання також можна вставити вручну.'}</small>
-            </label>
-          </section>
-
-          <section className="resource-editor-card">
-            <h2>Сумісність</h2>
-            <label>
-              <span>Loader-и</span>
-              <input value={form.loadersText} onChange={(event) => setField('loadersText', event.target.value)} placeholder="Fabric, Forge, Paper" />
-            </label>
-            <label>
-              <span>Версії Minecraft</span>
-              <input value={form.gameVersionsText} onChange={(event) => setField('gameVersionsText', event.target.value)} placeholder="1.21.8, 1.20.1" />
-            </label>
-            <label>
-              <span>Теги</span>
-              <input value={form.tagsText} onChange={(event) => setField('tagsText', event.target.value)} placeholder="optimization, adventure, server" />
-            </label>
-            <label>
-              <span>Автор / команда</span>
-              <input value={form.authorName} onChange={(event) => setField('authorName', event.target.value)} />
-            </label>
-            <label>
-              <span>Ліцензія</span>
-              <input value={form.license} onChange={(event) => setField('license', event.target.value)} />
-            </label>
-          </section>
-
-          <section className="resource-editor-preview">
-            <div className="resource-card">
-              <div className="resource-card-media">
-                {form.iconUrl ? <img src={form.iconUrl} alt="" /> : <span className="resource-preview-empty">{Icons.folder}</span>}
-                <span className="resource-type-pill">{TYPE_OPTIONS.find((option) => option.value === form.type)?.label}</span>
-              </div>
-              <div className="resource-card-body">
-                <div className="resource-card-title-row">
-                  <h3>{form.name || 'Назва ресурсу'}</h3>
-                  <span className="resource-verified">✓</span>
+        <form id="resource-editor-form" className="news-edit-shell resource-edit-shell" onSubmit={handleSubmit}>
+          <main className="news-edit-main">
+            <section className="news-edit-card resource-import-panel">
+              <div className="news-edit-card-head">
+                <div>
+                  <h3>{Icons.globe} Імпорт із посилання</h3>
+                  <p>Найкраще працює з Modrinth. Для інших сайтів підтягнуться базові OpenGraph-дані.</p>
                 </div>
-                <p>{form.summary || 'Короткий опис зʼявиться тут.'}</p>
-                <div className="resource-chip-row">
-                  {[...linesToList(form.loadersText), ...linesToList(form.gameVersionsText)].slice(0, 6).map((item) => (
-                    <span key={item} className="resource-chip">{item}</span>
-                  ))}
+                <span className="news-edit-pill">URL</span>
+              </div>
+              <div className="resource-import-row">
+                <input
+                  className="news-input"
+                  value={importUrl}
+                  onChange={(event) => setImportUrl(event.target.value)}
+                  placeholder="https://modrinth.com/mod/..."
+                />
+                <button type="button" className="btn btn-primary" onClick={() => void handleImport()} disabled={isImporting || !importUrl.trim()}>
+                  {isImporting ? 'Імпортуємо...' : 'Підтягнути'}
+                </button>
+              </div>
+            </section>
+
+            <section className="news-edit-card">
+              <div className="news-edit-card-head">
+                <div>
+                  <h3>{Icons.folder} Основне</h3>
+                  <p>Назва, тип і короткий опис, який буде видно у списку ресурсів.</p>
                 </div>
               </div>
-            </div>
-            <button type="submit" className="btn btn-primary btn-block" disabled={isSubmitting || !form.name.trim() || !form.summary.trim() || !form.description.trim() || !form.sourceUrl.trim()}>
-              {isSubmitting ? 'Публікуємо...' : 'Опублікувати ресурс'}
-            </button>
-          </section>
+              <label className="news-edit-field">
+                <span>Назва <em>потрібно</em></span>
+                <input className="news-input news-input-large" value={form.name} onChange={(event) => setField('name', event.target.value)} maxLength={140} required />
+              </label>
+              <div className="news-edit-row">
+                <label className="news-edit-field">
+                  <span>Тип</span>
+                  <select className="news-input" value={form.type} onChange={(event) => setField('type', event.target.value as CommunityResourceType)}>
+                    {TYPE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                  </select>
+                </label>
+                <label className="news-edit-field">
+                  <span>Сторона</span>
+                  <input className="news-input" value={form.side} onChange={(event) => setField('side', event.target.value)} placeholder="Client, Server або Client/server" />
+                </label>
+              </div>
+              <label className="news-edit-field">
+                <span>Короткий опис українською <em>{form.summary.length}/500</em></span>
+                <textarea className="news-input" value={form.summary} onChange={(event) => setField('summary', event.target.value)} rows={3} maxLength={500} required />
+              </label>
+              <label className="news-edit-field">
+                <span>Повний опис українською</span>
+                <textarea className="news-input resource-description-input" value={form.description} onChange={(event) => setField('description', event.target.value)} rows={10} required />
+              </label>
+            </section>
+
+            <section className="news-edit-card">
+              <div className="news-edit-card-head">
+                <div>
+                  <h3>{Icons.monitor} Медіа й джерело</h3>
+                  <p>Іконка, галерея, сторінка автора та файл для завантаження.</p>
+                </div>
+              </div>
+              <div className="resource-media-grid">
+                <label className={`news-block-drop resource-upload-drop ${isUploadingIcon ? 'is-uploading' : ''}`}>
+                  <span className="ico">{Icons.plus}</span>
+                  <b>{isUploadingIcon ? 'Завантажуємо іконку...' : 'Завантажити іконку'}</b>
+                  <span>PNG, JPG, WEBP, GIF або AVIF до 8 МБ</span>
+                  <input type="file" accept="image/*" onChange={(event) => void handleIconUpload(event.target.files?.[0] || null)} disabled={isUploadingIcon} />
+                </label>
+                <label className={`news-block-drop resource-upload-drop ${isUploadingGallery ? 'is-uploading' : ''}`}>
+                  <span className="ico">{Icons.plus}</span>
+                  <b>{isUploadingGallery ? 'Завантажуємо медіа...' : 'Додати галерею'}</b>
+                  <span>Фото до 8 МБ, відео до 80 МБ</span>
+                  <input type="file" accept="image/*,video/*" multiple onChange={(event) => void handleGalleryUpload(event.target.files)} disabled={isUploadingGallery} />
+                </label>
+              </div>
+              <label className="news-edit-field">
+                <span>URL іконки</span>
+                <input className="news-input" value={form.iconUrl} onChange={(event) => setField('iconUrl', event.target.value)} placeholder="/api/uploads/resource/..." />
+              </label>
+              <label className="news-edit-field">
+                <span>Галерея</span>
+                <textarea className="news-input" value={form.galleryText} onChange={(event) => setField('galleryText', event.target.value)} rows={4} placeholder="Один URL на рядок або через кому" />
+              </label>
+              <div className="news-edit-row">
+                <label className="news-edit-field">
+                  <span>Посилання на джерело <em>потрібно</em></span>
+                  <input className="news-input" value={form.sourceUrl} onChange={(event) => setField('sourceUrl', event.target.value)} placeholder="https://modrinth.com/mod/..." required />
+                </label>
+                <label className="news-edit-field">
+                  <span>Посилання на завантаження</span>
+                  <input className="news-input" value={form.downloadUrl} onChange={(event) => setField('downloadUrl', event.target.value)} placeholder="Якщо пусто, буде source URL" />
+                </label>
+              </div>
+              <label className={`news-block-drop resource-upload-drop resource-file-drop ${isUploadingDownload ? 'is-uploading' : ''}`}>
+                <span className="ico">{Icons.plus}</span>
+                <b>{isUploadingDownload ? 'Завантажуємо файл...' : 'Завантажити файл ресурсу'}</b>
+                <span>JAR, ZIP, RAR, 7Z, MRPACK, MCPACK до 25 МБ</span>
+                <input
+                  type="file"
+                  accept=".jar,.zip,.rar,.7z,.mrpack,.mcpack,.mcaddon,.mcworld"
+                  onChange={(event) => void handleDownloadUpload(event.target.files?.[0] || null)}
+                  disabled={isUploadingDownload}
+                />
+              </label>
+            </section>
+
+            <section className="news-edit-card">
+              <div className="news-edit-card-head">
+                <div>
+                  <h3>{Icons.filter} Сумісність і мета</h3>
+                  <p>Списки можна вводити через кому або з нового рядка.</p>
+                </div>
+              </div>
+              <div className="news-edit-row">
+                <label className="news-edit-field">
+                  <span>Loader-и</span>
+                  <input className="news-input" value={form.loadersText} onChange={(event) => setField('loadersText', event.target.value)} placeholder="Fabric, Forge, Paper" />
+                </label>
+                <label className="news-edit-field">
+                  <span>Версії Minecraft</span>
+                  <input className="news-input" value={form.gameVersionsText} onChange={(event) => setField('gameVersionsText', event.target.value)} placeholder="1.21.8, 1.20.1" />
+                </label>
+              </div>
+              <div className="news-edit-row">
+                <label className="news-edit-field">
+                  <span>Теги</span>
+                  <input className="news-input" value={form.tagsText} onChange={(event) => setField('tagsText', event.target.value)} placeholder="Optimization, Library, Utility" />
+                </label>
+                <label className="news-edit-field">
+                  <span>Ліцензія</span>
+                  <input className="news-input" value={form.license} onChange={(event) => setField('license', event.target.value)} placeholder="MIT, ARR, LGPL..." />
+                </label>
+              </div>
+              <div className="news-edit-row">
+                <label className="news-edit-field">
+                  <span>Автор / команда</span>
+                  <input className="news-input" value={form.authorName} onChange={(event) => setField('authorName', event.target.value)} placeholder="modmuss50" />
+                </label>
+                <label className="news-edit-field">
+                  <span>Source host</span>
+                  <input className="news-input" value={form.sourceHost} onChange={(event) => setField('sourceHost', event.target.value)} placeholder="modrinth.com" />
+                </label>
+              </div>
+            </section>
+          </main>
+
+          <aside className="news-edit-aside resource-edit-aside">
+            <section className="news-edit-card news-edit-aside-card">
+              <div className="news-edit-card-head">
+                <div>
+                  <h3>Попередній вигляд</h3>
+                  <p>Так ресурс буде виглядати у списку.</p>
+                </div>
+                <span className="news-edit-pill-mini">live</span>
+              </div>
+              <div className="resource-editor-preview-card">
+                <div className="resource-editor-preview-icon">
+                  {form.iconUrl ? <img src={form.iconUrl} alt="" loading="lazy" decoding="async" /> : Icons.folder}
+                </div>
+                <div className="resource-editor-preview-body">
+                  <div className="resource-title-line">
+                    <h3>{form.name || 'Назва ресурсу'}</h3>
+                    <span className="resource-verified">✓</span>
+                    <span className="resource-author">by {form.authorName || form.sourceHost || 'Eyzencore'}</span>
+                  </div>
+                  <p>{form.summary || 'Короткий опис з’явиться тут.'}</p>
+                  <div className="resource-chip-row">
+                    <span className="resource-type-pill">{TYPE_OPTIONS.find((option) => option.value === form.type)?.label}</span>
+                    {previewChips.map((item) => <span key={item} className="resource-chip">{item}</span>)}
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section className="news-edit-card news-edit-aside-card">
+              <div className="news-edit-card-head">
+                <div>
+                  <h3>Публікація</h3>
+                  <p>Перевір потрібні поля перед додаванням у каталог.</p>
+                </div>
+              </div>
+              <ul className="news-edit-structure">
+                <li><span className="ico">{Icons.check}</span><span className="lbl">Назва</span><span className="cnt">{form.name.trim() ? 'ok' : '0'}</span></li>
+                <li><span className="ico">{Icons.check}</span><span className="lbl">Опис</span><span className="cnt">{form.summary.trim() && form.description.trim() ? 'ok' : '0'}</span></li>
+                <li><span className="ico">{Icons.check}</span><span className="lbl">Джерело</span><span className="cnt">{form.sourceUrl.trim() ? 'ok' : '0'}</span></li>
+              </ul>
+              <button
+                type="submit"
+                className="btn btn-primary btn-block"
+                disabled={isSubmitting || !form.name.trim() || !form.summary.trim() || !form.description.trim() || !form.sourceUrl.trim()}
+              >
+                {isSubmitting ? 'Публікуємо...' : 'Опублікувати ресурс'}
+              </button>
+            </section>
+          </aside>
         </form>
       </div>
     </PageShell>
