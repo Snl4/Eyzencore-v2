@@ -40,8 +40,59 @@ function ResourceMarkdownImage({ src, alt }: { src?: string; alt?: string }) {
 }
 
 export function ResourceMarkdown({ content }: { content: string }) {
+  const [translatedContent, setTranslatedContent] = useState('')
+  const [isTranslating, setIsTranslating] = useState(false)
+  const [translationError, setTranslationError] = useState('')
+  const [showTranslation, setShowTranslation] = useState(false)
+  const visibleContent = showTranslation && translatedContent ? translatedContent : content
+
+  const translateDescription = async () => {
+    if (translatedContent) {
+      setShowTranslation(true)
+      return
+    }
+    setIsTranslating(true)
+    setTranslationError('')
+    try {
+      const response = await fetch('/api/resources/translate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: content, target: 'uk' }),
+      })
+      const payload = (await response.json()) as { translated?: string; error?: string }
+      if (!response.ok || !payload.translated) {
+        setTranslationError(payload.error || 'Не вдалося перекласти опис')
+        return
+      }
+      setTranslatedContent(payload.translated)
+      setShowTranslation(true)
+    } catch {
+      setTranslationError('Не вдалося перекласти опис')
+    } finally {
+      setIsTranslating(false)
+    }
+  }
+
   return (
-    <div className="resource-description">
+    <div className="resource-description-wrap">
+      <div className="resource-description-toolbar">
+        <div>
+          <b>{showTranslation ? 'Український переклад' : 'Оригінальний опис'}</b>
+          <span>{showTranslation ? 'Автоматичний переклад може мати неточності.' : 'Можна швидко перекласти текст опису українською.'}</span>
+        </div>
+        <div className="resource-description-actions">
+          {showTranslation && (
+            <button type="button" onClick={() => setShowTranslation(false)}>
+              Оригінал
+            </button>
+          )}
+          <button type="button" onClick={translateDescription} disabled={isTranslating}>
+            {isTranslating ? 'Перекладаємо...' : translatedContent ? 'Показати переклад' : 'Перекласти українською'}
+          </button>
+        </div>
+      </div>
+      {translationError ? <p className="resource-description-error">{translationError}</p> : null}
+      <div className="resource-description">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         rehypePlugins={[rehypeRaw, [rehypeSanitize, sanitizeSchema]]}
@@ -59,8 +110,9 @@ export function ResourceMarkdown({ content }: { content: string }) {
           img: ({ src, alt }) => <ResourceMarkdownImage src={src} alt={alt} />,
         }}
       >
-        {content}
+        {visibleContent}
       </ReactMarkdown>
+      </div>
     </div>
   )
 }
