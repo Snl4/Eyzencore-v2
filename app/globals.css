@@ -11176,6 +11176,44 @@ iframe {
   min-height: 260px;
 }
 
+.resource-description-editor-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 10px;
+  border: 1px solid color-mix(in oklab, var(--line) 70%, transparent);
+  border-radius: 9px;
+  background: color-mix(in oklab, var(--bg) 72%, transparent);
+}
+
+.resource-description-editor-actions button {
+  flex: 0 0 auto;
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg-2);
+  color: var(--fg);
+  cursor: pointer;
+  font: 800 12px/1 var(--font-sans);
+}
+
+.resource-description-editor-actions button:hover:not(:disabled) {
+  border-color: var(--line-strong);
+}
+
+.resource-description-editor-actions button:disabled {
+  cursor: progress;
+  opacity: .6;
+}
+
+.resource-description-editor-actions small {
+  color: var(--fg-3);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
 .resource-editor-message {
   display: flex;
   align-items: center;
@@ -11454,6 +11492,15 @@ iframe {
   }
 
   .resource-description-actions button {
+    width: 100%;
+  }
+
+  .resource-description-editor-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .resource-description-editor-actions button {
     width: 100%;
   }
 

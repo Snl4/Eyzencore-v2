@@ -15,6 +15,7 @@ import { resolveUploadPath, UPLOAD_URL_PREFIX } from '@/lib/upload-store'
 import { DeleteResourceButton } from './DeleteResourceButton'
 import { ResourceDownloadButton } from './ResourceDownloadButton'
 import { ResourceDetailTabs } from './ResourceDetailTabs'
+import { ResourceViewTracker } from './ResourceViewTracker'
 
 type ResourceDetailsPageProps = {
   params: {
@@ -213,8 +214,8 @@ export default async function ResourceDetailsPage({ params }: ResourceDetailsPag
         },
         {
           '@type': 'InteractionCounter',
-          interactionType: 'https://schema.org/FollowAction',
-          userInteractionCount: resource.followers,
+          interactionType: 'https://schema.org/ViewAction',
+          userInteractionCount: resource.views,
         },
       ],
     },
@@ -226,6 +227,7 @@ export default async function ResourceDetailsPage({ params }: ResourceDetailsPag
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <ResourceViewTracker resourceId={resource.id} />
       <div className="bg-aurora" />
       <PageShell active="resources" initialUser={initialUser}>
         <article className="page-main resource-details">
@@ -240,12 +242,13 @@ export default async function ResourceDetailsPage({ params }: ResourceDetailsPag
               <p>{resource.summary || resource.description.slice(0, 240)}</p>
               <div className="resource-project-meta">
                 <span>↓ {formatCompactNumber(resource.downloads)} завантажень</span>
-                <span>♡ {formatCompactNumber(resource.followers)} підписок</span>
+                <span>◉ {formatCompactNumber(resource.views)} переглядів</span>
                 {resource.tags[0] && <span>{resource.tags[0]}</span>}
               </div>
             </div>
             <div className="resource-project-actions">
               <ResourceDownloadButton
+                resourceId={resource.id}
                 resourceName={resource.name}
                 iconUrl={resource.iconUrl || IMAGE_PLACEHOLDER}
                 versions={downloadVersions}

@@ -27,7 +27,7 @@ const TYPE_LABELS: Record<string, string> = Object.fromEntries(RESOURCE_TYPES.ma
 
 const SORT_OPTIONS = [
   { key: 'downloads', label: 'Завантаження' },
-  { key: 'followers', label: 'Підписки' },
+  { key: 'views', label: 'Перегляди' },
   { key: 'updated', label: 'Оновлено' },
 ] as const
 
@@ -68,11 +68,12 @@ function compareVersions(a: string, b: string) {
   return b.localeCompare(a, 'uk')
 }
 
-function ResourceStatIcon({ type }: { type: 'downloads' | 'followers' | 'updated' }) {
-  if (type === 'followers') {
+function ResourceStatIcon({ type }: { type: 'downloads' | 'views' | 'updated' }) {
+  if (type === 'views') {
     return (
       <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8Z" />
+        <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Z" />
+        <path d="M12 9a3 3 0 1 1 0 6 3 3 0 0 1 0-6Z" />
       </svg>
     )
   }
@@ -127,7 +128,7 @@ function ResourceCard({ resource }: { resource: CommunityResource }) {
       </div>
       <div className="resource-card-meta">
         <span className="resource-stat"><ResourceStatIcon type="downloads" /> <b>{formatNumber(resource.downloads)}</b></span>
-        <span className="resource-stat"><ResourceStatIcon type="followers" /> <b>{formatNumber(resource.followers)}</b></span>
+        <span className="resource-stat"><ResourceStatIcon type="views" /> <b>{formatNumber(resource.views)}</b></span>
         <span className="resource-stat resource-stat-muted"><ResourceStatIcon type="updated" /> {formatUpdatedAt(resource.updatedRemoteAt || resource.updatedAt)}</span>
       </div>
     </Link>
@@ -188,8 +189,8 @@ export function ResourcesPageClient({
       if (sortMode === 'updated') {
         return new Date(b.updatedRemoteAt || b.updatedAt).getTime() - new Date(a.updatedRemoteAt || a.updatedAt).getTime()
       }
-      if (sortMode === 'followers') {
-        return b.followers - a.followers
+      if (sortMode === 'views') {
+        return b.views - a.views
       }
       return b.downloads - a.downloads
     })

@@ -1,4 +1,7 @@
 import { NextResponse } from 'next/server'
+import { getCurrentUser } from '@/lib/auth-server'
+import { resolveUserRole } from '@/lib/auth-db'
+import { ADMIN_EMAIL } from '@/lib/constants'
 
 const MAX_TEXT_LENGTH = 16000
 const CHUNK_SIZE = 2600
@@ -6,6 +9,44 @@ const CHUNK_SIZE = 2600
 type TranslateRequest = {
   text?: string
   target?: string
+}
+
+async function requireAdmin() {
+  const user = await getCurrentUser()
+  if (!user) {
+    return NextResponse.json({ error: 'Потрібна авторизація' }, { status: 401 })
+  }
+  const role = await resolveUserRole({
+    userId: user.id,
+    role: user.user_metadata.role,
+  })
+  if (role !== 'ADMIN' && user.email !== ADMIN_EMAIL) {
+    return NextResponse.json({ error: 'Переклад опису доступний тільки адміністратору' }, { status: 403 })
+  }
+  return null
+}
+
+function protectMarkup(value: string) {
+  const tokens: string[] = []
+  const save = (match: string) => {
+    const token = `EYZTOKEN${tokens.length}TOKEN`
+    tokens.push(match)
+    return token
+  }
+  const protectedText = value
+    .replace(/```[\s\S]*?```/g, save)
+    .replace(/`[^`\n]+`/g, save)
+    .replace(/<[^>]+>/g, save)
+    .replace(/https?:\/\/[^\s)"'>]+/g, save)
+    .replace(/\/api\/uploads\/[^\s)"'>]+/g, save)
+  return { protectedText, tokens }
+}
+
+function restoreMarkup(value: string, tokens: string[]) {
+  return tokens.reduce((text, tokenValue, index) => {
+    const pattern = new RegExp(`\\bEYZ\\s*TOKEN\\s*${index}\\s*TOKEN\\b|\\bEYZTOKEN${index}TOKEN\\b`, 'gi')
+    return text.replace(pattern, tokenValue)
+  }, value)
 }
 
 function splitText(value: string) {
@@ -53,6 +94,8 @@ async function translateChunk(text: string, target: string) {
 }
 
 export async function POST(request: Request) {
+  const authError = await requireAdmin()
+  if (authError) return authError
   try {
     const body = (await request.json()) as TranslateRequest
     const text = String(body.text || '').trim().slice(0, MAX_TEXT_LENGTH)
@@ -64,7 +107,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Некоректна мова перекладу' }, { status: 400 })
     }
 
-    const translated = (await Promise.all(splitText(text).map((chunk) => translateChunk(chunk, target)))).join('')
+    const { protectedText, tokens } = protectMarkup(text)
+    const translatedRaw = (await Promise.all(splitText(protectedText).map((chunk) => translateChunk(chunk, target)))).join('')
+    const translated = restoreMarkup(translatedRaw, tokens)
     return NextResponse.json(
       { translated },
       {

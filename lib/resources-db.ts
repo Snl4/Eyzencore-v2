@@ -34,6 +34,7 @@ export type CommunityResource = {
   side: string | null
   downloads: number
   followers: number
+  views: number
   status: CommunityResourceStatus
   featured: boolean
   verified: boolean
@@ -63,6 +64,7 @@ export type CommunityResourceInput = {
   side?: string | null
   downloads?: number
   followers?: number
+  views?: number
   status?: CommunityResourceStatus
   featured?: boolean
   verified?: boolean
@@ -92,6 +94,7 @@ type CommunityResourceRow = {
   side: string | null
   downloads: number | null
   followers: number | null
+  views: number | null
   status: string | null
   featured: number | null
   verified: number | null
@@ -173,6 +176,7 @@ function mapResourceRow(row: CommunityResourceRow): CommunityResource {
     side: row.side || null,
     downloads: Number(row.downloads || 0),
     followers: Number(row.followers || 0),
+    views: Number(row.views || 0),
     status: normalizeStatus(row.status),
     featured: Number(row.featured || 0) > 0,
     verified: Number(row.verified || 0) > 0,
@@ -208,6 +212,7 @@ export async function ensureCommunityResourceTables() {
       side TEXT,
       downloads INTEGER NOT NULL DEFAULT 0,
       followers INTEGER NOT NULL DEFAULT 0,
+      views INTEGER NOT NULL DEFAULT 0,
       status TEXT NOT NULL DEFAULT 'published',
       featured INTEGER NOT NULL DEFAULT 0,
       verified INTEGER NOT NULL DEFAULT 1,
@@ -221,6 +226,23 @@ export async function ensureCommunityResourceTables() {
   await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS idx_community_resources_status_created ON community_resources(status, created_at)`)
   await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS idx_community_resources_type ON community_resources(type)`)
   await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS idx_community_resources_source ON community_resources(source_host, project_id)`)
+  await prisma.$executeRawUnsafe(`ALTER TABLE community_resources ADD COLUMN views INTEGER NOT NULL DEFAULT 0`).catch(() => undefined)
+  await prisma.$executeRawUnsafe(`
+    CREATE TABLE IF NOT EXISTS community_resource_views (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      resource_id INTEGER NOT NULL,
+      user_id TEXT,
+      fingerprint TEXT NOT NULL,
+      ip_address TEXT,
+      user_agent TEXT,
+      created_at TEXT NOT NULL,
+      FOREIGN KEY (resource_id) REFERENCES community_resources(id) ON DELETE CASCADE,
+      FOREIGN KEY (user_id) REFERENCES app_users(id) ON DELETE SET NULL
+    )
+  `)
+  await prisma.$executeRawUnsafe(`CREATE UNIQUE INDEX IF NOT EXISTS idx_community_resource_views_fingerprint ON community_resource_views(resource_id, fingerprint)`)
+  await prisma.$executeRawUnsafe(`CREATE UNIQUE INDEX IF NOT EXISTS idx_community_resource_views_user ON community_resource_views(resource_id, user_id) WHERE user_id IS NOT NULL`)
+  await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS idx_community_resource_views_resource ON community_resource_views(resource_id)`)
   ensuredTables = true
 }
 
@@ -398,4 +420,59 @@ export async function deleteCommunityResource(resourceId: number) {
   }
   await prisma.$executeRawUnsafe('DELETE FROM community_resources WHERE id = ?', resourceId)
   return existing
+}
+
+export async function recordCommunityResourceView(input: {
+  resourceId: number
+  userId?: string | null
+  fingerprint: string
+  ipAddress?: string | null
+  userAgent?: string | null
+}) {
+  await ensureCommunityResourceTables()
+  const existing = await getCommunityResourceById(input.resourceId)
+  if (!existing) {
+    throw new Error('Ресурс не знайдено')
+  }
+  const createdAt = nowIso()
+  await prisma.$executeRawUnsafe(
+    `INSERT OR IGNORE INTO community_resource_views (
+      resource_id, user_id, fingerprint, ip_address, user_agent, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?)`,
+    input.resourceId,
+    input.userId || null,
+    cleanText(input.fingerprint, 140),
+    cleanText(input.ipAddress, 80) || null,
+    cleanText(input.userAgent, 500) || null,
+    createdAt,
+  )
+  const changesRows = await prisma.$queryRawUnsafe<Array<{ changes_count: number }>>('SELECT changes() AS changes_count')
+  const counted = Number(changesRows[0]?.changes_count || 0) > 0
+  if (counted) {
+    await prisma.$executeRawUnsafe('UPDATE community_resources SET views = views + 1 WHERE id = ?', input.resourceId)
+  }
+  const rows = await prisma.$queryRawUnsafe<Array<{ views: number | null }>>(
+    'SELECT views FROM community_resources WHERE id = ? LIMIT 1',
+    input.resourceId,
+  )
+  return {
+    counted,
+    views: Number(rows[0]?.views || existing.views || 0),
+  }
+}
+
+export async function incrementCommunityResourceDownloads(resourceId: number) {
+  await ensureCommunityResourceTables()
+  const existing = await getCommunityResourceById(resourceId)
+  if (!existing) {
+    throw new Error('Ресурс не знайдено')
+  }
+  await prisma.$executeRawUnsafe('UPDATE community_resources SET downloads = downloads + 1 WHERE id = ?', resourceId)
+  const rows = await prisma.$queryRawUnsafe<Array<{ downloads: number | null }>>(
+    'SELECT downloads FROM community_resources WHERE id = ? LIMIT 1',
+    resourceId,
+  )
+  return {
+    downloads: Number(rows[0]?.downloads || existing.downloads + 1),
+  }
 }

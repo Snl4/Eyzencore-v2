@@ -106,6 +106,7 @@ export function ResourceEditorClient({ initialUser, initialResource }: ResourceE
   const [isUploadingIcon, setIsUploadingIcon] = useState(false)
   const [isUploadingGallery, setIsUploadingGallery] = useState(false)
   const [isUploadingDownload, setIsUploadingDownload] = useState(false)
+  const [isTranslatingDescription, setIsTranslatingDescription] = useState(false)
 
   const setField = <K extends keyof ResourceDraft>(key: K, value: ResourceDraft[K]) => {
     setForm((previous) => ({ ...previous, [key]: value }))
@@ -206,6 +207,34 @@ export function ResourceEditorClient({ initialUser, initialResource }: ResourceE
       setMessage('Помилка мережі під час імпорту')
     } finally {
       setIsImporting(false)
+    }
+  }
+
+  const handleTranslateDescription = async () => {
+    const text = form.description.trim()
+    if (!text) {
+      setMessage('Спочатку додайте опис для перекладу')
+      return
+    }
+    setMessage('')
+    setIsTranslatingDescription(true)
+    try {
+      const response = await fetch('/api/resources/translate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, target: 'uk' }),
+      })
+      const payload = (await response.json()) as { translated?: string; error?: string }
+      if (!response.ok || !payload.translated) {
+        setMessage(payload.error || 'Не вдалося перекласти опис')
+        return
+      }
+      setField('description', payload.translated)
+      setMessage('Опис перекладено. Markdown, HTML-теги, посилання і code-блоки збережені.')
+    } catch {
+      setMessage('Не вдалося перекласти опис')
+    } finally {
+      setIsTranslatingDescription(false)
     }
   }
 
@@ -325,6 +354,12 @@ export function ResourceEditorClient({ initialUser, initialResource }: ResourceE
               </label>
               <label className="news-edit-field">
                 <span>Повний опис українською</span>
+                <div className="resource-description-editor-actions">
+                  <button type="button" onClick={() => void handleTranslateDescription()} disabled={isTranslatingDescription || !form.description.trim()}>
+                    {isTranslatingDescription ? 'Перекладаємо...' : 'Перекласти опис'}
+                  </button>
+                  <small>Перекладає текст, зберігаючи Markdown, HTML-теги, посилання і code-блоки.</small>
+                </div>
                 <textarea className="news-input resource-description-input" value={form.description} onChange={(event) => setField('description', event.target.value)} rows={10} required />
               </label>
             </section>

@@ -17,6 +17,7 @@ type ResourceDownloadVersion = {
 }
 
 type ResourceDownloadButtonProps = {
+  resourceId: number
   resourceName: string
   iconUrl: string
   versions: ResourceDownloadVersion[]
@@ -47,7 +48,25 @@ function findMatchingVersion(versions: ResourceDownloadVersion[], gameVersion: s
   return versions.find((version) => version.gameVersions.includes(gameVersion) && version.loaders.includes(loader)) || versions[0] || null
 }
 
-export function ResourceDownloadButton({ resourceName, iconUrl, versions, fallbackDownloadUrl }: ResourceDownloadButtonProps) {
+function trackResourceDownload(resourceId: number) {
+  const url = `/api/resources/${resourceId}/download`
+  try {
+    if (navigator.sendBeacon) {
+      navigator.sendBeacon(url)
+      return
+    }
+  } catch {
+    // Ignore analytics failures; the download should continue.
+  }
+  void fetch(url, {
+    method: 'POST',
+    cache: 'no-store',
+    keepalive: true,
+    credentials: 'same-origin',
+  }).catch(() => undefined)
+}
+
+export function ResourceDownloadButton({ resourceId, resourceName, iconUrl, versions, fallbackDownloadUrl }: ResourceDownloadButtonProps) {
   const [isOpen, setIsOpen] = useState(false)
   const loaderOptions = useMemo(() => sortLoaders(unique(versions.flatMap((version) => version.loaders))), [versions])
   const [selectedLoader, setSelectedLoader] = useState(loaderOptions[0] || '')
@@ -94,7 +113,7 @@ export function ResourceDownloadButton({ resourceName, iconUrl, versions, fallba
 
   if (versions.length === 0) {
     return (
-      <a className="btn btn-primary resource-download-main" href={fallbackDownloadUrl} download target="_blank" rel="noopener noreferrer">
+      <a className="btn btn-primary resource-download-main" href={fallbackDownloadUrl} download target="_blank" rel="noopener noreferrer" onClick={() => trackResourceDownload(resourceId)}>
         ↓ Скачати
       </a>
     )
@@ -156,7 +175,7 @@ export function ResourceDownloadButton({ resourceName, iconUrl, versions, fallba
               />
             </div>
 
-            <a className="btn btn-primary btn-block resource-download-confirm" href={downloadUrl} download target="_blank" rel="noopener noreferrer">
+            <a className="btn btn-primary btn-block resource-download-confirm" href={downloadUrl} download target="_blank" rel="noopener noreferrer" onClick={() => trackResourceDownload(resourceId)}>
               ↓ Скачати файл
             </a>
 
