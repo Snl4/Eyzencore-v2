@@ -20,6 +20,7 @@ const RESOURCE_TYPES = [
   { key: 'shader', label: 'Шейдери' },
   { key: 'datapack', label: 'Датапаки' },
   { key: 'modpack', label: 'Збірки' },
+  { key: 'model', label: 'Моделі' },
   { key: 'tool', label: 'Інструменти' },
 ] as const
 

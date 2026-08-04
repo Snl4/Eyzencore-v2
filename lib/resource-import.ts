@@ -41,6 +41,7 @@ function asType(value: string): CommunityResourceType {
   if (value === 'shader') return 'shader'
   if (value === 'plugin') return 'plugin'
   if (value === 'datapack') return 'datapack'
+  if (value === 'model') return 'model'
   return 'mod'
 }
 
@@ -55,7 +56,7 @@ function parseSourceUrl(value: string) {
 function getModrinthProjectId(url: URL) {
   if (!/(^|\.)modrinth\.com$/i.test(url.hostname)) return null
   const parts = url.pathname.split('/').filter(Boolean)
-  const projectIndex = parts.findIndex((part) => part === 'mod' || part === 'plugin' || part === 'resourcepack' || part === 'shader' || part === 'datapack' || part === 'modpack')
+  const projectIndex = parts.findIndex((part) => part === 'mod' || part === 'plugin' || part === 'resourcepack' || part === 'shader' || part === 'datapack' || part === 'modpack' || part === 'model')
   if (projectIndex >= 0 && parts[projectIndex + 1]) return parts[projectIndex + 1]
   return parts[0] || null
 }

@@ -30,6 +30,7 @@ const TYPE_LABELS: Record<string, string> = {
   shader: 'Шейдер',
   datapack: 'Датапак',
   modpack: 'Збірка',
+  model: 'Модель',
   tool: 'Інструмент',
 }
 

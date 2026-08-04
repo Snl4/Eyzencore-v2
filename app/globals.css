@@ -11187,7 +11187,8 @@ iframe {
   background: color-mix(in oklab, var(--bg) 72%, transparent);
 }
 
-.resource-description-editor-actions button {
+.resource-description-editor-actions button,
+.resource-description-image-button {
   flex: 0 0 auto;
   min-height: 32px;
   padding: 0 10px;
@@ -11197,15 +11198,28 @@ iframe {
   color: var(--fg);
   cursor: pointer;
   font: 800 12px/1 var(--font-sans);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.resource-description-editor-actions button:hover:not(:disabled) {
+.resource-description-editor-actions button:hover:not(:disabled),
+.resource-description-image-button:hover:not(.is-uploading) {
   border-color: var(--line-strong);
 }
 
-.resource-description-editor-actions button:disabled {
+.resource-description-editor-actions button:disabled,
+.resource-description-image-button.is-uploading {
   cursor: progress;
   opacity: .6;
+}
+
+.resource-description-image-button input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .resource-description-editor-actions small {
@@ -11500,7 +11514,8 @@ iframe {
     flex-direction: column;
   }
 
-  .resource-description-editor-actions button {
+  .resource-description-editor-actions button,
+  .resource-description-image-button {
     width: 100%;
   }
 

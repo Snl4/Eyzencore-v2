@@ -44,7 +44,7 @@ function protectMarkup(value: string) {
 
 function restoreMarkup(value: string, tokens: string[]) {
   return tokens.reduce((text, tokenValue, index) => {
-    const pattern = new RegExp(`\\bEYZ\\s*TOKEN\\s*${index}\\s*TOKEN\\b|\\bEYZTOKEN${index}TOKEN\\b`, 'gi')
+    const pattern = new RegExp(`EYZ\\s*TOKEN\\s*${index}\\s*TOKEN|EYZTOKEN${index}TOKEN`, 'gi')
     return text.replace(pattern, tokenValue)
   }, value)
 }

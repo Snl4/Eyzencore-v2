@@ -8,6 +8,7 @@ export type CommunityResourceType =
   | 'shader'
   | 'datapack'
   | 'modpack'
+  | 'model'
   | 'tool'
 
 export type CommunityResourceStatus = 'draft' | 'published'
@@ -143,7 +144,7 @@ function parseList(raw: string | null, maxItems = 40, maxLength = 64) {
 
 function normalizeType(value: unknown): CommunityResourceType {
   const raw = cleanText(value, 32).toLowerCase()
-  if (raw === 'plugin' || raw === 'resourcepack' || raw === 'shader' || raw === 'datapack' || raw === 'modpack' || raw === 'tool') {
+  if (raw === 'plugin' || raw === 'resourcepack' || raw === 'shader' || raw === 'datapack' || raw === 'modpack' || raw === 'model' || raw === 'tool') {
     return raw
   }
   return 'mod'

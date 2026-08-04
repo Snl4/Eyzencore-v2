@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, type FormEvent } from 'react'
+import { useRef, useState, type FormEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { PageShell } from '@/components/layout/PageShell'
@@ -56,6 +56,7 @@ const TYPE_OPTIONS: Array<{ value: CommunityResourceType; label: string }> = [
   { value: 'shader', label: 'Шейдер' },
   { value: 'datapack', label: 'Датапак' },
   { value: 'modpack', label: 'Збірка' },
+  { value: 'model', label: 'Модель' },
   { value: 'tool', label: 'Інструмент' },
 ]
 
@@ -98,6 +99,7 @@ function resourceToDraft(resource: CommunityResource): ResourceDraft {
 
 export function ResourceEditorClient({ initialUser, initialResource }: ResourceEditorClientProps) {
   const router = useRouter()
+  const descriptionRef = useRef<HTMLTextAreaElement | null>(null)
   const [importUrl, setImportUrl] = useState('')
   const [form, setForm] = useState<ResourceDraft>(() => initialResource ? resourceToDraft(initialResource) : EMPTY_DRAFT)
   const [message, setMessage] = useState('')
@@ -105,6 +107,7 @@ export function ResourceEditorClient({ initialUser, initialResource }: ResourceE
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isUploadingIcon, setIsUploadingIcon] = useState(false)
   const [isUploadingGallery, setIsUploadingGallery] = useState(false)
+  const [isUploadingDescriptionImage, setIsUploadingDescriptionImage] = useState(false)
   const [isUploadingDownload, setIsUploadingDownload] = useState(false)
   const [isTranslatingDescription, setIsTranslatingDescription] = useState(false)
 
@@ -117,6 +120,23 @@ export function ResourceEditorClient({ initialUser, initialResource }: ResourceE
       const current = linesToList(previous.galleryText)
       const next = Array.from(new Set([...current, ...urls]))
       return { ...previous, galleryText: next.join('\n') }
+    })
+  }
+
+  const insertIntoDescription = (snippet: string) => {
+    const textarea = descriptionRef.current
+    setForm((previous) => {
+      const description = previous.description || ''
+      const start = textarea?.selectionStart ?? description.length
+      const end = textarea?.selectionEnd ?? start
+      const before = description.slice(0, start)
+      const after = description.slice(end)
+      const prefix = before && !before.endsWith('\n') ? '\n\n' : ''
+      const suffix = after && !after.startsWith('\n') ? '\n\n' : ''
+      return { ...previous, description: `${before}${prefix}${snippet}${suffix}${after}` }
+    })
+    window.requestAnimationFrame(() => {
+      textarea?.focus()
     })
   }
 
@@ -151,6 +171,33 @@ export function ResourceEditorClient({ initialUser, initialResource }: ResourceE
       setMessage(error instanceof Error ? error.message : 'Не вдалося завантажити медіа')
     } finally {
       setIsUploadingGallery(false)
+    }
+  }
+
+  const handleDescriptionImageUpload = async (files: FileList | null) => {
+    const selectedFiles = Array.from(files || [])
+    if (selectedFiles.length === 0) return
+    setMessage('')
+    setIsUploadingDescriptionImage(true)
+    try {
+      const uploaded = await Promise.all(selectedFiles.map((file) => uploadFile(file, 'resource')))
+      const images = uploaded.filter((file) => file.kind === 'image')
+      if (images.length === 0) {
+        setMessage('Для опису оберіть зображення')
+        return
+      }
+      const markdown = images
+        .map((file) => {
+          const alt = file.name.replace(/\.[a-z0-9]+$/i, '').replace(/[[\]]/g, '').trim() || 'image'
+          return `![${alt}](${file.url})`
+        })
+        .join('\n\n')
+      insertIntoDescription(markdown)
+      setMessage(`Фото в опис додано: ${images.length}`)
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Не вдалося завантажити фото в опис')
+    } finally {
+      setIsUploadingDescriptionImage(false)
     }
   }
 
@@ -358,9 +405,31 @@ export function ResourceEditorClient({ initialUser, initialResource }: ResourceE
                   <button type="button" onClick={() => void handleTranslateDescription()} disabled={isTranslatingDescription || !form.description.trim()}>
                     {isTranslatingDescription ? 'Перекладаємо...' : 'Перекласти опис'}
                   </button>
+                  <label className={`resource-description-image-button ${isUploadingDescriptionImage ? 'is-uploading' : ''}`}>
+                    {isUploadingDescriptionImage ? 'Додаємо фото...' : 'Додати фото в опис'}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={(event) => void handleDescriptionImageUpload(event.target.files)}
+                      disabled={isUploadingDescriptionImage}
+                    />
+                  </label>
                   <small>Перекладає текст, зберігаючи Markdown, HTML-теги, посилання і code-блоки.</small>
                 </div>
-                <textarea className="news-input resource-description-input" value={form.description} onChange={(event) => setField('description', event.target.value)} rows={10} required />
+                <textarea
+                  ref={descriptionRef}
+                  className="news-input resource-description-input"
+                  value={form.description}
+                  onChange={(event) => setField('description', event.target.value)}
+                  onDragOver={(event) => event.preventDefault()}
+                  onDrop={(event) => {
+                    event.preventDefault()
+                    void handleDescriptionImageUpload(event.dataTransfer.files)
+                  }}
+                  rows={10}
+                  required
+                />
               </label>
             </section>
 
