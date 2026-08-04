@@ -31,6 +31,7 @@ import { ForumRichText } from '@/components/forum/ForumRichText'
 import type { AuthUser } from '@/lib/auth-db'
 import { IMAGE_PLACEHOLDER } from '@/lib/placeholders'
 import type { getForumThread } from '@/lib/forum-db'
+import { buildForumThreadPath } from '@/lib/forum-slug'
 
 type ForumThread = NonNullable<Awaited<ReturnType<typeof getForumThread>>>
 type ForumReply = ForumThread['replies'][number]
@@ -105,7 +106,7 @@ export function ForumThreadClient({
 
   function requireLogin() {
     if (initialUser) return true
-    router.push(`/login?next=/forum/${thread.id}`)
+    router.push(`/login?next=${encodeURIComponent(buildForumThreadPath(thread))}`)
     return false
   }
 

@@ -124,6 +124,10 @@ export function getDashboardSidebarSections(role: string): SidebarSection[] {
         ] : []),
       ],
     },
+    { label: 'Спільнота', items: [
+        { ico: 'forum', name: 'Форум', key: 'forum', href: '/forum' },
+        { ico: 'folder', name: 'Ресурси', key: 'resources', href: '/resources' },
+    ] },
     {
       label: 'Акаунт',
       items: [

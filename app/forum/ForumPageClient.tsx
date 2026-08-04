@@ -26,6 +26,7 @@ import {
 import type { AuthUser } from '@/lib/auth-db'
 import { IMAGE_PLACEHOLDER } from '@/lib/placeholders'
 import type { getForumHome } from '@/lib/forum-db'
+import { buildForumThreadPath } from '@/lib/forum-slug'
 
 type ForumHome = Awaited<ReturnType<typeof getForumHome>>
 
@@ -114,7 +115,7 @@ export function ForumPageClient({
       setCreating(false)
       return
     }
-    router.push(`/forum/${result.thread.id}`)
+    router.push(buildForumThreadPath({ id: result.thread.id, title: draft.title }))
   }
 
   return (
@@ -232,7 +233,7 @@ export function ForumPageClient({
             data.threads.map((thread) => (
               <Link
                 className="forum-thread-row"
-                href={`/forum/${thread.id}`}
+                href={buildForumThreadPath(thread)}
                 key={thread.id}
               >
                 <div className="forum-thread-avatar">

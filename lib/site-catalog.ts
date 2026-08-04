@@ -2,6 +2,7 @@ import { getCachedForumThreads, getCachedPublicNews, getCachedPublicServers } fr
 import { listMinecraftSeoLandingSlugs } from '@/lib/minecraft-seo-pages'
 import { listServicePageSlugs } from '@/lib/service-pages'
 import { buildNewsPath } from '@/lib/news-slug'
+import { buildForumThreadPath } from '@/lib/forum-slug'
 import { isDiscordServer, getServerPlatformLabel } from '@/lib/server-platform'
 import { absoluteUrl, SITE_NAME, SITE_URL, truncateSeo } from '@/lib/seo'
 import { buildServerPublicPath } from '@/lib/server-slug'
@@ -102,7 +103,7 @@ export async function buildSiteCatalog(options: BuildSiteCatalogOptions = {}): P
   if (forumThreads.length > 0) {
     lines.push('## Форум', '')
     forumThreads.forEach((thread) => {
-      lines.push(`- [${thread.title}](${absoluteUrl(`/forum/${thread.id}`)}) - ${thread.category.name}`)
+      lines.push(`- [${thread.title}](${absoluteUrl(buildForumThreadPath(thread))}) - ${thread.category.name}`)
     })
     lines.push('')
   }

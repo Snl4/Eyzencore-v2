@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { Icons } from '@/components/ui/Icons'
 import { formatPlural } from '@/lib/format-plural'
+import { buildForumThreadPath } from '@/lib/forum-slug'
 
 export interface UserForumThread {
   id?: number
@@ -18,7 +19,7 @@ export function UserForumTab({ threads }: { threads: UserForumThread[] }) {
       {threads.map((thread) => (
         <Link
           className="pforum-item"
-          href={thread.id ? `/forum/${thread.id}` : '/forum'}
+          href={thread.id ? buildForumThreadPath({ id: thread.id, title: thread.title }) : '/forum'}
           key={thread.id || thread.title}
         >
           <div className="pforum-ico">{Icons.forum}</div>

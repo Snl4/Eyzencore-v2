@@ -5,6 +5,7 @@ import ReactMarkdown, { type UrlTransform } from 'react-markdown'
 import rehypeRaw from 'rehype-raw'
 import rehypeSanitize, { defaultSchema } from 'rehype-sanitize'
 import remarkGfm from 'remark-gfm'
+import { LightboxTrigger } from '@/components/ui/ImageLightbox'
 
 const sanitizeSchema = {
   ...defaultSchema,
@@ -26,14 +27,16 @@ function ResourceMarkdownImage({ src, alt }: { src?: string; alt?: string }) {
 
   return (
     <span className="resource-description-figure">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={src}
-        alt={alt || 'Зображення ресурсу'}
-        loading="lazy"
-        decoding="async"
-        onError={() => setFailed(true)}
-      />
+      <LightboxTrigger images={src} alt={alt || 'Зображення ресурсу'} className="image-lightbox-trigger">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={src}
+          alt={alt || 'Зображення ресурсу'}
+          loading="lazy"
+          decoding="async"
+          onError={() => setFailed(true)}
+        />
+      </LightboxTrigger>
       {alt ? <span className="resource-description-caption">{alt}</span> : null}
     </span>
   )

@@ -1,4 +1,5 @@
 import { getCachedForumThreads } from '@/lib/public-cache'
+import { buildForumThreadPath } from '@/lib/forum-slug'
 import { SITE_URL } from '@/lib/seo'
 import { buildSitemapXml, safeLastModified } from '@/lib/sitemap-xml'
 
@@ -8,7 +9,7 @@ export async function GET(): Promise<Response> {
   const now = new Date()
   const forumThreads = await getCachedForumThreads(200)
   const entries = forumThreads.map((thread) => ({
-    url: `${SITE_URL}/forum/${thread.id}`,
+    url: `${SITE_URL}${buildForumThreadPath(thread)}`,
     lastModified: safeLastModified(thread.updatedAt || thread.createdAt, now),
     changeFrequency: 'weekly' as const,
     priority: thread.isPinned ? 0.66 : 0.58,
