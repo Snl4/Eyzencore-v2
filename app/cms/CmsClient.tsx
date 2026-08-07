@@ -9,10 +9,11 @@ import { Select, type SelectOption } from '@/components/ui/Select'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
 import type { CmsEntity } from '@/lib/cms-db'
 import type { MaintenanceSettings } from '@/lib/maintenance'
+import type { CommunityPopupSettings } from '@/lib/community-popup'
 
 type CmsRow = Record<string, unknown> & { id: string | number }
 type CmsStats = Record<CmsEntity, number>
-type CmsSection = CmsEntity | 'maintenance' | 'engagement-reset' | 'site-report'
+type CmsSection = CmsEntity | 'maintenance' | 'engagement-reset' | 'site-report' | 'community-popup'
 type Field = {
   key: string
   label: string
@@ -329,10 +330,12 @@ export function CmsClient({
   admin,
   initialStats,
   initialMaintenance,
+  initialCommunityPopup,
 }: {
   admin: { email: string; name: string }
   initialStats: CmsStats
   initialMaintenance: MaintenanceSettings
+  initialCommunityPopup: CommunityPopupSettings
 }) {
   const confirmAction = useConfirm()
   const router = useRouter()
@@ -346,11 +349,13 @@ export function CmsClient({
   const [saving, setSaving] = useState(false)
   const [maintenance, setMaintenance] = useState(initialMaintenance)
   const [maintenanceSaving, setMaintenanceSaving] = useState(false)
+  const [communityPopup, setCommunityPopup] = useState(initialCommunityPopup)
+  const [communityPopupSaving, setCommunityPopupSaving] = useState(false)
 
-  const config = entity === 'maintenance' || entity === 'engagement-reset' || entity === 'site-report' ? null : configs[entity]
+  const config = entity === 'maintenance' || entity === 'engagement-reset' || entity === 'site-report' || entity === 'community-popup' ? null : configs[entity]
 
   const loadRows = useCallback(async (currentEntity?: CmsEntity) => {
-    const targetEntity = currentEntity || (entity === 'maintenance' || entity === 'engagement-reset' || entity === 'site-report' ? null : entity)
+    const targetEntity = currentEntity || (entity === 'maintenance' || entity === 'engagement-reset' || entity === 'site-report' || entity === 'community-popup' ? null : entity)
     if (!targetEntity) {
       setLoading(false)
       return
@@ -380,7 +385,7 @@ export function CmsClient({
   }
 
   useEffect(() => {
-    if (entity === 'maintenance' || entity === 'engagement-reset' || entity === 'site-report') {
+    if (entity === 'maintenance' || entity === 'engagement-reset' || entity === 'site-report' || entity === 'community-popup') {
       setRows([])
       setLoading(false)
       return
@@ -406,7 +411,7 @@ export function CmsClient({
     if (!editing) return
     setSaving(true)
     setError('')
-    if (entity === 'maintenance' || entity === 'engagement-reset' || entity === 'site-report') return
+    if (entity === 'maintenance' || entity === 'engagement-reset' || entity === 'site-report' || entity === 'community-popup') return
     const response = await fetch(`/api/cms/data/${entity}/${editing.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -497,6 +502,23 @@ export function CmsClient({
     setMaintenanceSaving(false)
   }
 
+  async function saveCommunityPopup(nextSettings: CommunityPopupSettings = communityPopup) {
+    setCommunityPopupSaving(true)
+    setError('')
+    const response = await fetch('/api/cms/community-popup', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(nextSettings),
+    })
+    const result = await response.json().catch(() => ({}))
+    if (!response.ok) {
+      setError(result.error || 'Не вдалося зберегти попап')
+    } else {
+      setCommunityPopup(result as CommunityPopupSettings)
+    }
+    setCommunityPopupSaving(false)
+  }
+
   return (
     <main className="cms-shell">
       <aside className="cms-sidebar">
@@ -536,6 +558,14 @@ export function CmsClient({
             <b>♻</b>
           </button>
           <button
+            className={entity === 'community-popup' ? 'active maintenance' : 'maintenance'}
+            onClick={() => selectEntity('community-popup')}
+            type="button"
+          >
+            <span>Попап</span>
+            <b>{communityPopup.enabled ? 'ON' : 'OFF'}</b>
+          </button>
+          <button
             className={entity === 'maintenance' ? 'active maintenance' : 'maintenance'}
             onClick={() => selectEntity('maintenance')}
             type="button"
@@ -570,6 +600,139 @@ export function CmsClient({
           ) : null}
           {entity === 'engagement-reset' ? (
             <CmsEngagementResetPanel onError={setError} />
+          ) : null}
+          {entity === 'community-popup' ? (
+            <section className="cms-maintenance-page cms-popup-page">
+              <div className={`cms-maintenance-hero${communityPopup.enabled ? ' active' : ''}`}>
+                <div>
+                  <p className="cms-eyebrow">Комунікація з відвідувачами</p>
+                  <h1>{communityPopup.enabled ? 'Попап увімкнено' : 'Попап вимкнено'}</h1>
+                  <p>Налаштуйте вікно для Telegram, Discord, форуму або глобального оновлення. Закриття запам’ятовується на день або на версію.</p>
+                </div>
+                <span className="cms-maintenance-status">
+                  <i /> {communityPopup.frequency === 'version' ? '1 раз на версію' : '1 раз на день'}
+                </span>
+              </div>
+
+              <div className="cms-maintenance-layout">
+                <div className="cms-maintenance-editor cms-popup-editor">
+                  <div>
+                    <p className="cms-eyebrow">Налаштування вікна</p>
+                    <h2>Текст і посилання</h2>
+                  </div>
+                  <div className="cms-editor-grid cms-popup-grid">
+                    <label>
+                      <span>Тип</span>
+                      <Select
+                        value={communityPopup.variant}
+                        onChange={(value) => setCommunityPopup((current) => ({ ...current, variant: value as CommunityPopupSettings['variant'] }))}
+                        options={[
+                          { value: 'telegram', label: 'Telegram' },
+                          { value: 'discord', label: 'Discord' },
+                          { value: 'forum', label: 'Форум / ідеї' },
+                          { value: 'update', label: 'Глобальне оновлення' },
+                          { value: 'custom', label: 'Свій варіант' },
+                        ]}
+                        ariaLabel="Тип попапа"
+                      />
+                    </label>
+                    <label>
+                      <span>Показ</span>
+                      <Select
+                        value={communityPopup.frequency}
+                        onChange={(value) => setCommunityPopup((current) => ({ ...current, frequency: value as CommunityPopupSettings['frequency'] }))}
+                        options={[
+                          { value: 'daily', label: '1 раз на день' },
+                          { value: 'version', label: '1 раз на глобальне оновлення' },
+                        ]}
+                        ariaLabel="Частота показу"
+                      />
+                    </label>
+                    <label>
+                      <span>Версія оновлення</span>
+                      <input
+                        value={communityPopup.version}
+                        onChange={(event) => setCommunityPopup((current) => ({ ...current, version: event.target.value }))}
+                        placeholder="summer-update-v2"
+                      />
+                    </label>
+                    <label>
+                      <span>Заголовок</span>
+                      <input
+                        value={communityPopup.title}
+                        onChange={(event) => setCommunityPopup((current) => ({ ...current, title: event.target.value }))}
+                      />
+                    </label>
+                    <label className="wide">
+                      <span>Текст</span>
+                      <textarea
+                        rows={5}
+                        value={communityPopup.message}
+                        onChange={(event) => setCommunityPopup((current) => ({ ...current, message: event.target.value }))}
+                      />
+                    </label>
+                    <label>
+                      <span>Кнопка 1</span>
+                      <input
+                        value={communityPopup.primaryLabel}
+                        onChange={(event) => setCommunityPopup((current) => ({ ...current, primaryLabel: event.target.value }))}
+                      />
+                    </label>
+                    <label>
+                      <span>Посилання 1</span>
+                      <input
+                        value={communityPopup.primaryUrl}
+                        onChange={(event) => setCommunityPopup((current) => ({ ...current, primaryUrl: event.target.value }))}
+                      />
+                    </label>
+                    <label>
+                      <span>Кнопка 2</span>
+                      <input
+                        value={communityPopup.secondaryLabel}
+                        onChange={(event) => setCommunityPopup((current) => ({ ...current, secondaryLabel: event.target.value }))}
+                      />
+                    </label>
+                    <label>
+                      <span>Посилання 2</span>
+                      <input
+                        value={communityPopup.secondaryUrl}
+                        onChange={(event) => setCommunityPopup((current) => ({ ...current, secondaryUrl: event.target.value }))}
+                      />
+                    </label>
+                  </div>
+                  <div className="cms-maintenance-actions">
+                    <button
+                      className={communityPopup.enabled ? 'danger' : 'cms-primary-button'}
+                      disabled={communityPopupSaving}
+                      onClick={() => void saveCommunityPopup({ ...communityPopup, enabled: !communityPopup.enabled })}
+                      type="button"
+                    >
+                      {communityPopup.enabled ? 'Вимкнути попап' : 'Увімкнути попап'}
+                    </button>
+                    <button disabled={communityPopupSaving} onClick={() => void saveCommunityPopup()} type="button">
+                      {communityPopupSaving ? 'Збереження...' : 'Зберегти зміни'}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="cms-maintenance-preview cms-popup-preview">
+                  <p className="cms-eyebrow">Попередній перегляд</p>
+                  <div className={`community-popup community-popup-${communityPopup.variant}`}>
+                    <div className="community-popup-mark">EC</div>
+                    <div className="community-popup-body">
+                      <span>{communityPopup.variant}</span>
+                      <h2>{communityPopup.title}</h2>
+                      <p>{communityPopup.message}</p>
+                      <div className="community-popup-actions">
+                        <a className="community-popup-primary">{communityPopup.primaryLabel}</a>
+                        {communityPopup.secondaryLabel ? <a className="community-popup-secondary">{communityPopup.secondaryLabel}</a> : null}
+                      </div>
+                    </div>
+                    <button type="button" className="community-popup-close">×</button>
+                  </div>
+                </div>
+              </div>
+            </section>
           ) : null}
           {entity === 'maintenance' ? (
             <section className="cms-maintenance-page">
@@ -649,7 +812,7 @@ export function CmsClient({
               onStatsRefresh={refreshStats}
             />
           ) : null}
-          {entity !== 'achievements' && entity !== 'maintenance' && entity !== 'engagement-reset' && entity !== 'site-report' && config ? (
+          {entity !== 'achievements' && entity !== 'maintenance' && entity !== 'engagement-reset' && entity !== 'site-report' && entity !== 'community-popup' && config ? (
           <>
           <div className="cms-heading">
             <div>

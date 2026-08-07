@@ -7,6 +7,7 @@ import './globals.css';
 import './external-api.css';
 import { RouteTransitionLoader } from '@/components/layout/RouteTransitionLoader';
 import { NotificationToasts } from '@/components/layout/NotificationToasts';
+import { CommunityPopup } from '@/components/layout/CommunityPopup';
 import { ConfirmProvider } from '@/components/ui/ConfirmDialog';
 import { SEO_KEYWORDS, SITE_NAME, SITE_URL, organizationJsonLd, siteJsonLd } from '@/lib/seo';
 
@@ -116,6 +117,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <RouteTransitionLoader />
           </Suspense>
           <NotificationToasts />
+          <CommunityPopup />
           {children}
         </ConfirmProvider>
       </body>

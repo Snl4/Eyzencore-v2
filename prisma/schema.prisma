@@ -738,11 +738,21 @@ model email_verification_codes {
 }
 
 model app_site_settings {
-  id                        Int    @id @default(1)
-  maintenance_enabled       Int    @default(0)
-  maintenance_title         String @default("Технічні роботи")
-  maintenance_message       String @default("Ми оновлюємо Eyzencore. Сайт незабаром повернеться.")
-  updated_at                String
+  id                              Int    @id @default(1)
+  maintenance_enabled             Int    @default(0)
+  maintenance_title               String @default("Технічні роботи")
+  maintenance_message             String @default("Ми оновлюємо Eyzencore. Сайт незабаром повернеться.")
+  community_popup_enabled         Int    @default(0)
+  community_popup_variant         String @default("telegram")
+  community_popup_frequency       String @default("daily")
+  community_popup_version         String @default("telegram-v1")
+  community_popup_title           String @default("Підписуйтесь на наш Telegram канал")
+  community_popup_message         String @default("Там швидкі новини Eyzencore, оновлення серверів, голосування та ідеї від спільноти.")
+  community_popup_primary_label   String @default("Відкрити Telegram")
+  community_popup_primary_url     String @default("https://t.me/Eyzencore")
+  community_popup_secondary_label String @default("Запропонувати ідею")
+  community_popup_secondary_url   String @default("/forum")
+  updated_at                      String
 }
 
 model user_login_sessions {

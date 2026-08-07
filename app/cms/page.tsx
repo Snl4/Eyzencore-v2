@@ -3,6 +3,7 @@ import { getCurrentCmsUser } from '@/lib/cms-auth'
 import { getCmsStats } from '@/lib/cms-db'
 import { CmsClient } from './CmsClient'
 import { getMaintenanceSettings } from '@/lib/maintenance'
+import { getCommunityPopupSettings } from '@/lib/community-popup'
 
 export default async function CmsPage() {
   const user = await getCurrentCmsUser()
@@ -10,9 +11,10 @@ export default async function CmsPage() {
     redirect('/cms/login')
   }
 
-  const [initialStats, initialMaintenance] = await Promise.all([
+  const [initialStats, initialMaintenance, initialCommunityPopup] = await Promise.all([
     getCmsStats(),
     getMaintenanceSettings(),
+    getCommunityPopupSettings(),
   ])
 
   return (
@@ -25,6 +27,7 @@ export default async function CmsPage() {
         }}
         initialStats={initialStats}
         initialMaintenance={initialMaintenance}
+        initialCommunityPopup={initialCommunityPopup}
       />
     </>
   )

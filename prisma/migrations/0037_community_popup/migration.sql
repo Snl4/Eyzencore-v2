@@ -1,0 +1,10 @@
+ALTER TABLE "app_site_settings" ADD COLUMN "community_popup_enabled" INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE "app_site_settings" ADD COLUMN "community_popup_variant" TEXT NOT NULL DEFAULT 'telegram';
+ALTER TABLE "app_site_settings" ADD COLUMN "community_popup_frequency" TEXT NOT NULL DEFAULT 'daily';
+ALTER TABLE "app_site_settings" ADD COLUMN "community_popup_version" TEXT NOT NULL DEFAULT 'telegram-v1';
+ALTER TABLE "app_site_settings" ADD COLUMN "community_popup_title" TEXT NOT NULL DEFAULT 'Підписуйтесь на наш Telegram канал';
+ALTER TABLE "app_site_settings" ADD COLUMN "community_popup_message" TEXT NOT NULL DEFAULT 'Там швидкі новини Eyzencore, оновлення серверів, голосування та ідеї від спільноти.';
+ALTER TABLE "app_site_settings" ADD COLUMN "community_popup_primary_label" TEXT NOT NULL DEFAULT 'Відкрити Telegram';
+ALTER TABLE "app_site_settings" ADD COLUMN "community_popup_primary_url" TEXT NOT NULL DEFAULT 'https://t.me/Eyzencore';
+ALTER TABLE "app_site_settings" ADD COLUMN "community_popup_secondary_label" TEXT NOT NULL DEFAULT 'Запропонувати ідею';
+ALTER TABLE "app_site_settings" ADD COLUMN "community_popup_secondary_url" TEXT NOT NULL DEFAULT '/forum';

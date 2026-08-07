@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { PageShell } from '@/components/layout/PageShell'
 import { Breadcrumbs } from '@/components/ui/Breadcrumbs'
@@ -11,6 +11,11 @@ import type { AuthUser } from '@/lib/auth-db'
 import type { CommunityResource } from '@/lib/resources-db'
 import { buildResourcePath } from '@/lib/resource-slug'
 import { IMAGE_PLACEHOLDER } from '@/lib/placeholders'
+import {
+  POPULAR_CATEGORIES,
+  POPULAR_GAME_VERSIONS,
+  POPULAR_LOADERS,
+} from '@/lib/modrinth'
 
 const RESOURCE_TYPES = [
   { key: 'all', label: 'Усі' },
@@ -20,26 +25,30 @@ const RESOURCE_TYPES = [
   { key: 'shader', label: 'Шейдери' },
   { key: 'datapack', label: 'Датапаки' },
   { key: 'modpack', label: 'Збірки' },
-  { key: 'model', label: 'Моделі' },
-  { key: 'tool', label: 'Інструменти' },
 ] as const
 
-const TYPE_LABELS: Record<string, string> = Object.fromEntries(RESOURCE_TYPES.map((type) => [type.key, type.label]))
+const TYPE_LABELS: Record<string, string> = Object.fromEntries(
+  RESOURCE_TYPES.map((type) => [type.key, type.label]),
+)
 
 const SORT_OPTIONS = [
   { key: 'downloads', label: 'Завантаження' },
-  { key: 'views', label: 'Перегляди' },
+  { key: 'follows', label: 'Підписники' },
   { key: 'updated', label: 'Оновлено' },
+  { key: 'newest', label: 'Нові' },
+  { key: 'relevance', label: 'Релевантність' },
 ] as const
 
 function formatNumber(value: number) {
-  return new Intl.NumberFormat('uk-UA', { notation: value > 9999 ? 'compact' : 'standard' }).format(value)
+  return new Intl.NumberFormat('uk-UA', {
+    notation: value > 9999 ? 'compact' : 'standard',
+  }).format(value)
 }
 
 function formatUpdatedAt(value: string | null) {
-  if (!value) return 'щойно'
+  if (!value) return 'нещодавно'
   const timestamp = new Date(value).getTime()
-  if (!Number.isFinite(timestamp)) return 'щойно'
+  if (!Number.isFinite(timestamp)) return 'нещодавно'
   const diffMs = timestamp - Date.now()
   const minute = 60 * 1000
   const hour = 60 * minute
@@ -55,32 +64,25 @@ function formatUpdatedAt(value: string | null) {
   return formatter.format(Math.round(diffMs / minute), 'minute')
 }
 
-function compareVersions(a: string, b: string) {
-  const left = a.match(/\d+|[a-z]+/gi) || [a]
-  const right = b.match(/\d+|[a-z]+/gi) || [b]
-  for (let index = 0; index < Math.max(left.length, right.length); index += 1) {
-    const l = left[index] || ''
-    const r = right[index] || ''
-    const ln = Number(l)
-    const rn = Number(r)
-    if (Number.isFinite(ln) && Number.isFinite(rn) && ln !== rn) return rn - ln
-    if (l !== r) return r.localeCompare(l, 'uk')
-  }
-  return b.localeCompare(a, 'uk')
-}
-
-function ResourceStatIcon({ type }: { type: 'downloads' | 'views' | 'updated' }) {
+function ResourceStatIcon({ type }: { type: 'downloads' | 'views' | 'updated' | 'follows' }) {
   if (type === 'views') {
     return (
-      <svg viewBox="0 0 24 24" aria-hidden="true">
+      <svg viewBox="0 0 24 24" aria-hidden="true" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2">
         <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Z" />
-        <path d="M12 9a3 3 0 1 1 0 6 3 3 0 0 1 0-6Z" />
+        <circle cx="12" cy="12" r="3" />
+      </svg>
+    )
+  }
+  if (type === 'follows') {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
       </svg>
     )
   }
   if (type === 'updated') {
     return (
-      <svg viewBox="0 0 24 24" aria-hidden="true">
+      <svg viewBox="0 0 24 24" aria-hidden="true" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2">
         <path d="M3 12a9 9 0 1 0 3-6.7" />
         <path d="M3 4v5h5" />
         <path d="M12 7v5l3 2" />
@@ -88,7 +90,7 @@ function ResourceStatIcon({ type }: { type: 'downloads' | 'views' | 'updated' })
     )
   }
   return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
+    <svg viewBox="0 0 24 24" aria-hidden="true" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2">
       <path d="M12 3v12" />
       <path d="m7 10 5 5 5-5" />
       <path d="M5 21h14" />
@@ -97,107 +99,273 @@ function ResourceStatIcon({ type }: { type: 'downloads' | 'views' | 'updated' })
 }
 
 function ResourceCard({ resource }: { resource: CommunityResource }) {
-  const versions = resource.gameVersions.slice(0, 5)
+  const versions = resource.gameVersions.slice(0, 4)
   const loaders = resource.loaders.slice(0, 3)
   const description = resource.summary || resource.description
-  const chips = [resource.side, resource.license, ...loaders, ...versions]
-    .filter((item): item is string => Boolean(item))
-    .slice(0, 7)
+  const chips = [...loaders, ...versions].filter(Boolean).slice(0, 6)
 
   return (
-    <Link href={buildResourcePath(resource)} className="resource-card">
+    <Link href={buildResourcePath(resource)} className="resource-card" prefetch={false}>
       <div className="resource-card-media">
-        <img src={resource.iconUrl || IMAGE_PLACEHOLDER} alt="" loading="lazy" decoding="async" />
+        <img
+          src={resource.iconUrl || IMAGE_PLACEHOLDER}
+          alt={resource.name}
+          loading="lazy"
+          decoding="async"
+          onError={(e) => {
+            ;(e.currentTarget as HTMLImageElement).src = IMAGE_PLACEHOLDER
+          }}
+        />
       </div>
       <div className="resource-card-body">
         <div className="resource-card-title-row">
           <div className="resource-title-block">
             <div className="resource-title-line">
-            <h3>{resource.name}</h3>
-              {resource.verified && <span className="resource-verified">✓</span>}
-              <span className="resource-author">by {resource.authorName || resource.sourceHost || 'Eyzencore'}</span>
+              <h3>{resource.name}</h3>
+              {resource.verified && (
+                <span className="resource-verified" title="Перевірений ресурс Modrinth">✓</span>
+              )}
+              <span className="resource-author">by {resource.authorName || resource.sourceHost || 'Modrinth'}</span>
             </div>
           </div>
         </div>
         <p>{description}</p>
         <div className="resource-chip-row">
           <span className="resource-type-pill">{TYPE_LABELS[resource.type] || resource.type}</span>
+          {resource.side && (
+            <span className="resource-chip resource-chip-side">{resource.side}</span>
+          )}
           {chips.map((item) => (
             <span key={item} className="resource-chip">{item}</span>
           ))}
         </div>
       </div>
       <div className="resource-card-meta">
-        <span className="resource-stat"><ResourceStatIcon type="downloads" /> <b>{formatNumber(resource.downloads)}</b></span>
-        <span className="resource-stat"><ResourceStatIcon type="views" /> <b>{formatNumber(resource.views)}</b></span>
-        <span className="resource-stat resource-stat-muted"><ResourceStatIcon type="updated" /> {formatUpdatedAt(resource.updatedRemoteAt || resource.updatedAt)}</span>
+        <span className="resource-stat" title="Завантажень">
+          <ResourceStatIcon type="downloads" /> <b>{formatNumber(resource.downloads)}</b>
+        </span>
+        {resource.followers > 0 && (
+          <span className="resource-stat" title="Підписників">
+            <ResourceStatIcon type="follows" /> <b>{formatNumber(resource.followers)}</b>
+          </span>
+        )}
+        <span className="resource-stat resource-stat-muted" title="Дата оновлення">
+          <ResourceStatIcon type="updated" /> {formatUpdatedAt(resource.updatedRemoteAt || resource.updatedAt)}
+        </span>
       </div>
     </Link>
+  )
+}
+
+function ResourceCardSkeleton() {
+  return (
+    <div className="resource-card resource-card-skeleton animate-pulse">
+      <div className="resource-card-media skeleton-box" style={{ width: 64, height: 64, borderRadius: 12 }} />
+      <div className="resource-card-body" style={{ width: '100%' }}>
+        <div className="skeleton-box" style={{ height: 20, width: '40%', marginBottom: 8 }} />
+        <div className="skeleton-box" style={{ height: 14, width: '90%', marginBottom: 6 }} />
+        <div className="skeleton-box" style={{ height: 14, width: '70%', marginBottom: 12 }} />
+        <div className="resource-chip-row">
+          <div className="skeleton-box" style={{ height: 20, width: 60, borderRadius: 6 }} />
+          <div className="skeleton-box" style={{ height: 20, width: 50, borderRadius: 6 }} />
+          <div className="skeleton-box" style={{ height: 20, width: 70, borderRadius: 6 }} />
+        </div>
+      </div>
+    </div>
   )
 }
 
 export function ResourcesPageClient({
   initialUser,
   initialResources,
+  initialTotalHits,
+  initialPage,
+  initialTotalPages,
+  initialFilters,
   canManage,
 }: {
   initialUser: AuthUser | null
   initialResources: CommunityResource[]
+  initialTotalHits: number
+  initialPage: number
+  initialTotalPages: number
+  initialFilters: {
+    search: string
+    type: string
+    loader: string
+    version: string
+    category: string
+    sort: (typeof SORT_OPTIONS)[number]['key']
+  }
   canManage: boolean
 }) {
-  const [searchValue, setSearchValue] = useState('')
+  const [searchValue, setSearchValue] = useState(initialFilters.search)
   const [versionSearch, setVersionSearch] = useState('')
-  const [activeType, setActiveType] = useState('all')
-  const [activeVersion, setActiveVersion] = useState('all')
-  const [sortMode, setSortMode] = useState<(typeof SORT_OPTIONS)[number]['key']>('downloads')
+  const [activeType, setActiveType] = useState(initialFilters.type || 'all')
+  const [activeLoader, setActiveLoader] = useState(initialFilters.loader || 'all')
+  const [activeVersion, setActiveVersion] = useState(initialFilters.version || 'all')
+  const [activeCategory, setActiveCategory] = useState(initialFilters.category || 'all')
+  const [sortMode, setSortMode] = useState<(typeof SORT_OPTIONS)[number]['key']>(
+    initialFilters.sort || 'downloads',
+  )
+  const [page, setPage] = useState(initialPage || 1)
 
-  const versionOptions = useMemo(() => {
-    return Array.from(new Set(initialResources.flatMap((resource) => resource.gameVersions)))
-      .filter(Boolean)
-      .sort(compareVersions)
-  }, [initialResources])
+  const [resources, setResources] = useState<CommunityResource[]>(initialResources)
+  const [totalHits, setTotalHits] = useState(initialTotalHits)
+  const [totalPages, setTotalPages] = useState(initialTotalPages)
+  const [isLoading, setIsLoading] = useState(false)
+
+  const isInitialMount = useRef(true)
+  const abortControllerRef = useRef<AbortController | null>(null)
 
   const visibleVersionOptions = useMemo(() => {
     const q = versionSearch.trim().toLowerCase()
-    return versionOptions.filter((version) => !q || version.toLowerCase().includes(q)).slice(0, 30)
-  }, [versionOptions, versionSearch])
+    return POPULAR_GAME_VERSIONS.filter((version) => !q || version.toLowerCase().includes(q))
+  }, [versionSearch])
 
-  const typeCounts = useMemo(() => {
-    return initialResources.reduce<Record<string, number>>((counts, resource) => {
-      counts.all = (counts.all || 0) + 1
-      counts[resource.type] = (counts[resource.type] || 0) + 1
-      return counts
-    }, { all: 0 })
-  }, [initialResources])
-
-  const filteredResources = useMemo(() => {
-    const q = searchValue.trim().toLowerCase()
-    const rows = initialResources.filter((resource) => {
-      const typeOk = activeType === 'all' || resource.type === activeType
-      const versionOk = activeVersion === 'all' || resource.gameVersions.includes(activeVersion)
-      const haystack = [
-        resource.name,
-        resource.summary,
-        resource.description,
-        resource.sourceHost,
-        ...resource.tags,
-        ...resource.loaders,
-        ...resource.gameVersions,
-      ].join(' ').toLowerCase()
-      return typeOk && versionOk && (!q || haystack.includes(q))
-    })
-    return rows.sort((a, b) => {
-      if (sortMode === 'updated') {
-        return new Date(b.updatedRemoteAt || b.updatedAt).getTime() - new Date(a.updatedRemoteAt || a.updatedAt).getTime()
+  const fetchResources = useCallback(
+    async (params: {
+      search: string
+      type: string
+      loader: string
+      version: string
+      category: string
+      sort: string
+      page: number
+    }) => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
       }
-      if (sortMode === 'views') {
-        return b.views - a.views
-      }
-      return b.downloads - a.downloads
-    })
-  }, [activeType, activeVersion, initialResources, searchValue, sortMode])
+      const controller = new AbortController()
+      abortControllerRef.current = controller
 
-  const hasFilters = Boolean(searchValue.trim() || activeType !== 'all' || activeVersion !== 'all')
+      setIsLoading(true)
+
+      const searchParams = new URLSearchParams()
+      if (params.search.trim()) searchParams.set('q', params.search.trim())
+      if (params.type !== 'all') searchParams.set('type', params.type)
+      if (params.loader !== 'all') searchParams.set('loader', params.loader)
+      if (params.version !== 'all') searchParams.set('version', params.version)
+      if (params.category !== 'all') searchParams.set('category', params.category)
+      if (params.sort) searchParams.set('sort', params.sort)
+      if (params.page > 1) searchParams.set('page', String(params.page))
+
+      // Update browser URL silently for shareable links
+      const newUrl = `/resources${searchParams.toString() ? `?${searchParams.toString()}` : ''}`
+      window.history.replaceState(null, '', newUrl)
+
+      try {
+        const res = await fetch(`/api/resources?${searchParams.toString()}`, {
+          signal: controller.signal,
+        })
+        if (!res.ok) throw new Error('API error')
+        const data = await res.json()
+        setResources(data.resources || [])
+        setTotalHits(data.totalHits || 0)
+        setTotalPages(data.totalPages || 1)
+      } catch (error: unknown) {
+        if (error instanceof Error && error.name !== 'AbortError') {
+          console.error('[Resources] Fetch failed:', error)
+        }
+      } finally {
+        setIsLoading(false)
+      }
+    },
+    [],
+  )
+
+  // Effect to trigger search when filters change (debounced for search text)
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false
+      return
+    }
+
+    const timer = setTimeout(() => {
+      fetchResources({
+        search: searchValue,
+        type: activeType,
+        loader: activeLoader,
+        version: activeVersion,
+        category: activeCategory,
+        sort: sortMode,
+        page,
+      })
+    }, 250)
+
+    return () => clearTimeout(timer)
+  }, [searchValue, activeType, activeLoader, activeVersion, activeCategory, sortMode, page, fetchResources])
+
+  const handleTypeChange = (typeKey: string) => {
+    setActiveType(typeKey)
+    setPage(1)
+  }
+
+  const handleLoaderChange = (loaderKey: string) => {
+    setActiveLoader(loaderKey)
+    setPage(1)
+  }
+
+  const handleVersionChange = (versionKey: string) => {
+    setActiveVersion(versionKey)
+    setPage(1)
+  }
+
+  const handleCategoryChange = (categoryKey: string) => {
+    setActiveCategory(categoryKey)
+    setPage(1)
+  }
+
+  const handleSortChange = (newSort: (typeof SORT_OPTIONS)[number]['key']) => {
+    setSortMode(newSort)
+    setPage(1)
+  }
+
+  const handlePageChange = (newPage: number) => {
+    setPage(newPage)
+    const resultsElem = document.querySelector('.resources-results')
+    if (resultsElem) {
+      resultsElem.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }
+
+  const handleResetFilters = () => {
+    setSearchValue('')
+    setVersionSearch('')
+    setActiveType('all')
+    setActiveLoader('all')
+    setActiveVersion('all')
+    setActiveCategory('all')
+    setSortMode('downloads')
+    setPage(1)
+  }
+
+  const hasFilters = Boolean(
+    searchValue.trim() ||
+      activeType !== 'all' ||
+      activeLoader !== 'all' ||
+      activeVersion !== 'all' ||
+      activeCategory !== 'all' ||
+      page > 1,
+  )
+
+  // Generate pagination page numbers
+  const pageNumbers = useMemo(() => {
+    const pages: number[] = []
+    const maxVisible = 7
+    if (totalPages <= maxVisible) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i)
+    } else {
+      if (page <= 4) {
+        pages.push(1, 2, 3, 4, 5, -1, totalPages)
+      } else if (page >= totalPages - 3) {
+        pages.push(1, -1, totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages)
+      } else {
+        pages.push(1, -1, page - 1, page, page + 1, -2, totalPages)
+      }
+    }
+    return pages
+  }, [page, totalPages])
 
   return (
     <PageShell active="resources" initialUser={initialUser}>
@@ -206,6 +374,9 @@ export function ResourcesPageClient({
           <div>
             <Breadcrumbs items={[{ label: 'Спільнота', href: '/forum' }, { label: 'Ресурси' }]} />
             <h1 className="page-title">Ресурси Minecraft</h1>
+            <p className="page-subtitle" style={{ margin: '4px 0 0', color: 'var(--color-muted, #94a3b8)', fontSize: '0.95rem' }}>
+              Повний каталог із понад 150 000 модів, плагінів, ресурспаків, шейдерів та модпаків з відкритим Modrinth API.
+            </p>
           </div>
           {canManage && (
             <Link href="/resources/new" className="btn btn-primary">
@@ -216,10 +387,10 @@ export function ResourcesPageClient({
 
         <div className="resources-browser">
           <aside className="resources-sidebar" aria-label="Фільтри ресурсів">
+            {/* Type selector */}
             <section>
               <div className="resources-filter-heading">
                 <span>Тип ресурсу</span>
-                <b>{initialResources.length}</b>
               </div>
               <div className="resource-tabs">
                 {RESOURCE_TYPES.map((type) => (
@@ -230,19 +401,62 @@ export function ResourcesPageClient({
                     size="sm"
                     className="resource-tab"
                     pressed={activeType === type.key}
-                    onPressedChange={() => setActiveType(type.key)}
+                    onPressedChange={() => handleTypeChange(type.key)}
                   >
                     {type.label}
-                    <span>{typeCounts[type.key] || 0}</span>
                   </Toggle>
                 ))}
               </div>
             </section>
 
+            {/* Loaders filter */}
+            <section>
+              <div className="resources-filter-heading">
+                <span>Платформа / Лоадер</span>
+                {activeLoader !== 'all' && (
+                  <button
+                    type="button"
+                    onClick={() => handleLoaderChange('all')}
+                    style={{ fontSize: '0.75rem', color: 'var(--color-primary, #38bdf8)', background: 'none', border: 'none', cursor: 'pointer' }}
+                  >
+                    Скинути
+                  </button>
+                )}
+              </div>
+              <div className="resources-filter-chips" style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                <button
+                  type="button"
+                  className={`btn-chip ${activeLoader === 'all' ? 'active' : ''}`}
+                  onClick={() => handleLoaderChange('all')}
+                >
+                  Усі
+                </button>
+                {POPULAR_LOADERS.map((loader) => (
+                  <button
+                    key={loader.key}
+                    type="button"
+                    className={`btn-chip ${activeLoader === loader.key ? 'active' : ''}`}
+                    onClick={() => handleLoaderChange(loader.key)}
+                  >
+                    {loader.label}
+                  </button>
+                ))}
+              </div>
+            </section>
+
+            {/* Game version filter */}
             <section>
               <div className="resources-filter-heading">
                 <span>Версія гри</span>
-                <b>{versionOptions.length}</b>
+                {activeVersion !== 'all' && (
+                  <button
+                    type="button"
+                    onClick={() => handleVersionChange('all')}
+                    style={{ fontSize: '0.75rem', color: 'var(--color-primary, #38bdf8)', background: 'none', border: 'none', cursor: 'pointer' }}
+                  >
+                    Скинути
+                  </button>
+                )}
               </div>
               <div className="resources-filter-search">
                 {Icons.search}
@@ -257,7 +471,7 @@ export function ResourcesPageClient({
                 <button
                   type="button"
                   className={activeVersion === 'all' ? 'active' : ''}
-                  onClick={() => setActiveVersion('all')}
+                  onClick={() => handleVersionChange('all')}
                 >
                   Усі версії
                 </button>
@@ -266,9 +480,44 @@ export function ResourcesPageClient({
                     key={version}
                     type="button"
                     className={activeVersion === version ? 'active' : ''}
-                    onClick={() => setActiveVersion(version)}
+                    onClick={() => handleVersionChange(version)}
                   >
                     {version}
+                  </button>
+                ))}
+              </div>
+            </section>
+
+            {/* Categories filter */}
+            <section>
+              <div className="resources-filter-heading">
+                <span>Категорії</span>
+                {activeCategory !== 'all' && (
+                  <button
+                    type="button"
+                    onClick={() => handleCategoryChange('all')}
+                    style={{ fontSize: '0.75rem', color: 'var(--color-primary, #38bdf8)', background: 'none', border: 'none', cursor: 'pointer' }}
+                  >
+                    Скинути
+                  </button>
+                )}
+              </div>
+              <div className="resources-category-list" style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <button
+                  type="button"
+                  className={`btn-category ${activeCategory === 'all' ? 'active' : ''}`}
+                  onClick={() => handleCategoryChange('all')}
+                >
+                  Усі категорії
+                </button>
+                {POPULAR_CATEGORIES.map((cat) => (
+                  <button
+                    key={cat.key}
+                    type="button"
+                    className={`btn-category ${activeCategory === cat.key ? 'active' : ''}`}
+                    onClick={() => handleCategoryChange(cat.key)}
+                  >
+                    {cat.label}
                   </button>
                 ))}
               </div>
@@ -282,8 +531,11 @@ export function ResourcesPageClient({
                   {Icons.search}
                   <input
                     value={searchValue}
-                    onChange={(event) => setSearchValue(event.target.value)}
-                    placeholder="Пошук ресурсів..."
+                    onChange={(event) => {
+                      setSearchValue(event.target.value)
+                      setPage(1)
+                    }}
+                    placeholder="Пошук серед 150 000+ ресурсів (Sodium, Iris, EssentialsX...)..."
                     aria-label="Пошук ресурсів"
                   />
                 </div>
@@ -291,7 +543,7 @@ export function ResourcesPageClient({
                   <span>Сортування</span>
                   <Select
                     value={sortMode}
-                    onChange={(value) => setSortMode(value as (typeof SORT_OPTIONS)[number]['key'])}
+                    onChange={(value) => handleSortChange(value as (typeof SORT_OPTIONS)[number]['key'])}
                     options={SORT_OPTIONS.map((option) => ({ value: option.key, label: option.label }))}
                     ariaLabel="Сортування ресурсів"
                     className="resources-sort-select"
@@ -302,34 +554,119 @@ export function ResourcesPageClient({
                   <button
                     type="button"
                     className="btn btn-secondary resources-clear-btn"
-                    onClick={() => {
-                      setSearchValue('')
-                      setVersionSearch('')
-                      setActiveType('all')
-                      setActiveVersion('all')
-                    }}
+                    onClick={handleResetFilters}
                   >
-                    Скинути
+                    Скинути все
                   </button>
                 )}
               </div>
             </div>
 
             <div className="resources-summary">
-              <span>{filteredResources.length} з {initialResources.length} ресурсів</span>
-              {activeVersion !== 'all' && <b>Minecraft {activeVersion}</b>}
+              <span>
+                Знайдено <b>{formatNumber(totalHits)}</b> ресурсів
+                {totalPages > 1 && ` • Сторінка ${page} з ${totalPages}`}
+              </span>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                {activeVersion !== 'all' && (
+                  <span className="resource-chip" style={{ background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8' }}>
+                    MC {activeVersion}
+                  </span>
+                )}
+                {activeLoader !== 'all' && (
+                  <span className="resource-chip" style={{ background: 'rgba(168, 85, 247, 0.15)', color: '#c084fc' }}>
+                    {activeLoader}
+                  </span>
+                )}
+                {activeCategory !== 'all' && (
+                  <span className="resource-chip" style={{ background: 'rgba(34, 197, 94, 0.15)', color: '#4ade80' }}>
+                    {POPULAR_CATEGORIES.find((c) => c.key === activeCategory)?.label || activeCategory}
+                  </span>
+                )}
+              </div>
             </div>
 
-            {filteredResources.length === 0 ? (
-              <div className="set-card resources-empty">
-                Поки немає ресурсів під цей фільтр.
-              </div>
-            ) : (
+            {isLoading ? (
               <div className="resources-grid">
-                {filteredResources.map((resource) => (
-                  <ResourceCard key={resource.id} resource={resource} />
+                {Array.from({ length: 12 }).map((_, index) => (
+                  <ResourceCardSkeleton key={index} />
                 ))}
               </div>
+            ) : resources.length === 0 ? (
+              <div className="set-card resources-empty" style={{ padding: 48, textAlign: 'center' }}>
+                <p style={{ fontSize: '1.2rem', fontWeight: 600, marginBottom: 8 }}>Нічого не знайдено</p>
+                <p style={{ color: 'var(--color-muted, #94a3b8)', marginBottom: 16 }}>
+                  За вашим фільтром або пошуковим запитом ресурсів не знайдено на Modrinth.
+                </p>
+                <button type="button" className="btn btn-primary" onClick={handleResetFilters}>
+                  Скинути фільтри
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="resources-grid">
+                  {resources.map((resource) => (
+                    <ResourceCard key={`${resource.sourceHost}-${resource.slug || resource.id}`} resource={resource} />
+                  ))}
+                </div>
+
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <div
+                    className="resources-pagination"
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      gap: 8,
+                      marginTop: 32,
+                      flexWrap: 'wrap',
+                    }}
+                  >
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-sm"
+                      disabled={page <= 1 || isLoading}
+                      onClick={() => handlePageChange(page - 1)}
+                      style={{ opacity: page <= 1 ? 0.5 : 1, cursor: page <= 1 ? 'not-allowed' : 'pointer' }}
+                    >
+                      ← Попередня
+                    </button>
+
+                    {pageNumbers.map((p, idx) => {
+                      if (p < 0) {
+                        return (
+                          <span key={`ellipsis-${idx}`} style={{ padding: '0 4px', color: 'var(--color-muted, #64748b)' }}>
+                            …
+                          </span>
+                        )
+                      }
+                      return (
+                        <button
+                          key={p}
+                          type="button"
+                          className={`btn btn-sm ${p === page ? 'btn-primary' : 'btn-secondary'}`}
+                          style={{ minWidth: 36, fontWeight: p === page ? 700 : 400 }}
+                          onClick={() => handlePageChange(p)}
+                          disabled={isLoading}
+                        >
+                          {p}
+                        </button>
+                      )
+                    })}
+
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-sm"
+                      disabled={page >= totalPages || isLoading}
+                      onClick={() => handlePageChange(page + 1)}
+                      style={{ opacity: page >= totalPages ? 0.5 : 1, cursor: page >= totalPages ? 'not-allowed' : 'pointer' }}
+                    >
+                      Наступна →
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </section>
         </div>
