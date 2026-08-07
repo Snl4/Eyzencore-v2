@@ -66,55 +66,68 @@ async function registerCommands(): Promise<void> {
 }
 
 async function postVerify(code: string, guildId: string, guildName: string): Promise<{ success?: boolean; serverName?: string; error?: string }> {
-  const response = await fetch(`${appUrl}/api/discord/bot/verify`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${botSecret}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ code, guildId, guildName }),
-  })
-  const payload = (await response.json()) as { success?: boolean; serverName?: string; error?: string }
-  if (response.status === 401) {
-    return {
-      error: 'Секрет бота не збігається з сайтом. Перевірте, що DISCORD_BOT_SECRET однаковий у .env бота і сайту, потім перезапустіть обидва процеси.',
+  try {
+    const response = await fetch(`${appUrl}/api/discord/bot/verify`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${botSecret}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ code, guildId, guildName }),
+    })
+    const payload = (await response.json()) as { success?: boolean; serverName?: string; error?: string }
+    if (response.status === 401) {
+      return {
+        error: 'Секрет бота не збігається з сайтом. Перевірте, що DISCORD_BOT_SECRET однаковий у .env бота і сайту, потім перезапустіть обидва процеси.',
+      }
     }
+    if (!response.ok) {
+      return { error: payload.error || `Помилка API (${response.status})` }
+    }
+    return payload
+  } catch (err) {
+    console.error('postVerify error:', err)
+    return { error: 'Помилка зʼєднання з сервером API' }
   }
-  if (!response.ok) {
-    return { error: payload.error || `Помилка API (${response.status})` }
-  }
-  return payload
 }
 
 async function syncGuild(guildId: string, players: number, max: number, guildName: string): Promise<void> {
-  await fetch(`${appUrl}/api/discord/bot/sync`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${botSecret}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ guilds: [{ guildId, players, max, guildName }] }),
-  })
+  try {
+    await fetch(`${appUrl}/api/discord/bot/sync`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${botSecret}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ guilds: [{ guildId, players, max, guildName }] }),
+    })
+  } catch (err) {
+    console.error('syncGuild error:', err)
+  }
 }
 
 async function syncAllGuilds(): Promise<void> {
-  const guilds = client.guilds.cache.map((guild) => ({
-    guildId: guild.id,
-    players: guild.approximatePresenceCount ?? 0,
-    max: guild.memberCount ?? 0,
-    guildName: guild.name,
-  }))
-  if (guilds.length === 0) {
-    return
+  try {
+    const guilds = client.guilds.cache.map((guild) => ({
+      guildId: guild.id,
+      players: guild.approximatePresenceCount ?? 0,
+      max: guild.memberCount ?? 0,
+      guildName: guild.name,
+    }))
+    if (guilds.length === 0) {
+      return
+    }
+    await fetch(`${appUrl}/api/discord/bot/sync`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${botSecret}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ guilds }),
+    })
+  } catch (err) {
+    console.error('syncAllGuilds error:', err)
   }
-  await fetch(`${appUrl}/api/discord/bot/sync`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${botSecret}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ guilds }),
-  })
 }
 
 async function userCanManageGuild(guild: Guild, userId: string): Promise<boolean> {
