@@ -61,6 +61,13 @@ function nextWithOptionalNoindex(pathname: string) {
   return response
 }
 
+let cachedMaintenance: { enabled: boolean; timestamp: number } = {
+  enabled: false,
+  timestamp: 0,
+}
+
+const MAINTENANCE_CACHE_TTL_MS = 15_000
+
 export async function middleware(request: NextRequest) {
   const host = request.headers.get('host') || ''
   const normalizedHost = host.toLowerCase().split(':')[0]
@@ -80,7 +87,20 @@ export async function middleware(request: NextRequest) {
   }
   if (isAlwaysAllowed(pathname)) return nextWithOptionalNoindex(pathname)
 
+  // Skip maintenance fetch for prefetch requests or if recently cached as disabled
+  const now = Date.now()
+  const isPrefetch = request.headers.get('purpose') === 'prefetch' || request.headers.get('x-purpose') === 'prefetch'
+
+  if (isPrefetch && !cachedMaintenance.enabled && (now - cachedMaintenance.timestamp < MAINTENANCE_CACHE_TTL_MS * 2)) {
+    return nextWithOptionalNoindex(pathname)
+  }
+
   try {
+    // If we checked within the TTL and maintenance is not active, skip the network roundtrip
+    if (!cachedMaintenance.enabled && (now - cachedMaintenance.timestamp < MAINTENANCE_CACHE_TTL_MS)) {
+      return nextWithOptionalNoindex(pathname)
+    }
+
     const internalOrigin =
       process.env.MAINTENANCE_INTERNAL_ORIGIN ||
       `http://127.0.0.1:${process.env.PORT || '3000'}`
@@ -92,11 +112,16 @@ export async function middleware(request: NextRequest) {
       cache: 'no-store',
     })
     const status = await response.json() as { enabled?: boolean; adminAccess?: boolean }
+    cachedMaintenance = {
+      enabled: Boolean(status.enabled),
+      timestamp: Date.now(),
+    }
+
     if (!status.enabled) return nextWithOptionalNoindex(pathname)
     if (status.adminAccess) {
-      const response = nextWithOptionalNoindex(pathname)
-      response.headers.set('x-eyzencore-maintenance-admin', '1')
-      return response
+      const res = nextWithOptionalNoindex(pathname)
+      res.headers.set('x-eyzencore-maintenance-admin', '1')
+      return res
     }
 
     if (pathname.startsWith('/api/')) {

@@ -1,14 +1,18 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  compress: true,
+  poweredByHeader: false,
   images: {
     remotePatterns: [],
     formats: ['image/avif', 'image/webp'],
+    minimumCacheTTL: 60 * 60 * 24, // 24 hours image cache
   },
   experimental: {
     optimizePackageImports: [
       'framer-motion',
       '@fortawesome/free-solid-svg-icons',
       '@fortawesome/free-brands-svg-icons',
+      '@fortawesome/react-fontawesome',
     ],
   },
   async redirects() {

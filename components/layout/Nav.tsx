@@ -60,10 +60,10 @@ export function Nav() {
         <div className="nav-links">
           {[
             { href: '/servers/minecraft', label: 'Minecraft' },
-            { href: '/servers/discord', label: 'Discord' },
-            { href: '/news', label: 'Новини' },
             { href: '/resources', label: 'Ресурси' },
-            { href: '/add-server', label: 'Додати сервер', nofollow: true },
+            { href: '/news', label: 'Новини' },
+            { href: '/forum', label: 'Форум' },
+            { href: '/add-server', label: '+ Додати сервер', nofollow: true },
           ].map(({ href, label, nofollow }) => (
             <Link
               key={href}
